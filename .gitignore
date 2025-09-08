@@ -1,0 +1,15 @@
+# Node.js
+node_modules/
+
+# Lambda deployment packages
+*.zip
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment files
+.env
