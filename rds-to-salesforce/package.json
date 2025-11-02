@@ -1,0 +1,23 @@
+{
+  "name": "rds-to-salesforce-lambda",
+  "version": "1.0.0",
+  "description": "AWS Lambda for syncing RDS events to Salesforce via REST or AppFlow",
+  "type": "module",
+  "main": "handler.js",
+  "scripts": {
+    "start": "node handler.js",
+    "test": "echo \"No tests specified\" && exit 0"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.500.0",
+    "@aws-sdk/client-secrets-manager": "^3.500.0",
+    "node-fetch": "^3.3.2",
+    "pg": "^8.11.1",
+    "winston": "^3.18.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "author": "",
+  "license": "MIT"
+}

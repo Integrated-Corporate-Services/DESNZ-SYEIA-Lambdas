@@ -5,6 +5,7 @@ node_modules/
 *.zip
 
 # Logs
+logs/
 *.log
 
 # OS files
@@ -13,3 +14,7 @@ Thumbs.db
 
 # Environment files
 .env
+.env.*
+
+# PowerShell scripts
+*.ps1
