@@ -16,5 +16,5 @@ export const handler = async () => {
   log("Done");
 };
 
-// For local testing, invoke handler directly
-handler();
+// For local testing, uncomment the following line:
+// handler();
