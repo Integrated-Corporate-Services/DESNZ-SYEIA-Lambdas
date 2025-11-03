@@ -1,4 +1,5 @@
 import pg from "pg";
+import { log } from "./util/logger.js";
 import {
   SQL_CLAIM_BATCH,
   SQL_MARK_DIRECT_SUCCESS_OUTBOX,
@@ -8,7 +9,7 @@ import {
 } from "./util/queries.js";
 
 export const pool = new pg.Pool({
-  host: process.env.DB_HOST,
+  host: process.env.HOST_NAME,
   port: Number(process.env.DB_PORT || "5432"),
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
@@ -19,6 +20,7 @@ export const pool = new pg.Pool({
 
 export async function claimBatch({ limit, maxRetries }) {
   const client = await pool.connect();
+  log("Connected to DB");
   try {
     await client.query("BEGIN");
     const { rows } = await client.query(SQL_CLAIM_BATCH, [
