@@ -1,5 +1,5 @@
 import axios from 'axios';
-import log from "./util/logger.js";
+import log from "./logger.js";
 
 export async function getAccessToken({ clientId, clientSecret, tokenUrl }) {
   try {

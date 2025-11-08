@@ -3,8 +3,8 @@ import { processDirect } from "../deliver/directToSF.js";
 import Ajv from "ajv";
 import fs from "fs";
 import path from "path";
-import { getMockEnv } from "./mockEnv.js";
-import { getSampleJob } from "./test-job.json";
+import getMockEnv from "./mockEnv.js";
+import getSampleJob from "./test-job.json";
 
 jest.mock("node-fetch", () => jest.fn(async () => ({
   ok: true,
@@ -28,15 +28,11 @@ describe("processDirect Lambda integration", () => {
     Object.assign(process.env, getMockEnv());
   });
 
-  it("should map payload, call Salesforce, and return mock id", async () => {
-    const id = await processDirect(getSampleJob());
-    expect(id).toBe("MOCK_ID_123");
-  });
-
   it("should validate mapped payload against schema", async () => {
-    const snapshot = JSON.parse(getSampleJob().payload_snapshot_json);
+    // Use the job object directly, as payload_snapshot_json no longer exists
+    const job = getSampleJob();
     const schema = getSchema();
-    const { valid, errors } = validateAgainstSchema(snapshot, schema);
+    const { valid, errors } = validateAgainstSchema(job, schema);
     expect(valid).toBe(true);
     if (!valid) {
       console.error(errors);

@@ -1,10 +1,8 @@
 import fetch from "node-fetch";
-import crypto from "crypto";
 import { TransientError, PermanentError } from "../util/error.js";
-import { safeJsonParse, reorderSections} from "../util/helpers.js";
-import { reorderPayload } from "../util/helpers.js";
+import { safeJsonParse, reorderPayload } from "../util/helpers.js";
 import log from "../util/logger.js";
-import  { getAccessToken } from "../util/getSalesforceToken.js";
+import { getAccessToken } from "../util/getSalesforceToken.js";
 import axios from "axios";
 
 async function getSalesforceAccessToken(env) {
@@ -38,9 +36,7 @@ function mapForSalesforce(snapshot, env) {
 }
 
 async function upsertToSalesforce(sfToken, body, env) {
-  //const extVal = encodeURIComponent(body[env.SALESFORCE_EXT_ID_FIELD]);
   const url = `${env.SALESFORCE_BASE_URL}/${env.SALESFORCE_OBJECT_API}`;
-  ///${env.SALESFORCE_EXT_ID_FIELD}/${extVal}`;
   const resp = await fetch(url, {
     method: "PATCH",
     headers: {

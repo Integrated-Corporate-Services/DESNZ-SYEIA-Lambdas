@@ -33,4 +33,4 @@ export const handler = async () => {
 };
 
 // For local testing, uncomment the following line:
-handler();
+//handler();
