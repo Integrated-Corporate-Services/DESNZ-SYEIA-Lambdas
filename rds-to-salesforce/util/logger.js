@@ -36,9 +36,4 @@ logger.add(new winston.transports.Console({
       ),
 }));
 
-export function log(...args) {
-  logger.info(args.map(String).join(" "));
-}
-export function error(...args) {
-  logger.error(args.map(String).join(" "));
-}
+export default logger;

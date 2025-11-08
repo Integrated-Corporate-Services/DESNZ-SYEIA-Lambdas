@@ -1,14 +1,23 @@
 import fetch from "node-fetch";
-import crypto from "crypto";
 import { TransientError, PermanentError } from "../util/error.js";
-import { safeJsonParse } from "../util/helpers.js";
+import { safeJsonParse, reorderPayload } from "../util/helpers.js";
+import log from "../util/logger.js";
+import { getAccessToken } from "../util/getSalesforceToken.js";
+import axios from "axios";
 
 async function getSalesforceAccessToken(env) {
   if (env.SALESFORCE_AUTH_MODE === "STATIC") {
     if (!env.SALESFORCE_ACCESS_TOKEN) throw new Error("SALESFORCE_ACCESS_TOKEN missing");
     return env.SALESFORCE_ACCESS_TOKEN;
   }
-  // ...JWT flow omitted for brevity...
+  if (env.SALESFORCE_AUTH_MODE === "OAUTH_CLIENT_CREDENTIALS") {
+    log.info("Fetching Salesforce access token...");
+    return await getAccessToken({
+      clientId: env.SALESFORCE_CLIENT_ID,
+      clientSecret: env.SALESFORCE_CLIENT_SECRET,
+      tokenUrl: env.SALESFORCE_TOKEN_URL
+    });
+  }
   throw new Error(`Unsupported SALESFORCE_AUTH_MODE: ${env.SALESFORCE_AUTH_MODE}`);
 }
 
@@ -27,8 +36,7 @@ function mapForSalesforce(snapshot, env) {
 }
 
 async function upsertToSalesforce(sfToken, body, env) {
-  const extVal = encodeURIComponent(body[env.SALESFORCE_EXT_ID_FIELD]);
-  const url = `${env.SALESFORCE_BASE_URL}${env.SALESFORCE_OBJECT_API}/${env.SALESFORCE_EXT_ID_FIELD}/${extVal}`;
+  const url = `${env.SALESFORCE_BASE_URL}/${env.SALESFORCE_OBJECT_API}`;
   const resp = await fetch(url, {
     method: "PATCH",
     headers: {
@@ -39,7 +47,7 @@ async function upsertToSalesforce(sfToken, body, env) {
     timeout: Number(env.HTTP_TIMEOUT_MS),
   });
 
-  if (resp.status === 204) {
+  /*if (resp.status === 204) {
     const getResp = await fetch(url, {
       method: "GET",
       headers: { Authorization: `Bearer ${sfToken}` },
@@ -48,8 +56,9 @@ async function upsertToSalesforce(sfToken, body, env) {
     if (!getResp.ok) throw new Error(`SALESFORCE GET after upsert failed ${getResp.status}`);
     const rec = await getResp.json();
     return rec && rec["Id"];
-  }
+  }*/
   if (resp.ok) {
+    log.debug("Salesforce upsert response OK");
     const data = await resp.json().catch(() => ({}));
     return data && data.id;
   }
@@ -66,8 +75,46 @@ export async function processDirect(job) {
   const env = process.env;
   const snapshot = safeJsonParse(job.payload_snapshot_json);
   if (!snapshot) throw new PermanentError("Invalid snapshot JSON");
-  const sfToken = await getSalesforceAccessToken(env);
-  const body = mapForSalesforce(snapshot, env);
-  const id = await upsertToSalesforce(sfToken, body, env);
-  return id || null;
+  // Reorder both top-level and sections keys in one call
+  const reordered = reorderPayload(snapshot);
+  log.info(`Salesforce payload:`, JSON.stringify(reordered));
+  try {
+    const id = await sendPayload(JSON.stringify(reordered), env);
+    return id || null;
+  } catch (error) {
+    log.error(`Error:`, error.message, error.stack);
+    throw error;
+  }
 }
+
+async function sendPayload(payload, env) {
+  try {
+    const token = await getAccessToken({
+      clientId: env.SALESFORCE_CLIENT_ID,
+      clientSecret: env.SALESFORCE_CLIENT_SECRET,
+      tokenUrl: env.SALESFORCE_TOKEN_URL
+    });
+    const url = `${env.SALESFORCE_BASE_URL}${env.SALESFORCE_OBJECT_API}`;
+    log.info(`Sending payload to Salesforce URL:`, url);
+    const response = await axios.post(url, {
+      External_System__c: 'AWS',
+      Status__c: 'Received',
+      Payload__c: payload
+    }, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    log.info(`Salesforce response:`, JSON.stringify(response.data));
+    log.info(`Salesforce response status:`, response.status);
+    log.info(`Salesforce response headers:`, JSON.stringify(response.headers));
+
+    return response.data && response.data.id;
+  } catch (error) {
+    log.error(`Salesforce request error:`, error.message, error.stack);
+    throw error;
+  }
+}
+
+

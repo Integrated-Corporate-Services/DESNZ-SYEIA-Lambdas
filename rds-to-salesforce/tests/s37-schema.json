@@ -1,0 +1,352 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.org/s37-application.schema.json",
+  "title": "S37 Application",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["applicationId", "desnzReference", "formType", "metadata", "sections"],
+  "properties": {
+    "applicationId": { "type": "string", "format": "uuid" },
+    "desnzReference": { "type": "string" },
+    "formType": { "type": "string" },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "schemaVersion"],
+      "properties": {
+        "source": { "type": "string" },
+        "schemaVersion": { "type": "integer" }
+      }
+    },
+    "sections": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["networkOperator", "projectDetails", "location", "supportingInformation"],
+      "properties": {
+        "networkOperator": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["details"],
+          "properties": {
+            "details": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["created_at", "created_by", "operator_ref", "application_party"],
+              "properties": {
+                "created_at": { "type": "string", "format": "date-time" },
+                "created_by": { "type": "string" },
+                "operator_ref": { "type": "string" },
+                "submitted_at": { "type": ["string", "null"], "format": "date-time" },
+                "application_party": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["role", "email", "line1", "phone", "country", "postcode", "person_id", "town_city", "contact_id", "is_primary", "person_name", "application_id", "organisation_id", "organisation_name", "contact_isconfirmed", "application_party_id"],
+                  "properties": {
+                    "role": { "type": "string" },
+                    "email": { "type": "string", "format": "email" },
+                    "line1": { "type": "string" },
+                    "line2": { "type": ["string", "null"] },
+                    "phone": { "type": "string" },
+                    "country": { "type": "string" },
+                    "postcode": { "type": "string" },
+                    "person_id": { "type": "string", "format": "uuid" },
+                    "town_city": { "type": "string" },
+                    "contact_id": { "type": "string", "format": "uuid" },
+                    "is_primary": { "type": "boolean" },
+                    "person_name": { "type": "string" },
+                    "application_id": { "type": "string", "format": "uuid" },
+                    "organisation_id": { "type": "string", "format": "uuid" },
+                    "organisation_name": { "type": "string" },
+                    "contact_isconfirmed": { "type": "boolean" },
+                    "application_party_id": { "type": "string", "format": "uuid" }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "projectDetails": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["overview", "assetInformation"],
+          "properties": {
+            "overview": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "planDocuments": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["title", "file_id", "added_at", "added_by", "category", "document_id", "application_id", "virtual_folder"],
+                    "properties": {
+                      "title": { "type": "string" },
+                      "file_id": { "type": "string", "format": "uuid" },
+                      "added_at": { "type": "string", "format": "date-time" },
+                      "added_by": { "type": "string" },
+                      "category": { "type": "string" },
+                      "description": { "type": ["string", "null"] },
+                      "document_id": { "type": "string", "format": "uuid" },
+                      "subcategory": { "type": ["string", "null"] },
+                      "application_id": { "type": "string", "format": "uuid" },
+                      "virtual_folder": { "type": "string" }
+                    }
+                  }
+                },
+                "project_details": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["created_at", "created_by", "project_id", "updated_at", "project_name", "application_id", "project_description"],
+                  "properties": {
+                    "created_at": { "type": "string", "format": "date-time" },
+                    "created_by": { "type": "string" },
+                    "project_id": { "type": "string", "format": "uuid" },
+                    "updated_at": { "type": "string", "format": "date-time" },
+                    "project_name": { "type": "string" },
+                    "application_id": { "type": "string", "format": "uuid" },
+                    "project_description": { "type": "string" }
+                  }
+                },
+                "application_cpo_form": { "type": ["object", "null"] },
+                "application_relations": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["details", "created_at", "project_name", "relation_type", "application_id", "related_application_id", "application_relation_id"],
+                    "properties": {
+                      "details": { "type": "string" },
+                      "created_at": { "type": "string", "format": "date-time" },
+                      "project_name": { "type": "string" },
+                      "relation_type": { "type": "string" },
+                      "application_id": { "type": "string", "format": "uuid" },
+                      "related_application_id": { "type": "string", "format": "uuid" },
+                      "application_relation_id": { "type": "string", "format": "uuid" }
+                    }
+                  }
+                },
+                "application_project_overview": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["updated_at", "application_id", "plan_reference", "max_structure_height_m", "latest_work_start_date_year", "latest_work_start_date_month", "earliest_work_start_date_year", "earliest_work_start_date_month"],
+                  "properties": {
+                    "updated_at": { "type": "string", "format": "date-time" },
+                    "application_id": { "type": "string", "format": "uuid" },
+                    "plan_reference": { "type": "string" },
+                    "max_structure_height_m": { "type": "string" },
+                    "latest_work_start_date_year": { "type": "string" },
+                    "latest_work_start_date_month": { "type": "string" },
+                    "earliest_work_start_date_year": { "type": "string" },
+                    "earliest_work_start_date_month": { "type": "string" }
+                  }
+                }
+              }
+            },
+            "assetInformation": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["asset_id", "asset_type", "created_at", "created_by", "description", "is_existing", "application_id", "asset_reference", "last_updated_at", "last_updated_by"],
+                "properties": {
+                  "asset_id": { "type": "string", "format": "uuid" },
+                  "tori_noi": { "type": ["string", "null"] },
+                  "asset_type": { "type": "string" },
+                  "created_at": { "type": "string", "format": "date-time" },
+                  "created_by": { "type": "string" },
+                  "description": { "type": "string" },
+                  "is_existing": { "type": "boolean" },
+                  "application_id": { "type": "string", "format": "uuid" },
+                  "asset_reference": { "type": "string" },
+                  "last_updated_at": { "type": "string", "format": "date-time" },
+                  "last_updated_by": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "location": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["route", "worksOverview", "sensitiveAreaChecks", "sensitiveAreaReview", "parishes"],
+          "properties": {
+            "route": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["route_id", "routeName", "gridPoints", "disconnectedroute_justification"],
+                "properties": {
+                  "route_id": { "type": "string", "format": "uuid" },
+                  "routeName": { "type": "string" },
+                  "gridPoints": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["easting", "northing", "point_id"],
+                      "properties": {
+                        "easting": { "type": "integer" },
+                        "northing": { "type": "integer" },
+                        "point_id": { "type": "string", "format": "uuid" }
+                      }
+                    }
+                  },
+                  "disconnectedroute_justification": { "type": "string" }
+                }
+              }
+            },
+            "worksOverview": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["polesAdded", "poleComments", "poleMaterial", "applicationId", "polesReplaced", "generalComments", "vehiclesRequired", "estimatedDuration", "excavationDetails", "chemicalTreatments", "excavationRequired", "removalDescription", "accessRoutesDetails", "roadClosuresRequired", "addingOrReplacingLines", "addingOrReplacingPoles", "overheadLineDescription", "removingExistingEquipment", "usingExistingAccessRoutes", "vegetationClearanceDetails", "vegetationClearanceRequired"],
+              "properties": {
+                "createdBy": { "type": ["string", "null"] },
+                "polesAdded": { "type": "integer" },
+                "poleComments": { "type": "string" },
+                "poleMaterial": { "type": "string" },
+                "applicationId": { "type": "string", "format": "uuid" },
+                "lastUpdatedBy": { "type": ["string", "null"] },
+                "polesReplaced": { "type": "integer" },
+                "generalComments": { "type": "string" },
+                "vehiclesRequired": { "type": "string" },
+                "estimatedDuration": { "type": "string" },
+                "excavationDetails": { "type": "string" },
+                "chemicalTreatments": { "type": "string" },
+                "excavationRequired": { "type": "boolean" },
+                "removalDescription": { "type": "string" },
+                "accessRoutesDetails": { "type": "string" },
+                "roadClosuresRequired": { "type": "boolean" },
+                "addingOrReplacingLines": { "type": "boolean" },
+                "addingOrReplacingPoles": { "type": "boolean" },
+                "overheadLineDescription": { "type": "string" },
+                "removingExistingEquipment": { "type": "boolean" },
+                "usingExistingAccessRoutes": { "type": "boolean" },
+                "vegetationClearanceDetails": { "type": "string" },
+                "vegetationClearanceRequired": { "type": "boolean" }
+              }
+            },
+            "sensitiveAreaChecks": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["layers", "application_id"],
+              "properties": {
+                "layers": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                },
+                "application_id": { "type": "string", "format": "uuid" }
+              }
+            },
+            "sensitiveAreaReview": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["id", "route_id", "created_at", "updated_at", "settings_id", "application_id", "application_documents", "asset_presence_option_id", "other_sensitive_areas_note"],
+              "properties": {
+                "id": { "type": "string", "format": "uuid" },
+                "route_id": { "type": "string", "format": "uuid" },
+                "created_at": { "type": "string", "format": "date-time" },
+                "updated_at": { "type": "string", "format": "date-time" },
+                "reviewed_at": { "type": ["string", "null"], "format": "date-time" },
+                "reviewed_by": { "type": ["string", "null"] },
+                "settings_id": { "type": "string", "format": "uuid" },
+                "application_id": { "type": "string", "format": "uuid" },
+                "application_documents": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["title", "file_id", "added_at", "added_by", "category", "document_id", "application_id", "virtual_folder"],
+                    "properties": {
+                      "title": { "type": "string" },
+                      "file_id": { "type": "string", "format": "uuid" },
+                      "added_at": { "type": "string", "format": "date-time" },
+                      "added_by": { "type": "string" },
+                      "category": { "type": "string" },
+                      "description": { "type": ["string", "null"] },
+                      "document_id": { "type": "string", "format": "uuid" },
+                      "subcategory": { "type": ["string", "null"] },
+                      "application_id": { "type": "string", "format": "uuid" },
+                      "virtual_folder": { "type": "string" }
+                    }
+                  }
+                },
+                "asset_presence_option_id": { "type": "integer" },
+                "other_sensitive_areas_note": { "type": "string" }
+              }
+            },
+            "parishes": {
+              "type": "array",
+              "items": {}
+            }
+          }
+        },
+        "supportingInformation": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "eiaFees": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["eia_id", "created_at", "created_by", "updated_at", "updated_by", "application_id", "screening_only", "requires_full_eia", "is_eia_development"],
+                "properties": {
+                  "eia_id": { "type": "string", "format": "uuid" },
+                  "created_at": { "type": "string", "format": "date-time" },
+                  "created_by": { "type": "string" },
+                  "updated_at": { "type": "string", "format": "date-time" },
+                  "updated_by": { "type": "string" },
+                  "application_id": { "type": "string", "format": "uuid" },
+                  "screening_only": { "type": "boolean" },
+                  "requires_full_eia": { "type": "boolean" },
+                  "is_eia_development": { "type": "boolean" }
+                }
+              }
+            },
+            "supportingDocuments": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["title", "file_id", "added_at", "added_by", "category", "document_id", "application_id", "virtual_folder"],
+                "properties": {
+                  "title": { "type": "string" },
+                  "file_id": { "type": "string", "format": "uuid" },
+                  "added_at": { "type": "string", "format": "date-time" },
+                  "added_by": { "type": "string" },
+                  "category": { "type": "string" },
+                  "description": { "type": ["string", "null"] },
+                  "document_id": { "type": "string", "format": "uuid" },
+                  "subcategory": { "type": ["string", "null"] },
+                  "application_id": { "type": "string", "format": "uuid" },
+                  "virtual_folder": { "type": "string" }
+                }
+              }
+            },
+            "supportingQuestions": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["id", "created_at", "updated_at", "application_id", "wayleaves_obtained", "applicant_supporting_comments", "wayleaves_not_obtained_reason", "esqcr_2002_compliance_confirmed", "has_additional_supporting_documents"],
+                "properties": {
+                  "id": { "type": "string", "format": "uuid" },
+                  "created_at": { "type": "string", "format": "date-time" },
+                  "updated_at": { "type": "string", "format": "date-time" },
+                  "application_id": { "type": "string", "format": "uuid" },
+                  "wayleaves_obtained": { "type": "boolean" },
+                  "applicant_supporting_comments": { "type": "string" },
+                  "wayleaves_not_obtained_reason": { "type": "string" },
+                  "esqcr_2002_compliance_confirmed": { "type": "boolean" },
+                  "has_additional_supporting_documents": { "type": "boolean" }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
