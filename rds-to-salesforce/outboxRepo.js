@@ -22,6 +22,10 @@ export const pool = new pg.Pool({
   database: process.env.DB_NAME,
   max: DB_DEFAULTS.max,
   idleTimeoutMillis: DB_DEFAULTS.idleTimeoutMillis,
+    ssl: {
+    require: true,
+    rejectUnauthorized: false
+  }
 });
 
 /**
