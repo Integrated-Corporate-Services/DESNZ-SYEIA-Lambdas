@@ -18,7 +18,7 @@ export const pool = new pg.Pool({
   host: process.env.HOST_NAME,
   port: Number(process.env.DB_PORT) || DB_DEFAULTS.port,
   user: process.env.DB_USER,
-  password: process.env.DB_CREDENTIALS,
+  password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
   max: DB_DEFAULTS.max,
   idleTimeoutMillis: DB_DEFAULTS.idleTimeoutMillis,
