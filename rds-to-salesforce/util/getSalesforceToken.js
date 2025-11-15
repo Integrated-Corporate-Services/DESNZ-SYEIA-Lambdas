@@ -3,7 +3,7 @@ import log from "./logger.js";
 
 export async function getAccessToken({ clientId, clientSecret, tokenUrl }) {
   try {
-    log.info('[Salesforce] Requesting access token...');
+    log.info('[getSalesforceToken.js : getAccessToken] Requesting access token...');
     const response = await axios.post(tokenUrl, null, {
       params: {
         grant_type: 'client_credentials',
@@ -11,10 +11,10 @@ export async function getAccessToken({ clientId, clientSecret, tokenUrl }) {
         client_secret: clientSecret
       }
     });
-    log.info('[Salesforce] Token response:', response.data);
+    log.info('[getSalesforceToken.js : getAccessToken] Token response received');
     return response.data.access_token;
   } catch (error) {
-    log.error('[Salesforce] Error fetching access token:', error.response?.data || error.message);
+    log.error('[getSalesforceToken.js : getAccessToken] Error fetching access token:', error.response?.data || error.message);
     throw new Error(error.response?.data?.error_description || error.message);
   }
 }

@@ -1,36 +1,32 @@
 import { getClaimedJobs, processJob } from "./outboxService.js";
-import fs from "fs";
-import path from "path";
 import log from "./util/logger.js";
 
-// Add this function for test data
-function getTestJobs() {
-  const testJobPath = path.resolve(process.cwd(), "tests/test-job.json");
-  if (fs.existsSync(testJobPath)) {
-    const jobData = JSON.parse(fs.readFileSync(testJobPath, "utf8"));
-    return [jobData];
-  }
-  return [];
-}
-
+/**
+ * Lambda handler for processing outbox jobs and sending to Salesforce.
+ */
 export const handler = async () => {
-  log.info(`Start mode=${process.env.INTEGRATION_MODE}`);
-  let jobs = await getClaimedJobs(Number(process.env.BATCH_SIZE), Number(process.env.MAX_RETRIES));
-  // Only inject test job in local environment
-  const isLocal = process.env.LOCAL_DEV === "true";
-  if (isLocal && process.env.INJECT_TEST_JOB === "true") {
-    log.debug("No due jobs, injecting test job (local only)");
-    jobs = getTestJobs();
+  log.info(`[handler.js : handler] Start mode=${process.env.INTEGRATION_MODE}`);
+  try {
+    const batchSize = Number(process.env.BATCH_SIZE) || 10;
+    const maxRetries = Number(process.env.MAX_RETRIES) || 3;
+    const jobs = await getClaimedJobs(batchSize, maxRetries);
+    if (!jobs.length) {
+  log.info("[handler.js : handler] No due jobs");
+      return;
+    }
+    for (const job of jobs) {
+      await processJob(job);
+    }
+  log.info("[handler.js : handler] Done");
+  } catch (err) {
+  log.error("[handler.js : handler] Unhandled error", { error: err });
+    throw err;
   }
-  if (!jobs.length) {
-    log.info("No due jobs");
-    return;
-  }
-  for (const job of jobs) {
-    await processJob(job);
-  }
-  log.info("Done");
 };
 
-// For local testing, uncomment the following line:
-//handler();
+// Optional: catch unhandled promise rejections globally (for local/dev)
+process.on("unhandledRejection", (reason) => {
+  log.error("[handler.js] Unhandled promise rejection", { reason });
+});
+
+handler();

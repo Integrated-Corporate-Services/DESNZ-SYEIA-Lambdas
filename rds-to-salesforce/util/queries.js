@@ -20,7 +20,7 @@ export const SQL_CLAIM_BATCH = `
 
 export const SQL_MARK_DIRECT_SUCCESS_OUTBOX = `
   UPDATE application_outbox
-     SET status = $2, sent_at = NOW(), last_error_message = NULL, salesforce_record_id = $3
+     SET status = $2, updated_at = NOW(), last_error_message = NULL, salesforce_record_id = $3
    WHERE outbox_id = $1
 `;
 

@@ -8,79 +8,123 @@ import {
   SQL_MARK_FAILURE,
 } from "./util/queries.js";
 
-export const pool = new pg.Pool({
-  host: process.env.HOST_NAME,
-  port: Number(process.env.DB_PORT || "5432"),
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
+const DB_DEFAULTS = {
+  port: 5432,
   max: 5,
   idleTimeoutMillis: 10000,
+};
+
+export const pool = new pg.Pool({
+  host: process.env.HOST_NAME,
+  port: Number(process.env.DB_PORT) || DB_DEFAULTS.port,
+  user: process.env.DB_USER,
+  password: process.env.DB_CREDENTIALS,
+  database: process.env.DB_NAME,
+  max: DB_DEFAULTS.max,
+  idleTimeoutMillis: DB_DEFAULTS.idleTimeoutMillis,
 });
 
+/**
+ * Claims a batch of jobs from the outbox.
+ * @param {Object} params
+ * @param {number} params.limit
+ * @param {number} params.maxRetries
+ * @returns {Promise<Array>}
+ */
 export async function claimBatch({ limit, maxRetries }) {
   const client = await pool.connect();
-  log.debug("Connected to DB");
+  log.debug("[outboxRepo.js : claimBatch] Connected to DB");
+  const params = ["PENDING", "ERROR", Number(maxRetries), Number(limit), "SENDING"];
+  log.debug("[outboxRepo.js : claimBatch] SQL:", SQL_CLAIM_BATCH);
+  log.debug("[outboxRepo.js : claimBatch] Params:", params);
   try {
     await client.query("BEGIN");
-    const { rows } = await client.query(SQL_CLAIM_BATCH, [
-      "PENDING",
-      "ERROR",
-      Number(maxRetries),
-      Number(limit),
-      "SENDING",
-    ]);
+    const { rows } = await client.query(SQL_CLAIM_BATCH, params);
     await client.query("COMMIT");
+    log.debug("[outboxRepo.js : claimBatch] Returned rows:", rows);
     return rows;
   } catch (e) {
     await client.query("ROLLBACK");
+    log.error("[outboxRepo.js : claimBatch] Error:", e && (e.stack || e.message || e));
     throw e;
   } finally {
     client.release();
   }
 }
 
+/**
+ * Marks a job as successfully sent to Salesforce (direct).
+ * @param {Object} params
+ * @param {string} params.jobId
+ * @param {string} params.applicationId
+ * @param {string} params.salesforceId
+ */
 export async function markDirectSuccess({ jobId, applicationId, salesforceId }) {
   const client = await pool.connect();
+  const params = [jobId, "SENT", salesforceId];
+  log.debug("[outboxRepo.js : markDirectSuccess] SQL:", SQL_MARK_DIRECT_SUCCESS_OUTBOX);
+  log.debug("[outboxRepo.js : markDirectSuccess] Params:", params);
   try {
     await client.query("BEGIN");
-    await client.query(SQL_MARK_DIRECT_SUCCESS_OUTBOX, [jobId, "SENT", salesforceId]);
-    await client.query(SQL_MARK_DIRECT_SUCCESS_APP, [applicationId, salesforceId]);
+    await client.query(SQL_MARK_DIRECT_SUCCESS_OUTBOX, params);
+    //await client.query(SQL_MARK_DIRECT_SUCCESS_APP, [applicationId, salesforceId]);
     await client.query("COMMIT");
   } catch (e) {
     await client.query("ROLLBACK");
+    log.error("[outboxRepo.js : markDirectSuccess] Error:", e && (e.stack || e.message || e));
     throw e;
   } finally {
     client.release();
   }
 }
 
-export async function markAppflowHandoff({ jobId, s3Key }) {
-  const client = await pool.connect();
-  try {
-    await client.query("BEGIN");
-    await client.query(SQL_MARK_APPFLOW_HANDOFF, [jobId, "HANDOFF", s3Key]);
-    await client.query("COMMIT");
-  } catch (e) {
-    await client.query("ROLLBACK");
-    throw e;
-  } finally {
-    client.release();
-  }
-}
-
+/**
+ * Marks a job as failed, with retry/backoff logic.
+ * @param {Object} params
+ * @param {string} params.jobId
+ * @param {number} params.attemptCountAfterClaim
+ * @param {string} params.errorMessage
+ * @param {number} params.maxRetries
+ */
 export async function markFailure({ jobId, attemptCountAfterClaim, errorMessage, maxRetries }) {
   const client = await pool.connect();
+  const exhausted = attemptCountAfterClaim >= Number(maxRetries);
+  const status = exhausted ? "FAILED" : "PENDING";
+  const safeAttemptCount = Number.isFinite(attemptCountAfterClaim) ? attemptCountAfterClaim : 0;
+  const backoffSeconds = Math.min(Math.pow(2, Math.max(0, safeAttemptCount - 1)) * 30, 6 * 60 * 60);
+  const nextAt = exhausted ? null : new Date(Date.now() + backoffSeconds * 1000).toISOString();
+  const params = [jobId, status, String(errorMessage || "").slice(0, 500), nextAt];
+  log.debug("[outboxRepo.js : markFailure] SQL:", SQL_MARK_FAILURE);
+  log.debug("[outboxRepo.js : markFailure] Params:", params);
   try {
-    const exhausted = attemptCountAfterClaim >= Number(maxRetries);
-    const status = exhausted ? "DEAD" : "PENDING";
-    const nextAt = exhausted ? null : (new Date(Date.now() + (Math.min(Math.pow(2, Math.max(0, attemptCountAfterClaim - 1)) * 30, 6 * 60 * 60) * 1000))).toISOString();
-    await client.query(SQL_MARK_FAILURE, [
-      jobId,
-      status,
-      String(errorMessage || "").slice(0, 500),
-      nextAt,
-    ]);
+    await client.query(SQL_MARK_FAILURE, params);
+  } catch (e) {
+    log.error("[outboxRepo.js : markFailure] Error:", e && (e.stack || e.message || e));
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Marks a job as handed off to AppFlow.
+ * @param {Object} params
+ * @param {string} params.jobId
+ * @param {string} params.s3Key
+ */
+export async function markAppflowHandoff({ jobId, s3Key }) {
+  const client = await pool.connect();
+  const params = [jobId, "HANDOFF", s3Key];
+  log.debug("[outboxRepo.js : markAppflowHandoff] SQL:", SQL_MARK_APPFLOW_HANDOFF);
+  log.debug("[outboxRepo.js : markAppflowHandoff] Params:", params);
+  try {
+    await client.query("BEGIN");
+    await client.query(SQL_MARK_APPFLOW_HANDOFF, params);
+    await client.query("COMMIT");
+  } catch (e) {
+    await client.query("ROLLBACK");
+    log.error("[outboxRepo.js : markAppflowHandoff] Error:", e && (e.stack || e.message || e));
+    throw e;
   } finally {
     client.release();
   }
