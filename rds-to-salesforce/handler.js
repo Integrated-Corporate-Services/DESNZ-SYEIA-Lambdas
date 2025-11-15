@@ -29,4 +29,4 @@ process.on("unhandledRejection", (reason) => {
   log.error("[handler.js] Unhandled promise rejection", { reason });
 });
 
-handler();
+//handler();
