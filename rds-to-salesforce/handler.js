@@ -8,6 +8,7 @@ export const handler = async (event) => {
   log.info(`[handler.js : handler] Start mode=${process.env.INTEGRATION_MODE}`);
   // SNS path (single job)
   if (Array.isArray(event?.Records) && event.Records[0]?.Sns) {
+    log.info("[handler.js : handler] Executing job via SNS trigger");
     for (const r of event.Records) {
       const msg = JSON.parse(r.Sns.Message ?? "{}");
       const { outbox_id, applicationId, idempotencyKey } = msg || {};
@@ -18,6 +19,7 @@ export const handler = async (event) => {
       const job = await getJobById(outbox_id);
       if (!job) continue;
       try {
+        log.info(`[handler.js : handler] Processing job via SNS: outbox_id=${outbox_id}`);
         await processJob(job);
       } catch (err) {
         log.error("[handler.js : handler] Failed processing SNS job; will retry", { outbox_id, err });
@@ -29,6 +31,7 @@ export const handler = async (event) => {
 
   // EventBridge path (batch)
   if (event?.source === "aws.events" && event?.["detail-type"] === "Scheduled Event") {
+    log.info("[handler.js : handler] Executing jobs via EventBridge scheduled event");
     try {
       const batchSize = Number(process.env.BATCH_SIZE) || 10;
       const maxRetries = Number(process.env.MAX_RETRIES) || 3;
@@ -39,6 +42,7 @@ export const handler = async (event) => {
       }
       for (const job of jobs) {
         try {
+          log.info(`[handler.js : handler] Processing job via EventBridge: outbox_id=${job.outbox_id}`);
           await processJob(job);
         } catch (err) {
           log.error("[handler.js : handler] Failed processing EventBridge job; marked for retry", { jobId: job.id, err });
