@@ -43,3 +43,7 @@ export const SQL_MARK_FAILURE = `
          next_attempt_at = COALESCE($4::timestamptz, next_attempt_at)
    WHERE outbox_id = $1
 `;
+
+export const SQL_GET_JOB_BY_OUTBOX_ID = `
+  SELECT * FROM application_outbox WHERE outbox_id = $1
+`;
