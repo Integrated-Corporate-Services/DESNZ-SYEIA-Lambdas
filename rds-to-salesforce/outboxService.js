@@ -1,4 +1,4 @@
-import { claimBatch, markDirectSuccess, markAppflowHandoff, markFailure } from "./outboxRepo.js";
+import { claimBatch, markDirectSuccess, markAppflowHandoff, markFailure, getJobByOutboxId } from "./outboxRepo.js";
 import { processDirect } from "./deliver/directToSF.js";
 import { processAppflow } from "./deliver/appflow.js";
 import { TransientError, PermanentError } from "./util/error.js";
@@ -66,14 +66,19 @@ export async function getClaimedJobs(limit, maxRetries) {
 }
 
 function extractPayload(job) {
+  log.debug(`[outboxService.js:extractPayload][job:${job && job.outbox_id}] Extracting payload.`);
   let payload;
   if (typeof job.payload_snapshot_json === 'string') {
+    log.debug(`[outboxService.js:extractPayload][job:${job && job.outbox_id}] Parsing payload from string.`);
     payload = safeJsonParse(job.payload_snapshot_json);
   } else if (typeof job.payload_snapshot_json === 'object' && job.payload_snapshot_json !== null) {
+    log.debug(`[outboxService.js:extractPayload][job:${job && job.outbox_id}] Using payload as object.`);
     payload = job.payload_snapshot_json;
   } else {
+    log.warn(`[outboxService.js:extractPayload][job:${job && job.outbox_id}] Payload is null or invalid type.`);
     payload = null;
   }
+  log.debug(`[outboxService.js:extractPayload][job:${job && job.outbox_id}] Extracted payload:`, payload);
   return { payload, jobId: job.outbox_id };
 }
 
@@ -105,4 +110,20 @@ async function handleJobError(job, err) {
     maxRetries: process.env.MAX_RETRIES,
   });
   log.error(`[outboxService.js : handleJobError] failed (${transient ? "transient" : "permanent"}):`, err.message);
+}
+
+/**
+ * Fetch a single outbox job by id.
+ * @param {string|number} outboxId
+ * @returns {Promise<Object|null>} Job row or null if not found
+ */
+export async function getJobById(outboxId) {
+  log.debug(`[outboxService.js : getJobById] Fetching job for outbox_id=${outboxId}`);
+  const job = await getJobByOutboxId(outboxId);
+  if (job) {
+    log.debug(`[outboxService.js : getJobById] Found job for outbox_id=${outboxId}`);
+  } else {
+    log.warn(`[outboxService.js : getJobById] No job found for outbox_id=${outboxId}`);
+  }
+  return job;
 }

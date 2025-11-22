@@ -6,6 +6,7 @@ import {
   SQL_MARK_DIRECT_SUCCESS_APP,
   SQL_MARK_APPFLOW_HANDOFF,
   SQL_MARK_FAILURE,
+  SQL_GET_JOB_BY_OUTBOX_ID,
 } from "./util/queries.js";
 
 const DB_DEFAULTS = {
@@ -129,6 +130,30 @@ export async function markAppflowHandoff({ jobId, s3Key }) {
     await client.query("ROLLBACK");
     log.error("[outboxRepo.js : markAppflowHandoff] Error:", e && (e.stack || e.message || e));
     throw e;
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Fetch a single outbox job by id.
+ * @param {string|number} outboxId
+ * @returns {Promise<Object|null>} Job row or null if not found
+ */
+export async function getJobByOutboxId(outboxId) {
+  log.debug(`[outboxRepo.js : getJobByOutboxId] Fetching job for outbox_id=${outboxId}`);
+  const client = await pool.connect();
+  try {
+    const res = await client.query(SQL_GET_JOB_BY_OUTBOX_ID, [outboxId]);
+    if (res.rows[0]) {
+      log.debug(`[outboxRepo.js : getJobByOutboxId] Found job for outbox_id=${outboxId}`);
+    } else {
+      log.warn(`[outboxRepo.js : getJobByOutboxId] No job found for outbox_id=${outboxId}`);
+    }
+    return res.rows[0] || null;
+  } catch (err) {
+    log.error("[outboxRepo.js : getJobByOutboxId] Error:", err && (err.stack || err.message || err));
+    throw err;
   } finally {
     client.release();
   }
