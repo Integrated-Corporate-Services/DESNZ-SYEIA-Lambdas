@@ -1,17 +1,9 @@
 
-import { SecretsManagerClient, GetSecretValueCommand } from "@aws-sdk/client-secrets-manager";
+import { getDbConfig, getDbSecretConfig } from "./config.js";
 import pg from "pg";
 import fs from "fs";
 import path from "path";
 import log from "./logger.js";
-
-const secretArn = process.env.DB_CREDENTIALS;
-if (!secretArn) {
-  log.error("Missing env var DB_CREDENTIALS (Secrets Manager secret ARN).");
-  throw new Error("Missing env var DB_CREDENTIALS (Secrets Manager secret ARN).");
-}
-
-const secretsClient = new SecretsManagerClient({ region: process.env.REGION });
 
 const DB_DEFAULTS = {
   port: 5432,
@@ -22,49 +14,6 @@ const DB_DEFAULTS = {
 };
 
 let pool;
-let cachedSecret;
-const SECRET_TTL_MS = Number(process.env.DB_SECRET_TTL_MS || 10 * 60 * 1000);
-
-function needRefreshSecret() {
-  if (!cachedSecret) return true;
-  return Date.now() - cachedSecret.fetchedAt > SECRET_TTL_MS;
-}
-
-async function fetchDbSecret() {
-  const cmd = new GetSecretValueCommand({ SecretId: secretArn });
-  const res = await secretsClient.send(cmd);
-
-  let payload;
-  if (res.SecretString) {
-    payload = res.SecretString;
-  } else if (res.SecretBinary) {
-    payload = Buffer.from(res.SecretBinary, "base64").toString("utf8");
-  } else {
-    log.error("Secret has no SecretString or SecretBinary.");
-    throw new Error("Secret has no SecretString or SecretBinary.");
-  }
-
-  let parsed;
-  try {
-    parsed = JSON.parse(payload);
-  } catch {
-    log.error("SecretString is not valid JSON.");
-    throw new Error("SecretString is not valid JSON.");
-  }
-
-  if (!parsed.username || !parsed.password) {
-    log.error("Secret JSON must contain 'username' and 'password'.");
-    throw new Error("Secret JSON must contain 'username' and 'password'.");
-  }
-
-  cachedSecret = { value: parsed, fetchedAt: Date.now(), versionId: res.VersionId };
-  return parsed;
-}
-
-async function getDbCredentials() {
-  if (needRefreshSecret()) return fetchDbSecret();
-  return cachedSecret.value;
-}
 
 function buildSslConfig() {
   if (process.env.NODE_ENV === "local") return false;
@@ -80,19 +29,20 @@ export async function initDbPool() {
   if (pool && !needRefreshSecret()) return pool;
 
   if (process.env.NODE_ENV === "local") {
+    const cfg = getDbConfig();
     pool = new pg.Pool({
-      host: process.env.HOST_NAME,
-      port: Number(process.env.DB_PORT) || DB_DEFAULTS.port,
-      database: process.env.DB_NAME,
-      user: process.env.DB_USER,
-      password: process.env.DB_PASSWORD,
-      max: DB_DEFAULTS.max,
-      idleTimeoutMillis: DB_DEFAULTS.idleTimeoutMillis,
-      connectionTimeoutMillis: DB_DEFAULTS.connectionTimeoutMillis,
+      host: cfg.host,
+      port: cfg.port || DB_DEFAULTS.port,
+      database: cfg.database,
+      user: cfg.user,
+      password: cfg.password,
+      max: cfg.poolMax,
+      idleTimeoutMillis: cfg.idleTimeoutMillis,
+      connectionTimeoutMillis: cfg.connectionTimeoutMillis,
       ssl: false,
       keepAlive: true,
-      query_timeout: DB_DEFAULTS.queryTimeout,
-      application_name: process.env.APP_NAME || "lambda-worker",
+      query_timeout: cfg.queryTimeout,
+      application_name: cfg.appName,
     });
     pool.on("connect", async (client) => {
       try {
@@ -106,8 +56,8 @@ export async function initDbPool() {
     return pool;
   }
 
-  // Otherwise, use Secrets Manager
-  const creds = await getDbCredentials();
+  // use Secrets Manager
+  const creds = await getDbSecretConfig();
   const host = creds.host || process.env.HOST_NAME;
   const port = Number(creds.port || process.env.DB_PORT || DB_DEFAULTS.port);
   const database = creds.dbname || process.env.DB_NAME;
@@ -117,15 +67,6 @@ export async function initDbPool() {
   }
 
   const ssl = buildSslConfig();
-
-  if (pool && needRefreshSecret()) {
-    try {
-      await pool.end();
-    } catch (e) {
-      log.warn("Previous pool end() failed:", e);
-    }
-    pool = undefined;
-  }
 
   pool = new pg.Pool({
     host,

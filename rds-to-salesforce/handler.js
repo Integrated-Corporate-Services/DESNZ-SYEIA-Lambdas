@@ -1,11 +1,14 @@
 import { getClaimedJobs, processJob, getJobById } from "./outboxService.js";
 import log from "./util/logger.js";
+import { getIntegrationMode } from "./util/config.js";
 
 /**
  * Lambda handler for processing outbox jobs and sending to Salesforce.
  */
+
 export const handler = async (event) => {
-  log.info(`[handler.js : handler] Start mode=${process.env.INTEGRATION_MODE}`);
+  const integrationMode = await getIntegrationMode();
+  log.info(`[handler.js : handler] Start mode=${integrationMode}`);
   // SNS path (single job)
   if (Array.isArray(event?.Records) && event.Records[0]?.Sns) {
     log.info("[handler.js : handler] Executing job via SNS trigger");
