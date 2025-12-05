@@ -1,3 +1,24 @@
+/**
+ * Resolves any config value from env or SSM.
+ */
+export async function getResolvedConfig(key) {
+  return getConfigValue(process.env[key]);
+}
+
+export async function getSalesforceConfig() {
+  return {
+    authMode: await getConfigValue(process.env.SALESFORCE_AUTH_MODE),
+    baseUrl: await getConfigValue(process.env.SALESFORCE_BASE_URL),
+    clientId: await getConfigValue(process.env.SALESFORCE_CLIENT_ID),
+    clientSecret: await getConfigValue(process.env.SALESFORCE_CLIENT_SECRET),
+    objectApi: await getConfigValue(process.env.SALESFORCE_OBJECT_API),
+    tokenUrl: await getConfigValue(process.env.SALESFORCE_TOKEN_URL),
+    /*accessToken: process.env.SALESFORCE_ACCESS_TOKEN,
+    extIdField: process.env.SALESFORCE_EXT_ID_FIELD,
+    jwtSecretId: process.env.SALESFORCE_JWT_SECRET_ID,
+    httpTimeoutMs: process.env.HTTP_TIMEOUT_MS,*/
+  };
+}
 import { SSMClient, GetParameterCommand } from "@aws-sdk/client-ssm";
 import { SecretsManagerClient, GetSecretValueCommand } from "@aws-sdk/client-secrets-manager";
 
@@ -94,4 +115,8 @@ const SECRET_TTL_MS = Number(process.env.DB_SECRET_TTL_MS || 10 * 60 * 1000);
 function needRefreshSecret() {
   if (!cachedSecret) return true;
   return Date.now() - cachedSecret.fetchedAt > SECRET_TTL_MS;
+}
+
+export async function getSalesforceAuthMode() {
+  return getConfigValue(process.env.SALESFORCE_AUTH_MODE);
 }
