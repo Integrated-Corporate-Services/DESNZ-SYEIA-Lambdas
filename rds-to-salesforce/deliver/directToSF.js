@@ -1,3 +1,4 @@
+import { getSalesforceConfig } from "../util/config.js";
 import { TransientError, PermanentError } from "../util/error.js";
 import { safeJsonParse, reorderPayload } from "../util/helpers.js";
 import log from "../util/logger.js";
@@ -12,20 +13,22 @@ import axios from "axios";
  */
 async function sendPayload(payload, env) {
   let token;
-  if (env.SALESFORCE_AUTH_MODE === "STATIC") {
-    if (!env.SALESFORCE_ACCESS_TOKEN) throw new PermanentError("SALESFORCE_ACCESS_TOKEN missing");
-    token = env.SALESFORCE_ACCESS_TOKEN;
-  } else if (env.SALESFORCE_AUTH_MODE === "OAUTH_CLIENT_CREDENTIALS") {
+  const sfConfig = await getSalesforceConfig();
+  const salesforceAuthMode = String(sfConfig.authMode).toUpperCase();
+  if (salesforceAuthMode === "STATIC") {
+    if (!sfConfig.accessToken) throw new PermanentError("SALESFORCE_ACCESS_TOKEN missing");
+    token = sfConfig.accessToken;
+  } else if (salesforceAuthMode === "OAUTH_CLIENT_CREDENTIALS") {
     log.info("[directToSF.js : sendPayload] Fetching Salesforce access token...");
     token = await getAccessToken({
-      clientId: env.SALESFORCE_CLIENT_ID,
-      clientSecret: env.SALESFORCE_CLIENT_SECRET,
-      tokenUrl: env.SALESFORCE_TOKEN_URL
+      clientId: sfConfig.clientId,
+      clientSecret: sfConfig.clientSecret,
+      tokenUrl: sfConfig.tokenUrl
     });
   } else {
-    throw new PermanentError(`Unsupported SALESFORCE_AUTH_MODE: ${env.SALESFORCE_AUTH_MODE}`);
+    throw new PermanentError(`Unsupported SALESFORCE_AUTH_MODE: ${salesforceAuthMode}`);
   }
-  const url = `${env.SALESFORCE_BASE_URL}${env.SALESFORCE_OBJECT_API}`;
+  const url = `${sfConfig.baseUrl}${sfConfig.objectApi}`;
   log.info(`[directToSF.js : sendPayload] Sending payload to Salesforce URL:`, url);
   try {
     const response = await axios.post(url, {
