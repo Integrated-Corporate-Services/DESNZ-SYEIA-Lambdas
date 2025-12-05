@@ -1,3 +1,4 @@
+import { getIntegrationMode } from "./util/config.js";
 import { claimBatch, markDirectSuccess, markAppflowHandoff, markFailure, getJobByOutboxId } from "./outboxRepo.js";
 import { processDirect } from "./deliver/directToSF.js";
 import { processAppflow } from "./deliver/appflow.js";
@@ -18,7 +19,9 @@ export async function processJob(job) {
     await handleJobError(job, new PermanentError('Invalid or empty payload'));
     return;
   }
-  const mode = String(process.env.INTEGRATION_MODE).toUpperCase();
+
+  const integrationMode = await getIntegrationMode();
+  const mode = String(integrationMode).toUpperCase();
   try {
     logRawPayload(job, payload, jobId);
     if (mode === "DIRECT") {
@@ -26,7 +29,7 @@ export async function processJob(job) {
     } else if (mode === "APPFLOW") {
       await handleAppflowJob(job, payload, jobId);
     } else {
-      throw new PermanentError(`Unsupported mode: ${process.env.INTEGRATION_MODE}`);
+      throw new PermanentError(`Unsupported mode: ${mode}`);
     }
   } catch (err) {
     await handleJobError(job, err);
