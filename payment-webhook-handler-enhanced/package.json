@@ -1,0 +1,27 @@
+﻿{
+    "scripts":  {
+                    "test":  "jest",
+                    "test:watch":  "jest --watch",
+                    "deploy":  "zip -r lambda.zip . \u0026\u0026 echo \u0027Upload lambda.zip to AWS Lambda\u0027",
+                    "lint":  "eslint .",
+                    "start":  "node handler.js"
+                },
+    "description":  "Enhanced Lambda for GOV.UK Pay webhooks - handles all 6 event types with out-of-order resilience",
+    "type":  "module",
+    "version":  "2.0.0",
+    "engines":  {
+                    "node":  "18.x"
+                },
+    "name":  "payment-webhook-handler-enhanced-lambda",
+    "main":  "handler.js",
+    "devDependencies":  {
+                            "eslint":  "^8.0.0",
+                            "jest":  "^30.2.0"
+                        },
+    "dependencies":  {
+                         "winston":  "^3.18.3",
+                         "pg":  "^8.16.3",
+                         "@aws-sdk/client-cloudwatch":  "^3.943.0",
+                         "@aws-sdk/client-secrets-manager":  "^3.943.0"
+                     }
+}
