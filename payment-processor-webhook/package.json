@@ -6,13 +6,13 @@
                     "lint":  "eslint .",
                     "start":  "node handler.js"
                 },
-    "description":  "Enhanced Lambda for GOV.UK Pay webhooks - handles all 6 event types with out-of-order resilience",
+    "description":  "Lambda for processing GOV.UK Pay webhooks via SQS - triggered by backend webhook service",
     "type":  "module",
     "version":  "2.0.0",
     "engines":  {
                     "node":  "18.x"
                 },
-    "name":  "payment-webhook-handler-enhanced-lambda",
+    "name":  "payment-processor-webhook-lambda",
     "main":  "handler.js",
     "devDependencies":  {
                             "eslint":  "^8.0.0",

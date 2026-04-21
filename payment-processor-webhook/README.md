@@ -144,7 +144,7 @@ npm test -- --testPathPattern=integration
 ## 📁 Project Structure
 
 ```
-payment-webhook-handler-enhanced/
+payment-processor-webhook/
 │
 ├── handler.js                     ◄── Lambda entry point
 ├── webhookService.js              ◄── Webhook orchestration logic
