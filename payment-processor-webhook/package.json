@@ -1,27 +1,23 @@
-﻿{
-    "scripts":  {
-                    "test":  "jest",
-                    "test:watch":  "jest --watch",
-                    "deploy":  "zip -r lambda.zip . \u0026\u0026 echo \u0027Upload lambda.zip to AWS Lambda\u0027",
-                    "lint":  "eslint .",
-                    "start":  "node handler.js"
-                },
-    "description":  "Lambda for processing GOV.UK Pay webhooks via SQS - triggered by backend webhook service",
-    "type":  "module",
-    "version":  "2.0.0",
-    "engines":  {
-                    "node":  "18.x"
-                },
-    "name":  "payment-processor-webhook-lambda",
-    "main":  "handler.js",
-    "devDependencies":  {
-                            "eslint":  "^8.0.0",
-                            "jest":  "^30.2.0"
-                        },
-    "dependencies":  {
-                         "winston":  "^3.18.3",
-                         "pg":  "^8.16.3",
-                         "@aws-sdk/client-cloudwatch":  "^3.943.0",
-                         "@aws-sdk/client-secrets-manager":  "^3.943.0"
-                     }
+{
+    "scripts": {
+        "test": "jest",
+        "test:watch": "jest --watch",
+        "deploy": "zip -r lambda.zip . && echo 'Upload lambda.zip to AWS Lambda'",
+        "lint": "eslint .",
+        "start": "node handler.js"
+    },
+    "description": "Lambda for processing GOV.UK Pay webhooks via SQS - triggered by backend webhook service",
+    "version": "2.0.0",
+    "engines": {
+        "node": "18.x"
+    },
+    "name": "payment-processor-webhook-lambda",
+    "main": "handler.js",
+    "devDependencies": {
+        "eslint": "^8.0.0",
+        "jest": "^30.2.0"
+    },
+    "dependencies": {
+        "pg": "^8.20.0"
+    }
 }
