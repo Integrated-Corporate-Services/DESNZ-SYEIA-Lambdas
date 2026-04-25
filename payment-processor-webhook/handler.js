@@ -1,5 +1,16 @@
 ﻿import { processSQSBatch } from './paymentProcessor.js';
+import { validateEnvVars } from './util/validation.js';
 import log from './util/logger.js';
+
+// Validate environment variables at cold start (outside handler)
+let envValidated = false;
+
+function ensureEnvValidation() {
+  if (!envValidated) {
+    validateEnvVars();
+    envValidated = true;
+  }
+}
 
 /**
  * Lambda handler triggered by SQS event source mapping
@@ -28,6 +39,9 @@ export const handler = async (event, context) => {
   const startTime = Date.now();
 
   try {
+    // Validate environment on first invocation or after container restart
+    ensureEnvValidation();
+
     // Check if this is an SQS event
     if (!event.Records || !Array.isArray(event.Records)) {
       log.error('[handler] Invalid event - not an SQS event', { 

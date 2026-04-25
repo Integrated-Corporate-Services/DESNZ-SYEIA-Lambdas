@@ -1,7 +1,8 @@
 {
+    "type": "module",
     "scripts": {
-        "test": "jest",
-        "test:watch": "jest --watch",
+        "test": "NODE_OPTIONS=--experimental-vm-modules jest",
+        "test:watch": "NODE_OPTIONS=--experimental-vm-modules jest --watch",
         "deploy": "zip -r lambda.zip . && echo 'Upload lambda.zip to AWS Lambda'",
         "lint": "eslint .",
         "start": "node handler.js"
@@ -15,9 +16,14 @@
     "main": "handler.js",
     "devDependencies": {
         "eslint": "^8.0.0",
-        "jest": "^30.2.0"
+        "jest": "^30.2.0",
+        "@types/jest": "^29.5.0"
     },
     "dependencies": {
-        "pg": "^8.20.0"
+        "pg": "^8.20.0",
+        "winston": "^3.11.0",
+        "@aws-sdk/client-sqs": "^3.0.0",
+        "@aws-sdk/client-ecs": "^3.0.0",
+        "@aws-sdk/client-cloudwatch": "^3.0.0"
     }
 }

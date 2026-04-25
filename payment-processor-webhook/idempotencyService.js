@@ -1,16 +1,25 @@
 ﻿import { findEventById, recordIdempotentEvent } from './database/idempotencyRepository.js';
 import log from './util/logger.js';
-export async function checkIdempotency(eventId, govukPayId) {
+
+/**
+ * Check idempotency BEFORE processing (race condition safe)
+ * Uses ON CONFLICT to ensure only one Lambda instance processes the event
+ */
+export async function checkAndRecordIdempotency(eventId, govukPayId, eventType, eventData, eventTimestamp) {
   try {
-    const existing = await findEventById(eventId);
-    if (existing) {
-      log.info('[idempotencyService] Idempotent request detected', { eventId });
+    // Try to insert event - returns false if already exists
+    const inserted = await recordIdempotentEvent(eventId, govukPayId, eventType, eventData, eventTimestamp);
+    
+    if (!inserted) {
+      log.info('[idempotencyService] Duplicate event detected', { eventId, govukPayId });
+      const existing = await findEventById(eventId);
       return { isDuplicate: true, event: existing };
     }
-    await recordIdempotentEvent(eventId, govukPayId);
+
+    log.debug('[idempotencyService] New event recorded', { eventId, govukPayId });
     return { isDuplicate: false };
   } catch (err) {
-    log.error('[idempotencyService] Error', { eventId, err });
+    log.error('[idempotencyService] Error', { eventId, err: err.message });
     throw err;
   }
 }
