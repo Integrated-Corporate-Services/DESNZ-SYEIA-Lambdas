@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GOV.UK Pay Webhook Signature Generator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 900px;
+            width: 100%;
+            padding: 40px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .info-box {
+            background: #f0f7ff;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            margin-bottom: 25px;
+            border-radius: 4px;
+        }
+
+        .info-box h3 {
+            color: #667eea;
+            margin-bottom: 8px;
+            font-size: 16px;
+        }
+
+        .info-box code {
+            background: #e0e7ff;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            color: #5b21b6;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        input, textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: 'Courier New', monospace;
+            transition: border-color 0.3s;
+            margin-bottom: 20px;
+        }
+
+        input:focus, textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 200px;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 14px 28px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .output-section {
+            background: #f9fafb;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 25px;
+            display: none;
+        }
+
+        .output-section.visible {
+            display: block;
+        }
+
+        .signature-output {
+            background: #1f2937;
+            color: #10b981;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            word-break: break-all;
+            margin-bottom: 15px;
+            font-size: 13px;
+            position: relative;
+        }
+
+        .copy-btn {
+            background: #10b981;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: background 0.3s;
+        }
+
+        .copy-btn:hover {
+            background: #059669;
+        }
+
+        .copy-btn.copied {
+            background: #6366f1;
+        }
+
+        .example-btn {
+            background: #8b5cf6;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            transition: background 0.3s;
+        }
+
+        .example-btn:hover {
+            background: #7c3aed;
+        }
+
+        .curl-command {
+            background: #1f2937;
+            color: #e0e7ff;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            overflow-x: auto;
+            margin-top: 15px;
+        }
+
+        .curl-command code {
+            color: #10b981;
+        }
+
+        .error {
+            background: #fee;
+            border-left: 4px solid #ef4444;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+            color: #991b1b;
+            display: none;
+        }
+
+        .error.visible {
+            display: block;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .container {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 GOV.UK Pay Webhook Signature Generator</h1>
+        <p class="subtitle">Generate HMAC-SHA256 signatures for webhook testing</p>
+
+        <div class="info-box">
+            <h3>ℹ️ Quick Guide</h3>
+            <p>• Signing Key: <code>test-signing-key-456</code></p>
+            <p>• Algorithm: <code>HMAC-SHA256</code></p>
+            <p>• Header: <code>Pay-Signature</code></p>
+            <p>• Endpoint: <code>POST http://localhost:3000/callback/payment</code></p>
+        </div>
+
+        <div class="error" id="errorBox"></div>
+
+        <button class="example-btn" onclick="loadExample()">📋 Load Example Payload</button>
+
+        <div>
+            <label for="signingKey">Signing Key:</label>
+            <input 
+                type="text" 
+                id="signingKey" 
+                value="test-signing-key-456"
+                placeholder="Enter your signing key">
+        </div>
+
+        <div>
+            <label for="payload">Webhook Payload (JSON):</label>
+            <textarea 
+                id="payload" 
+                placeholder='Paste your JSON payload here, e.g.:
+{
+  "webhook_message_id": "evt_123",
+  "event_type": "card_payment_succeeded",
+  "resource_id": "pay_123",
+  ...
+}'></textarea>
+        </div>
+
+        <button onclick="generateSignature()">🔑 Generate Signature</button>
+
+        <div class="output-section" id="outputSection">
+            <h3 style="margin-bottom: 15px; color: #333;">Generated Signature:</h3>
+            <div class="signature-output" id="signatureOutput"></div>
+            <button class="copy-btn" id="copyBtn" onclick="copySignature()">📋 Copy Signature</button>
+
+            <h3 style="margin: 25px 0 15px; color: #333;">Test with cURL:</h3>
+            <div class="curl-command" id="curlCommand"></div>
+            <button class="copy-btn" style="margin-top: 10px;" onclick="copyCurl()">📋 Copy cURL Command</button>
+        </div>
+    </div>
+
+    <script>
+        let currentSignature = '';
+        let currentCurl = '';
+
+        async function generateSignature() {
+            const signingKey = document.getElementById('signingKey').value.trim();
+            const payload = document.getElementById('payload').value.trim();
+            const errorBox = document.getElementById('errorBox');
+            
+            // Clear previous errors
+            errorBox.classList.remove('visible');
+            errorBox.textContent = '';
+
+            // Validation
+            if (!signingKey) {
+                showError('Please enter a signing key');
+                return;
+            }
+
+            if (!payload) {
+                showError('Please enter a webhook payload');
+                return;
+            }
+
+            // Validate JSON
+            try {
+                JSON.parse(payload);
+            } catch (e) {
+                showError('Invalid JSON format: ' + e.message);
+                return;
+            }
+
+            try {
+                // Generate HMAC-SHA256 signature
+                const signature = await hmacSHA256(signingKey, payload);
+                currentSignature = signature;
+
+                // Display results
+                document.getElementById('signatureOutput').textContent = signature;
+                document.getElementById('outputSection').classList.add('visible');
+
+                // Generate cURL command
+                const curlCmd = generateCurlCommand(payload, signature);
+                currentCurl = curlCmd;
+                document.getElementById('curlCommand').innerHTML = curlCmd;
+
+            } catch (error) {
+                showError('Error generating signature: ' + error.message);
+            }
+        }
+
+        async function hmacSHA256(key, message) {
+            // Convert key and message to Uint8Array
+            const encoder = new TextEncoder();
+            const keyData = encoder.encode(key);
+            const messageData = encoder.encode(message);
+
+            // Import key for HMAC
+            const cryptoKey = await crypto.subtle.importKey(
+                'raw',
+                keyData,
+                { name: 'HMAC', hash: 'SHA-256' },
+                false,
+                ['sign']
+            );
+
+            // Generate signature
+            const signature = await crypto.subtle.sign(
+                'HMAC',
+                cryptoKey,
+                messageData
+            );
+
+            // Convert to hex string
+            const hashArray = Array.from(new Uint8Array(signature));
+            const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+            
+            return hashHex;
+        }
+
+        function generateCurlCommand(payload, signature) {
+            // Escape payload for shell
+            const escapedPayload = payload.replace(/"/g, '\\"').replace(/\n/g, '');
+            
+            return `curl -X POST http://localhost:3000/callback/payment \\
+  -H "Content-Type: application/json" \\
+  -H "Pay-Signature: <code>${signature}</code>" \\
+  -H "X-Webhook-Id: $(uuidgen)" \\
+  -d '${escapedPayload}'`;
+        }
+
+        function copySignature() {
+            navigator.clipboard.writeText(currentSignature).then(() => {
+                const btn = document.getElementById('copyBtn');
+                const originalText = btn.textContent;
+                btn.textContent = '✅ Copied!';
+                btn.classList.add('copied');
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                    btn.classList.remove('copied');
+                }, 2000);
+            });
+        }
+
+        function copyCurl() {
+            // Extract text content without HTML tags
+            const curlText = document.getElementById('curlCommand').innerText;
+            navigator.clipboard.writeText(curlText).then(() => {
+                alert('cURL command copied to clipboard!');
+            });
+        }
+
+        function showError(message) {
+            const errorBox = document.getElementById('errorBox');
+            errorBox.textContent = '❌ ' + message;
+            errorBox.classList.add('visible');
+        }
+
+        function loadExample() {
+            const timestamp = Date.now();
+            const examplePayload = {
+                "webhook_message_id": `evt_${timestamp}_created`,
+                "api_version": 1,
+                "event_type": "card_payment_succeeded",
+                "created_date": new Date().toISOString(),
+                "resource_id": `pay_${timestamp}_new`,
+                "resource_type": "payment",
+                "resource": {
+                    "payment_id": `pay_${timestamp}_new`,
+                    "payment_provider": "worldpay",
+                    "amount": 2500,
+                    "reference": "TEST-REF-001",
+                    "description": "Test payment from signature generator",
+                    "state": {
+                        "status": "success",
+                        "finished": true
+                    },
+                    "return_url": "https://example.com/return",
+                    "created_date": new Date().toISOString()
+                }
+            };
+
+            document.getElementById('payload').value = JSON.stringify(examplePayload, null, 2);
+        }
+
+        // Auto-generate on page load if there's content
+        window.addEventListener('load', () => {
+            console.log('GOV.UK Pay Webhook Signature Generator Ready');
+        });
+    </script>
+</body>
+</html>
