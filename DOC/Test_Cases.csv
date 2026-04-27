@@ -1,0 +1,220 @@
+Category,Test Name,Role,Test Status,Type,Priority,Preconditions,Test Steps,Expected Results
+Integration - Payment Webhook,New Payment Webhook Processing,System,Passed,Functional,High,"1. Docker services running (PostgreSQL, LocalStack, Inbound Receiver, Payment Processor)
+2. Database schema initialized
+3. SQS queue created","1. Generate valid webhook payload with new payment ID (pay_test_xxx)
+2. Create valid HMAC-SHA256 signature using GOVPAY_WEBHOOK_SIGNING_KEY
+3. Send POST request to /callback/payment endpoint with signature header
+4. Wait for webhook to be stored in payment_webhooks table
+5. Verify message queued to SQS
+6. Wait for payment processor to consume message
+7. Verify payment record created in payments table
+8. Verify event logged in payment_events table","1. HTTP 202 Accepted response received
+2. Webhook stored in payment_webhooks table with status 'received'
+3. Payment record created in payments table with correct amount, reference, status
+4. Payment event logged in payment_events table
+5. Outbox entry created for downstream integration
+6. End-to-end latency < 5 seconds"
+Integration - Idempotency,Duplicate Confirmed Webhook,System,Passed,Functional,High,"1. Previous test created payment with status 'CONFIRMED'
+2. Payment exists in database with event count = 1
+3. All services running","1. Get existing payment ID from database
+2. Send duplicate webhook with same payment ID and event type 'payment.confirmed'
+3. Create valid signature for duplicate webhook
+4. POST to /callback/payment endpoint
+5. Wait for processing
+6. Query payments table for payment status
+7. Query payment_events table for event count
+8. Verify payment_webhooks table has 2 entries","1. HTTP 202 Accepted response (duplicate accepted for audit)
+2. Second webhook stored in payment_webhooks table
+3. Payment status remains 'CONFIRMED' (unchanged)
+4. Event count remains 1 (no duplicate event created)
+5. Payment confirmed_at timestamp preserved
+6. No duplicate processing occurred - idempotency verified"
+Integration - Deduplication,Duplicate Webhook ID Detection,System,Passed,Functional,High,"1. Webhook with specific webhook_message_id already processed
+2. Database contains existing webhook record
+3. All services running","1. Retrieve existing webhook_message_id from database
+2. Create new webhook payload with same webhook_message_id
+3. Generate valid signature
+4. Send POST request to /callback/payment
+5. Wait for processing
+6. Query payment_webhooks table for duplicate entry
+7. Verify no additional payment record created","1. HTTP 202 Accepted response
+2. Duplicate webhook detected and logged
+3. No new payment record created in payments table
+4. Original payment record unchanged
+5. Audit trail complete in payment_webhooks table"
+Security - Signature Validation,Invalid Signature Rejection,System,Passed,Security,Critical,"1. Inbound receiver configured with valid GOVPAY_WEBHOOK_SIGNING_KEY
+2. All services running","1. Create valid webhook payload
+2. Generate invalid signature using wrong signing key
+3. Send POST request with invalid signature in header
+4. Attempt to verify response","1. HTTP 401 Unauthorized response
+2. Error message indicating signature validation failure
+3. Webhook NOT stored in database
+4. No message sent to SQS queue
+5. Security event logged"
+Security - Signature Validation,Missing Signature Header,System,Not Run,Security,Critical,"1. All services running
+2. Valid webhook payload prepared","1. Create valid webhook payload
+2. Send POST request WITHOUT signature header
+3. Verify response","1. HTTP 401 Unauthorized response
+2. Error message indicating missing signature
+3. Webhook rejected and not stored
+4. No processing occurs"
+Integration - Payment Webhook,Payment Created Event,System,Not Run,Functional,High,"1. All services running
+2. Payment does not exist in database","1. Create webhook with event type 'payment.created'
+2. Include valid payment details (amount, reference, description)
+3. Generate valid signature
+4. POST to /callback/payment
+5. Wait for processing
+6. Verify payment created with status 'CREATED'","1. HTTP 202 Accepted
+2. Webhook stored successfully
+3. Payment record created with status 'CREATED'
+4. Event logged in payment_events
+5. Outbox entry created"
+Integration - Payment Webhook,Payment Failed Event,System,Not Run,Functional,Medium,"1. All services running
+2. Payment exists with status 'CREATED' or 'PENDING'","1. Create webhook with event type 'payment.failed'
+2. Include failure details and error code
+3. Generate valid signature
+4. POST to /callback/payment
+5. Wait for processing
+6. Verify payment status updated to 'FAILED'","1. HTTP 202 Accepted
+2. Webhook stored successfully
+3. Payment status updated to 'FAILED'
+4. Failure event logged with error details
+5. Failed_at timestamp recorded
+6. Outbox entry created for notification"
+Integration - Payment Webhook,Payment Cancelled Event,System,Not Run,Functional,Medium,"1. All services running
+2. Payment exists with cancellable status","1. Create webhook with event type 'payment.cancelled'
+2. Generate valid signature
+3. POST to /callback/payment
+4. Wait for processing
+5. Verify payment status updated to 'CANCELLED'","1. HTTP 202 Accepted
+2. Webhook stored successfully
+3. Payment status updated to 'CANCELLED'
+4. Cancellation event logged
+5. Cancelled_at timestamp recorded"
+Performance - Load Testing,Concurrent Webhook Processing,System,Not Run,Performance,Medium,"1. All services running
+2. Load testing tool configured","1. Generate 100 unique valid webhooks
+2. Send all webhooks concurrently to /callback/payment
+3. Monitor response times
+4. Wait for all to process
+5. Verify all payments created correctly
+6. Check for any failed webhooks","1. All webhooks return HTTP 202
+2. Average response time < 200ms
+3. 95th percentile < 500ms
+4. All 100 payments created in database
+5. No duplicate payments
+6. All events logged correctly
+7. No errors in service logs"
+Performance - Database,High Volume Payment Storage,System,Not Run,Performance,Low,"1. All services running
+2. Database empty or minimal records","1. Create and process 1000 unique payment webhooks
+2. Monitor database performance
+3. Check query execution times
+4. Verify all records stored correctly","1. All 1000 payments stored successfully
+2. Database queries remain performant
+3. No connection pool exhaustion
+4. Indexes working efficiently
+5. No deadlocks or conflicts"
+Error Handling - Invalid Data,Malformed JSON Payload,System,Not Run,Negative,Medium,"1. All services running","1. Send POST request with malformed JSON in body
+2. Include valid signature for the malformed content
+3. Verify response","1. HTTP 400 Bad Request response
+2. Error message indicating invalid JSON
+3. Webhook not stored in database
+4. No processing occurs"
+Error Handling - Invalid Data,Missing Required Fields,System,Not Run,Negative,Medium,"1. All services running","1. Create webhook payload missing required fields (e.g., payment_id, amount)
+2. Generate valid signature
+3. POST to /callback/payment
+4. Verify response","1. HTTP 400 Bad Request response
+2. Error message listing missing required fields
+3. Webhook stored with 'failed_validation' status
+4. No payment record created"
+Error Handling - Invalid Data,Invalid Amount Format,System,Not Run,Negative,Medium,"1. All services running","1. Create webhook with invalid amount (negative, non-numeric, or null)
+2. Generate valid signature
+3. POST to /callback/payment
+4. Verify validation","1. HTTP 400 Bad Request response
+2. Error message indicating invalid amount
+3. Webhook validation fails
+4. No payment created"
+Error Handling - Service Failures,Database Connection Failure,System,Not Run,Negative,High,"1. All services running
+2. Valid webhook prepared","1. Stop PostgreSQL container
+2. Send valid webhook to /callback/payment
+3. Verify error handling
+4. Restart PostgreSQL
+5. Verify recovery","1. HTTP 503 Service Unavailable response
+2. Error logged in service logs
+3. Webhook not lost (retry mechanism)
+4. After recovery, webhook processes successfully"
+Error Handling - Service Failures,SQS Queue Unavailable,System,Not Run,Negative,High,"1. All services running","1. Stop LocalStack (SQS) container
+2. Send valid webhook to /callback/payment
+3. Verify error handling
+4. Restart LocalStack
+5. Verify recovery","1. Webhook accepted (HTTP 202)
+2. Stored in database
+3. Retry mechanism attempts to queue
+4. After SQS recovery, message successfully queued
+5. Payment processes correctly"
+Error Handling - Retry Logic,Failed Webhook Retry Mechanism,System,Not Run,Functional,High,"1. All services running
+2. Webhook configured with retry policy","1. Create scenario causing temporary failure
+2. Send webhook that will fail initially
+3. Monitor retry attempts
+4. Verify exponential backoff
+5. Verify eventual success or dead-letter queue","1. Initial failure logged
+2. Retry attempts occur with exponential backoff
+3. After temporary issue resolves, webhook processes successfully
+4. OR after max retries, moved to dead-letter queue
+5. All attempts logged for audit"
+Integration - Health Checks,Inbound Receiver Health Endpoint,Developer,Not Run,Functional,Low,"1. Inbound receiver service running","1. Send GET request to /health endpoint
+2. Verify response structure","1. HTTP 200 OK response
+2. JSON response with status: 'healthy'
+3. Database connection status included
+4. SQS connection status included
+5. Response time < 100ms"
+Integration - Health Checks,Service Startup Health Check,DevOps,Not Run,Functional,Medium,"1. All services stopped","1. Start all services via docker-compose
+2. Monitor health check endpoints
+3. Verify dependency order (DB before services)
+4. Check logs for startup errors","1. PostgreSQL starts first and reports healthy
+2. LocalStack starts and initializes SQS
+3. Inbound receiver starts after dependencies healthy
+4. Payment processor starts after dependencies healthy
+5. All services report healthy within 60 seconds"
+Database - Data Integrity,Payment Webhook Audit Trail,DBA,Not Run,Functional,Medium,"1. Database initialized
+2. Multiple webhooks processed","1. Send 10 webhooks for same payment with different events
+2. Query payment_webhooks table
+3. Verify all webhooks stored
+4. Check timestamps are sequential","1. All 10 webhooks stored in payment_webhooks table
+2. Each webhook has unique ID
+3. Timestamps in correct chronological order
+4. All webhook payloads preserved in raw_payload column
+5. Audit trail complete and immutable"
+Database - Data Integrity,Payment Status Transitions,DBA,Not Run,Functional,High,"1. Database initialized","1. Create payment (status: CREATED)
+2. Update to PENDING
+3. Update to CONFIRMED
+4. Attempt invalid transition back to CREATED
+5. Verify state machine enforced","1. Valid transitions succeed
+2. Status history maintained
+3. Invalid transitions rejected
+4. Database constraints prevent invalid states
+5. Timestamps recorded for each transition"
+Database - Indexes,Query Performance on Large Dataset,DBA,Not Run,Performance,Low,"1. Database contains 100000+ payment records","1. Query payments by govuk_pay_id
+2. Query webhooks by created_at date range
+3. Query events by payment ID
+4. Monitor execution times and query plans","1. All queries use indexes (no sequential scans)
+2. Query execution time < 50ms
+3. Index hit ratio > 99%
+4. No missing index warnings"
+Monitoring - Logging,Webhook Processing Logs,Developer,Not Run,Functional,Low,"1. All services running
+2. Log aggregation configured","1. Send test webhook
+2. Review logs from all services
+3. Verify correlation IDs present
+4. Check log levels appropriate","1. Request correlation ID present in all logs
+2. Inbound receiver logs webhook receipt
+3. SQS logs message queued
+4. Payment processor logs processing
+5. Error logs include stack traces
+6. Log levels: INFO, WARN, ERROR used appropriately"
+Monitoring - Metrics,System Metrics Collection,DevOps,Not Run,Non-Functional,Medium,"1. Monitoring tools configured","1. Generate webhook traffic
+2. Monitor system metrics
+3. Review dashboards","1. Request rate metrics collected
+2. Response time metrics available
+3. Error rate tracked
+4. Database connection pool metrics
+5. SQS queue depth monitored
+6. Container resource usage tracked"
