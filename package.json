@@ -1,17 +1,5 @@
 {
-  "devDependencies": {
-    "@aws-sdk/client-sqs": "^3.1038.0",
-    "@types/jest": "^30.0.0",
-    "@types/node": "^25.6.0",
-    "@types/pg": "^8.20.0",
-    "@types/winston": "^2.4.4",
-    "jest": "^30.3.0",
-    "ts-jest": "^29.4.9",
-    "typescript": "^6.0.3",
-    "winston": "^3.19.0"
-  },
   "dependencies": {
-    "dotenv": "^17.4.2",
     "pg": "^8.20.0"
   }
 }

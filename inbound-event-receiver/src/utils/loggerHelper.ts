@@ -2,7 +2,7 @@
 import config from '../config/config';
 
 interface LogData {
-  [key: string]: unknown;
+  [key: string]: any;
 }
 
 interface Logger {
@@ -33,22 +33,10 @@ function getLogger(module: NodeModule): Logger {
   /**
    * Sanitize log data to prevent sensitive information leakage
    */
-  function sanitizeData(data: unknown): unknown {
-    if (data === null || data === undefined) {
-      return data;
-    }
+  function sanitizeData(data: any): any {
+    if (!data || typeof data !== 'object') return data;
 
-    if (typeof data !== 'object') {
-      return data;
-    }
-
-    if (Array.isArray(data)) {
-      return data.map(item => sanitizeData(item));
-    }
-
-    // Type guard for object
-    const dataAsRecord = data as Record<string, unknown>;
-    const sanitized: Record<string, unknown> = { ...dataAsRecord };
+    const sanitized: LogData = { ...data };
     const sensitiveKeys = [
       'password',
       'secret',
@@ -85,7 +73,7 @@ function getLogger(module: NodeModule): Logger {
    */
   function formatLog(level: string, message: string, data: LogData = {}): string {
     const timestamp = new Date().toISOString();
-    const sanitizedData = sanitizeData(data) as Record<string, unknown>;
+    const sanitizedData = sanitizeData(data);
 
     if (isCloudEnv) {
       // JSON format for cloud environments (CloudWatch, etc.)
@@ -94,11 +82,11 @@ function getLogger(module: NodeModule): Logger {
         level,
         module: moduleName,
         message,
-        ...(typeof sanitizedData === 'object' && sanitizedData !== null ? sanitizedData : {}),
+        ...sanitizedData,
       });
     } else {
       // Human-readable format for local development
-      const dataString = (typeof sanitizedData === 'object' && sanitizedData !== null && Object.keys(sanitizedData).length)
+      const dataString = Object.keys(sanitizedData).length
         ? ' ' + JSON.stringify(sanitizedData, null, 2)
         : '';
       return `${timestamp} [${level}] [${moduleName}] ${message}${dataString}`;
@@ -108,25 +96,21 @@ function getLogger(module: NodeModule): Logger {
   return {
     info: (message: string, data: LogData = {}): void => {
       if (currentLogLevel >= LOG_LEVELS.info) {
-        // eslint-disable-next-line no-console
         console.log(formatLog('info', message, data));
       }
     },
     error: (message: string, data: LogData = {}): void => {
       if (currentLogLevel >= LOG_LEVELS.error) {
-        // eslint-disable-next-line no-console
         console.error(formatLog('error', message, data));
       }
     },
     warn: (message: string, data: LogData = {}): void => {
       if (currentLogLevel >= LOG_LEVELS.warn) {
-        // eslint-disable-next-line no-console
         console.warn(formatLog('warn', message, data));
       }
     },
     debug: (message: string, data: LogData = {}): void => {
       if (currentLogLevel >= LOG_LEVELS.debug) {
-        // eslint-disable-next-line no-console
         console.log(formatLog('debug', message, data));
       }
     },

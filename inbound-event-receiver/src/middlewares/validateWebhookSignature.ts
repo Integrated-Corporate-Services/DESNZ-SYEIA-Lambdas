@@ -20,30 +20,19 @@ interface WebhookEvent {
   created_date: string;
   resource_id: string;
   resource_type: string;
-  resource: Record<string, unknown>;
-}
-
-/**
- * Request interface for webhook extraction
- */
-interface WebhookRequest {
-  headers: Record<string, string | string[] | undefined>;
-  body?: {
-    webhook_message_id?: string;
-  };
+  resource: Record<string, any>;
 }
 
 /**
  * Extract webhook signature and ID from request headers
  * GOV.UK Pay uses 'Pay-Signature' header (case-insensitive in Node.js)
  */
-export function extractWebhookHeaders(req: WebhookRequest): {
+export function extractWebhookHeaders(req: any): {
   signature: string | null;
   webhookId: string | null;
 } {
   // Official GOV.UK Pay header name is 'Pay-Signature'
-  const signatureHeader = req.headers['pay-signature'];
-  const signature = Array.isArray(signatureHeader) ? signatureHeader[0] : signatureHeader || null;
+  const signature = req.headers['pay-signature'] || null;
   // webhook_message_id comes from body, not headers
   const webhookId = req.body?.webhook_message_id || null;
   return { signature, webhookId };
@@ -76,7 +65,7 @@ export function verifyWebhookSignature(
  * Parse and validate webhook event structure
  * Matches official GOV.UK Pay webhook message format
  */
-export function parseWebhookEvent(rawBody: Record<string, unknown>): WebhookEvent | null {
+export function parseWebhookEvent(rawBody: any): WebhookEvent | null {
   try {
     if (!rawBody || typeof rawBody !== 'object') {
       logger.warn('[Webhook] Invalid webhook body structure');
@@ -97,20 +86,14 @@ export function parseWebhookEvent(rawBody: Record<string, unknown>): WebhookEven
       return null;
     }
 
-    // Type assertions with validation
-    if (typeof webhook_message_id !== 'string' || typeof event_type !== 'string') {
-      logger.warn('[Webhook] Invalid field types');
-      return null;
-    }
-
     return {
       webhook_message_id,
-      api_version: typeof api_version === 'number' ? api_version : 1,
+      api_version: api_version || 1,
       event_type,
-      created_date: String(created_date || new Date().toISOString()),
-      resource_id: String(resource_id),
-      resource_type: String(resource_type),
-      resource: resource as Record<string, unknown>,
+      created_date,
+      resource_id,
+      resource_type,
+      resource,
     };
   } catch (error) {
     logger.error('[Webhook] Error parsing webhook event', {
@@ -126,8 +109,7 @@ export function parseWebhookEvent(rawBody: Record<string, unknown>): WebhookEven
  */
 export function extractPaymentIdFromEvent(event: WebhookEvent): string | null {
   // resource_id is the same as payment_id, but payment_id is also in resource object
-  const resourcePaymentId = event.resource?.payment_id;
-  const paymentId = event.resource_id || (typeof resourcePaymentId === 'string' ? resourcePaymentId : null);
+  const paymentId = event.resource_id || event.resource?.payment_id;
 
   if (!paymentId) {
     logger.warn('[Webhook] Unable to extract payment ID from event', {

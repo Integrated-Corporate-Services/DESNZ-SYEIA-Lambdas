@@ -7,9 +7,7 @@ jest.mock('../../src/utils/loggerHelper');
 
 const db = require('../../src/database/db');
 
-describe.skip('PaymentWebhookRepository', () => {
-  // SKIPPED: Replaced by comprehensive modular integration tests
-  // See: tests/integration/payment-webhook-handler.integration.test.ts
+describe('PaymentWebhookRepository', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });

@@ -1,0 +1,170 @@
+{
+  "v": 1,
+  "name": "Payment Webhook Integration",
+  "folders": [
+    {
+      "name": "Webhooks",
+      "folders": [],
+      "requests": [
+        {
+          "name": "1. New Payment (card_payment_succeeded)",
+          "method": "POST",
+          "url": "http://localhost:3000/callback/payment",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json",
+              "active": true
+            },
+            {
+              "key": "Pay-Signature",
+              "value": "{{SIGNATURE}}",
+              "active": true,
+              "description": "HMAC-SHA256 signature - generate manually or use pre-request script"
+            },
+            {
+              "key": "X-Webhook-Id",
+              "value": "evt_{{$timestamp}}_created",
+              "active": true
+            }
+          ],
+          "params": [],
+          "body": {
+            "contentType": "application/json",
+            "body": "{\n  \"webhook_message_id\": \"evt_1777116900000_created\",\n  \"api_version\": 1,\n  \"event_type\": \"card_payment_succeeded\",\n  \"created_date\": \"2026-04-25T12:00:00.000Z\",\n  \"resource_id\": \"pay_1777116900000_new\",\n  \"resource_type\": \"payment\",\n  \"resource\": {\n    \"payment_id\": \"pay_1777116900000_new\",\n    \"payment_provider\": \"worldpay\",\n    \"amount\": 2500,\n    \"reference\": \"TEST-REF-001\",\n    \"description\": \"Hoppscotch test payment\",\n    \"state\": {\n      \"status\": \"success\",\n      \"finished\": true\n    },\n    \"return_url\": \"https://example.com/return\",\n    \"created_date\": \"2026-04-25T12:00:00.000Z\"\n  }\n}"
+          },
+          "auth": {
+            "authType": "none",
+            "authActive": true
+          },
+          "preRequestScript": "// To generate signature in Hoppscotch:\n// 1. Copy request body\n// 2. Use online HMAC-SHA256 generator with key: test-signing-key-456\n// 3. Replace {{SIGNATURE}} in Pay-Signature header with generated hex value",
+          "testScript": ""
+        },
+        {
+          "name": "2. Payment Captured",
+          "method": "POST",
+          "url": "http://localhost:3000/callback/payment",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json",
+              "active": true
+            },
+            {
+              "key": "Pay-Signature",
+              "value": "{{SIGNATURE}}",
+              "active": true
+            },
+            {
+              "key": "X-Webhook-Id",
+              "value": "evt_{{$timestamp}}_captured",
+              "active": true
+            }
+          ],
+          "params": [],
+          "body": {
+            "contentType": "application/json",
+            "body": "{\n  \"webhook_message_id\": \"evt_1777116900001_captured\",\n  \"api_version\": 1,\n  \"event_type\": \"card_payment_captured\",\n  \"created_date\": \"2026-04-25T12:01:00.000Z\",\n  \"resource_id\": \"pay_existing_123\",\n  \"resource_type\": \"payment\",\n  \"resource\": {\n    \"payment_id\": \"pay_existing_123\",\n    \"payment_provider\": \"worldpay\",\n    \"amount\": 2500,\n    \"reference\": \"TEST-REF-001\",\n    \"description\": \"Payment captured\",\n    \"state\": {\n      \"status\": \"capturable\",\n      \"finished\": false\n    },\n    \"capture_submit_time\": \"2026-04-25T12:01:00.000Z\"\n  }\n}"
+          },
+          "auth": {
+            "authType": "none",
+            "authActive": true
+          },
+          "preRequestScript": "",
+          "testScript": ""
+        },
+        {
+          "name": "3. Payment Failed",
+          "method": "POST",
+          "url": "http://localhost:3000/callback/payment",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json",
+              "active": true
+            },
+            {
+              "key": "Pay-Signature",
+              "value": "{{SIGNATURE}}",
+              "active": true
+            },
+            {
+              "key": "X-Webhook-Id",
+              "value": "evt_{{$timestamp}}_failed",
+              "active": true
+            }
+          ],
+          "params": [],
+          "body": {
+            "contentType": "application/json",
+            "body": "{\n  \"webhook_message_id\": \"evt_1777116900002_failed\",\n  \"api_version\": 1,\n  \"event_type\": \"card_payment_failed\",\n  \"created_date\": \"2026-04-25T12:02:00.000Z\",\n  \"resource_id\": \"pay_1777116900002_fail\",\n  \"resource_type\": \"payment\",\n  \"resource\": {\n    \"payment_id\": \"pay_1777116900002_fail\",\n    \"payment_provider\": \"worldpay\",\n    \"amount\": 1000,\n    \"reference\": \"TEST-REF-FAIL\",\n    \"description\": \"Failed payment test\",\n    \"state\": {\n      \"status\": \"failed\",\n      \"finished\": true,\n      \"message\": \"Payment method expired\",\n      \"code\": \"P0050\"\n    }\n  }\n}"
+          },
+          "auth": {
+            "authType": "none",
+            "authActive": true
+          },
+          "preRequestScript": "",
+          "testScript": ""
+        },
+        {
+          "name": "4. Invalid Signature (Should Fail)",
+          "method": "POST",
+          "url": "http://localhost:3000/callback/payment",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json",
+              "active": true
+            },
+            {
+              "key": "Pay-Signature",
+              "value": "invalid_signature_12345",
+              "active": true,
+              "description": "Invalid signature - should return 401"
+            },
+            {
+              "key": "X-Webhook-Id",
+              "value": "evt_{{$timestamp}}_invalid",
+              "active": true
+            }
+          ],
+          "params": [],
+          "body": {
+            "contentType": "application/json",
+            "body": "{\n  \"webhook_message_id\": \"evt_1777116900003_invalid\",\n  \"api_version\": 1,\n  \"event_type\": \"card_payment_succeeded\",\n  \"created_date\": \"2026-04-25T12:03:00.000Z\",\n  \"resource_id\": \"pay_1777116900003_invalid\",\n  \"resource_type\": \"payment\",\n  \"resource\": {\n    \"payment_id\": \"pay_1777116900003_invalid\",\n    \"amount\": 1500,\n    \"reference\": \"TEST-INVALID\"\n  }\n}"
+          },
+          "auth": {
+            "authType": "none",
+            "authActive": true
+          },
+          "preRequestScript": "",
+          "testScript": ""
+        }
+      ]
+    },
+    {
+      "name": "Health Checks",
+      "folders": [],
+      "requests": [
+        {
+          "name": "Inbound Receiver Health",
+          "method": "GET",
+          "url": "http://localhost:3000/health",
+          "headers": [],
+          "params": [],
+          "body": {
+            "contentType": null,
+            "body": null
+          },
+          "auth": {
+            "authType": "none",
+            "authActive": true
+          },
+          "preRequestScript": "",
+          "testScript": ""
+        }
+      ]
+    }
+  ],
+  "requests": []
+}

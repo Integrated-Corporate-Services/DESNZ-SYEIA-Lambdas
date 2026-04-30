@@ -12,7 +12,6 @@ CREATE TABLE IF NOT EXISTS payment_webhooks (
   retry_count INTEGER DEFAULT 0,
   max_retries INTEGER DEFAULT 3,
   next_retry_at TIMESTAMP,
-  enqueued_at TIMESTAMP, -- When the webhook was enqueued to SQS (null = not yet enqueued)
   metadata JSONB DEFAULT '{}',
   correlation_id VARCHAR(255),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -43,4 +42,3 @@ COMMENT ON COLUMN payment_webhooks.retry_count IS 'Number of retry attempts';
 COMMENT ON COLUMN payment_webhooks.next_retry_at IS 'Scheduled time for next retry';
 COMMENT ON COLUMN payment_webhooks.metadata IS 'Additional metadata (message IDs, backend responses, etc.)';
 COMMENT ON COLUMN payment_webhooks.correlation_id IS 'Correlation ID for tracing across services';
-COMMENT ON COLUMN payment_webhooks.enqueued_at IS 'Timestamp when webhook was enqueued to SQS (null = not yet enqueued)';
