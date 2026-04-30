@@ -15,18 +15,27 @@ This service provides:
 
 ## 🏗️ Architecture
 
+
 ```
-GOV.UK Pay → [Webhook] → Inbound Receiver → [SQS] → Lambda Processor
-                             ↓
-                        PostgreSQL
-                     (Audit & Retry)
+GOV.UK Pay → [Webhook] → Inbound Receiver
+            ↓
+         PostgreSQL (Callback Event Store)
+            ↓
+     [EventBridge Scheduler: every 15s]
+            ↓
+     pollUnenqueuedWebhooks Lambda (selects enqueued_at IS NULL)
+            ↓
+         [SQS] → Payment Processor Lambda
 ```
 
-### Components
+### Components (Updated)
 
-- **Express.js HTTP Server**: Receives webhook POST requests
-- **PostgreSQL Database**: Stores webhook history and manages retries
-- **SQS Queue**: Delegates processing to Lambda functions
+- **Express.js HTTP Server**: Receives webhook POST requests and stores in DB (no SQS send)
+- **PostgreSQL Database**: Callback Event Store for webhook history, audit, and retry
+- **EventBridge Scheduler**: Triggers every 15 seconds to poll for unenqueued webhooks
+- **pollUnenqueuedWebhooks Lambda**: Selects unenqueued webhooks, enqueues to SQS, updates enqueued_at
+- **SQS Queue**: Receives messages for async payment processing
+- **Payment Processor Lambda**: Consumes SQS, updates payment state
 - **Signature Validator**: HMAC-SHA256 verification of webhook authenticity
 
 ## 🚀 Getting Started

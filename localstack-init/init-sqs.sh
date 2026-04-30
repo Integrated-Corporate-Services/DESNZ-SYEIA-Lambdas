@@ -9,16 +9,29 @@ echo "🚀 Initializing LocalStack SQS..."
 # Wait for LocalStack to be ready
 sleep 2
 
-# Create SQS queue for payment webhooks
+# Create DLQ
 awslocal sqs create-queue \
-  --queue-name payment-webhook-queue \
+  --queue-name Pay-callback-event-dlq \
   --region eu-west-2
 
-echo "✅ SQS queue created: payment-webhook-queue"
+# Get DLQ ARN
+DLQ_ARN=$(awslocal sqs get-queue-attributes \
+  --queue-url http://localhost:4566/000000000000/Pay-callback-event-dlq \
+  --attribute-name QueueArn \
+  --region eu-west-2 \
+  --query 'Attributes.QueueArn' --output text)
 
-# Get queue URL
-QUEUE_URL=$(awslocal sqs get-queue-url --queue-name payment-webhook-queue --region eu-west-2 --output text)
-echo "📋 Queue URL: $QUEUE_URL"
+# Create main FIFO queue with DLQ redrive policy
+awslocal sqs create-queue \
+  --queue-name Pay-callback-event.fifo \
+  --attributes FifoQueue=true,ContentBasedDeduplication=true,RedrivePolicy="{\"deadLetterTargetArn\":\"$DLQ_ARN\",\"maxReceiveCount\":\"5\"}" \
+  --region eu-west-2
+
+echo "✅ SQS queues created: Pay-callback-event.fifo, Pay-callback-event-dlq"
+
+# Get main queue URL
+QUEUE_URL=$(awslocal sqs get-queue-url --queue-name Pay-callback-event.fifo --region eu-west-2 --output text)
+echo "📋 Main Queue URL: $QUEUE_URL"
 
 # Set queue attributes (optional)
 awslocal sqs set-queue-attributes \

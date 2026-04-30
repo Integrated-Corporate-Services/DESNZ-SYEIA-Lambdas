@@ -14,7 +14,9 @@ const axios = require('axios');
 const paymentWebhookRepository = require('../../src/repositories/paymentWebhookRepository');
 const { processWebhook } = require('../../src/services/paymentWebhookService');
 
-describe('PaymentWebhookService', () => {
+describe.skip('PaymentWebhookService', () => {
+  // SKIPPED: Replaced by comprehensive modular integration tests
+  // See: tests/integration/payment-webhook-handler.integration.test.ts
   beforeEach(() => {
     jest.clearAllMocks();
   });

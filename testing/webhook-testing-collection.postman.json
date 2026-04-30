@@ -1,0 +1,1089 @@
+{
+  "info": {
+    "_postman_id": "webhook-test-collection-2024",
+    "name": "Payment Webhook API - Complete Test Suite",
+    "description": "Comprehensive test collection for GOV.UK Pay webhook integration\n\n**Base URL**: http://localhost:3000\n**Webhook Secret**: test-signing-key-456\n\n**Test Coverage**:\n- âœ… Health Check\n- âœ… Happy Path (Payment Created â†’ Started â†’ Succeeded â†’ Captured)\n- âœ… Payment Failure Scenarios\n- âœ… Payment Cancellation\n- âœ… Refund Processing\n- âœ… Validation Errors (Invalid Signature, Missing Fields, Malformed Payload)\n- âœ… Duplicate Webhook Handling\n- âœ… Terminal State Protection\n\n**All signatures are pre-calculated using HMAC-SHA256**",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health Check",
+      "item": [
+        {
+          "name": "Health Check - Should Return 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response has status field\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('status');",
+                  "    pm.expect(jsonData.status).to.be.oneOf(['ok', 'healthy']);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "description": "Verify the webhook service is running and healthy"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Happy Path - Payment Lifecycle",
+      "item": [
+        {
+          "name": "1. Payment Created",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response indicates success\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "});",
+                  "",
+                  "pm.test(\"Response contains message\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('message');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Pay-Signature",
+                "value": "7e659e931f862a2b1d69c420c6d87c4ae3f370607779ea6efe5cf43d9275d7d7",
+                "description": "HMAC-SHA256 signature of the payload"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"webhook_message_id\":\"evt_created_hp_001\",\"api_version\":1,\"event_type\":\"card_payment_succeeded\",\"created_date\":\"2024-01-15T10:00:00.000Z\",\"resource_id\":\"pay_hp_001\",\"resource_type\":\"payment\",\"resource\":{\"payment_id\":\"pay_hp_001\",\"payment_provider\":\"worldpay\",\"amount\":10000,\"reference\":\"REF-HP-001\",\"description\":\"Happy path test payment\",\"state\":{\"status\":\"created\",\"finished\":false},\"return_url\":\"https://example.com/return\",\"created_date\":\"2024-01-15T10:00:00.000Z\"}}"
+            },
+            "url": {
+              "raw": "{{base_url}}/callback/payment",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "callback",
+                "payment"
+              ]
+            },
+            "description": "Initial payment creation webhook"
+          },
+          "response": []
+        },
+        {
+          "name": "2. Payment Started",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response indicates success\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Pay-Signature",
+                "value": "c508c5d8382d834fb1f1f8068085a0eee52146e5c5e0b050f4b0a84e86c04408",
+                "description": "HMAC-SHA256 signature"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"webhook_message_id\":\"evt_started_hp_001\",\"api_version\":1,\"event_type\":\"card_payment_succeeded\",\"created_date\":\"2024-01-15T10:01:00.000Z\",\"resource_id\":\"pay_hp_001\",\"resource_type\":\"payment\",\"resource\":{\"payment_id\":\"pay_hp_001\",\"payment_provider\":\"worldpay\",\"amount\":10000,\"reference\":\"REF-HP-001\",\"description\":\"Happy path test payment\",\"state\":{\"status\":\"started\",\"finished\":false},\"return_url\":\"https://example.com/return\",\"created_date\":\"2024-01-15T10:00:00.000Z\"}}"
+            },
+            "url": {
+              "raw": "{{base_url}}/callback/payment",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "callback",
+                "payment"
+              ]
+            },
+            "description": "User has started the payment process"
+          },
+          "response": []
+        },
+        {
+          "name": "3. Payment Succeeded",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response indicates success\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Pay-Signature",
+                "value": "d280d2cdebd9146b8cb31c22a43ef5a656b90ec259910579ac6c4aafc05d0e7d",
+                "description": "HMAC-SHA256 signature"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"webhook_message_id\":\"evt_succeeded_hp_001\",\"api_version\":1,\"event_type\":\"card_payment_succeeded\",\"created_date\":\"2024-01-15T10:05:00.000Z\",\"resource_id\":\"pay_hp_001\",\"resource_type\":\"payment\",\"resource\":{\"payment_id\":\"pay_hp_001\",\"payment_provider\":\"worldpay\",\"amount\":10000,\"reference\":\"REF-HP-001\",\"description\":\"Happy path test payment\",\"state\":{\"status\":\"success\",\"finished\":true},\"return_url\":\"https://example.com/return\",\"created_date\":\"2024-01-15T10:00:00.000Z\",\"card_details\":{\"card_brand\":\"Visa\",\"card_type\":\"debit\",\"last_digits_card_number\":\"4242\",\"first_digits_card_number\":\"424242\",\"expiry_date\":\"12/25\",\"cardholder_name\":\"Test User\"}}}"
+            },
+            "url": {
+              "raw": "{{base_url}}/callback/payment",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "callback",
+                "payment"
+              ]
+            },
+            "description": "Payment completed successfully"
+          },
+          "response": []
+        },
+        {
+          "name": "4. Payment Captured",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response indicates success\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Pay-Signature",
+                "value": "c5e707a81c88c0a7b475b260dd068153bc23bf6b07924b85ff8df6a752e0c9a7",
+                "description": "HMAC-SHA256 signature"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"webhook_message_id\":\"evt_captured_hp_001\",\"api_version\":1,\"event_type\":\"card_payment_captured\",\"created_date\":\"2024-01-15T10:10:00.000Z\",\"resource_id\":\"pay_hp_001\",\"resource_type\":\"payment\",\"resource\":{\"payment_id\":\"pay_hp_001\",\"payment_provider\":\"worldpay\",\"amount\":10000,\"reference\":\"REF-HP-001\",\"description\":\"Happy path test payment\",\"state\":{\"status\":\"success\",\"finished\":true},\"return_url\":\"https://example.com/return\",\"created_date\":\"2024-01-15T10:00:00.000Z\",\"settlement_summary\":{\"capture_submit_time\":\"2024-01-15T10:10:00.000Z\",\"captured_date\":\"2024-01-15\"}}}"
+            },
+            "url": {
+              "raw": "{{base_url}}/callback/payment",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "callback",
+                "payment"
+              ]
+            },
+            "description": "Payment funds captured"
+          },
+          "response": []
+        }
+      ],
+      "description": "Complete payment lifecycle from creation to capture"
+    },
+    {
+      "name": "Failure Scenarios",
+      "item": [
+        {
+          "name": "Payment Failed - Declined Card",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response indicates success\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Pay-Signature",
+                "value": "894345300d6541e2256c1be1713869dd44d9645a10b88f3bbbd3e1a07f356419",
+                "description": "HMAC-SHA256 signature"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"webhook_message_id\":\"evt_failed_001\",\"api_version\":1,\"event_type\":\"card_payment_succeeded\",\"created_date\":\"2024-01-15T10:05:00.000Z\",\"resource_id\":\"pay_failed_001\",\"resource_type\":\"payment\",\"resource\":{\"payment_id\":\"pay_failed_001\",\"payment_provider\":\"worldpay\",\"amount\":10000,\"reference\":\"REF-FAILED-001\",\"description\":\"Failed payment test\",\"state\":{\"status\":\"failed\",\"finished\":true,\"message\":\"Payment declined by card issuer\",\"code\":\"P0010\"},\"return_url\":\"https://example.com/return\",\"created_date\":\"2024-01-15T10:00:00.000Z\"}}"
+            },
+            "url": {
+              "raw": "{{base_url}}/callback/payment",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "callback",
+                "payment"
+              ]
+            },
+            "description": "Payment failed due to card declined"
+          },
+          "response": []
+        },
+        {
+          "name": "Payment Failed - Insufficient Funds",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response indicates success\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Pay-Signature",
+                "value": "99ab88decaae80bb26cae62061ac819aa61aa650d94bbd5af0e830cd373bad42",
+                "description": "HMAC-SHA256 signature"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"webhook_message_id\":\"evt_failed_002\",\"api_version\":1,\"event_type\":\"card_payment_succeeded\",\"created_date\":\"2024-01-15T10:05:00.000Z\",\"resource_id\":\"pay_failed_002\",\"resource_type\":\"payment\",\"resource\":{\"payment_id\":\"pay_failed_002\",\"payment_provider\":\"worldpay\",\"amount\":50000,\"reference\":\"REF-FAILED-002\",\"description\":\"Insufficient funds test\",\"state\":{\"status\":\"failed\",\"finished\":true,\"message\":\"Insufficient funds\",\"code\":\"P0020\"},\"return_url\":\"https://example.com/return\",\"created_date\":\"2024-01-15T10:00:00.000Z\"}}"
+            },
+            "url": {
+              "raw": "{{base_url}}/callback/payment",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "callback",
+                "payment"
+              ]
+            },
+            "description": "Payment failed due to insufficient funds"
+          },
+          "response": []
+        },
+        {
+          "name": "Payment Cancelled by User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response indicates success\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Pay-Signature",
+                "value": "96f37de93ba1ad2e9691fe34673f53794fb55ae807336ea15c6fb168ee2acb42",
+                "description": "HMAC-SHA256 signature"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"webhook_message_id\":\"evt_cancelled_001\",\"api_version\":1,\"event_type\":\"card_payment_succeeded\",\"created_date\":\"2024-01-15T10:03:00.000Z\",\"resource_id\":\"pay_cancelled_001\",\"resource_type\":\"payment\",\"resource\":{\"payment_id\":\"pay_cancelled_001\",\"payment_provider\":\"worldpay\",\"amount\":10000,\"reference\":\"REF-CANCELLED-001\",\"description\":\"User cancelled payment test\",\"state\":{\"status\":\"cancelled\",\"finished\":true,\"message\":\"Payment cancelled by user\",\"code\":\"P0030\"},\"return_url\":\"https://example.com/return\",\"created_date\":\"2024-01-15T10:00:00.000Z\"}}"
+            },
+            "url": {
+              "raw": "{{base_url}}/callback/payment",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "callback",
+                "payment"
+              ]
+            },
+            "description": "Payment cancelled by user"
+          },
+          "response": []
+        }
+      ],
+      "description": "Payment failure and cancellation scenarios"
+    },
+    {
+      "name": "Refund Scenarios",
+      "item": [
+        {
+          "name": "Refund Submitted",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response indicates success\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Pay-Signature",
+                "value": "0a53eed728a33024209180c4bbe54971159561a5c3afa2c969cdd92abf9ef00d",
+                "description": "HMAC-SHA256 signature"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"webhook_message_id\":\"evt_refund_submitted_001\",\"api_version\":1,\"event_type\":\"card_payment_refunded\",\"created_date\":\"2024-01-16T14:00:00.000Z\",\"resource_id\":\"refund_001\",\"resource_type\":\"refund\",\"resource\":{\"refund_id\":\"refund_001\",\"payment_id\":\"pay_hp_001\",\"amount\":10000,\"status\":\"submitted\",\"created_date\":\"2024-01-16T14:00:00.000Z\"}}"
+            },
+            "url": {
+              "raw": "{{base_url}}/callback/payment",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "callback",
+                "payment"
+              ]
+            },
+            "description": "Refund request submitted"
+          },
+          "response": []
+        },
+        {
+          "name": "Refund Succeeded",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response indicates success\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Pay-Signature",
+                "value": "9957154170b3b9c336094a778b0d37bb6d5f01405ddfc4d2cbed5b0fb68f34e5",
+                "description": "HMAC-SHA256 signature"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"webhook_message_id\":\"evt_refund_succeeded_001\",\"api_version\":1,\"event_type\":\"card_payment_refunded\",\"created_date\":\"2024-01-16T14:05:00.000Z\",\"resource_id\":\"refund_001\",\"resource_type\":\"refund\",\"resource\":{\"refund_id\":\"refund_001\",\"payment_id\":\"pay_hp_001\",\"amount\":10000,\"status\":\"success\",\"created_date\":\"2024-01-16T14:00:00.000Z\",\"settled_date\":\"2024-01-16\"}}"
+            },
+            "url": {
+              "raw": "{{base_url}}/callback/payment",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "callback",
+                "payment"
+              ]
+            },
+            "description": "Refund completed successfully"
+          },
+          "response": []
+        }
+      ],
+      "description": "Refund processing scenarios"
+    },
+    {
+      "name": "Validation Errors",
+      "item": [
+        {
+          "name": "Invalid Signature",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 401 Unauthorized\", function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "",
+                  "pm.test(\"Response indicates signature validation failed\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.false;",
+                  "    pm.expect(jsonData.error).to.include('signature');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Pay-Signature",
+                "value": "invalid_signature_12345",
+                "description": "Invalid signature"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"webhook_message_id\": \"evt_invalid_sig_001\",\n  \"api_version\": 1,\n  \"event_type\": \"card_payment_created\",\n  \"created_date\": \"2024-01-15T10:00:00.000Z\",\n  \"resource_id\": \"pay_invalid_001\",\n  \"resource_type\": \"payment\",\n  \"resource\": {\n    \"payment_id\": \"pay_invalid_001\",\n    \"payment_provider\": \"worldpay\",\n    \"amount\": 10000,\n    \"reference\": \"REF-INVALID-001\",\n    \"description\": \"Invalid signature test\",\n    \"state\": {\n      \"status\": \"created\",\n      \"finished\": false\n    },\n    \"return_url\": \"https://example.com/return\",\n    \"created_date\": \"2024-01-15T10:00:00.000Z\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/callback/payment",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "callback",
+                "payment"
+              ]
+            },
+            "description": "Request with invalid signature should be rejected"
+          },
+          "response": []
+        },
+        {
+          "name": "Missing Signature Header",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 401 Unauthorized\", function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "",
+                  "pm.test(\"Response indicates missing signature\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.false;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"webhook_message_id\": \"evt_no_sig_001\",\n  \"api_version\": 1,\n  \"event_type\": \"card_payment_created\",\n  \"created_date\": \"2024-01-15T10:00:00.000Z\",\n  \"resource_id\": \"pay_no_sig_001\",\n  \"resource_type\": \"payment\",\n  \"resource\": {\n    \"payment_id\": \"pay_no_sig_001\",\n    \"payment_provider\": \"worldpay\",\n    \"amount\": 10000,\n    \"reference\": \"REF-NO-SIG-001\",\n    \"description\": \"Missing signature test\",\n    \"state\": {\n      \"status\": \"created\",\n      \"finished\": false\n    },\n    \"return_url\": \"https://example.com/return\",\n    \"created_date\": \"2024-01-15T10:00:00.000Z\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/callback/payment",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "callback",
+                "payment"
+              ]
+            },
+            "description": "Request without Pay-Signature header should be rejected"
+          },
+          "response": []
+        },
+        {
+          "name": "Missing Required Fields",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 400 Bad Request\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test(\"Response indicates validation error\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.false;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Pay-Signature",
+                "value": "d01e5ca2db1ae5a7215b0ba81f014c42e1450b61392873126e83f4b9e4bc1dcc",
+                "description": "HMAC-SHA256 signature"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"webhook_message_id\":\"evt_missing_fields_001\",\"api_version\":1,\"event_type\":\"card_payment_succeeded\",\"resource_type\":\"payment\",\"resource\":{\"payment_id\":\"pay_missing_001\",\"amount\":10000}}"
+            },
+            "url": {
+              "raw": "{{base_url}}/callback/payment",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "callback",
+                "payment"
+              ]
+            },
+            "description": "Payload missing required fields (resource_id, created_date, etc.)"
+          },
+          "response": []
+        },
+        {
+          "name": "Malformed JSON",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 400 Bad Request\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test(\"Response indicates parsing error\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.false;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Pay-Signature",
+                "value": "8a7b6c5d4e3f2a1b0c9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c1d0e9f8a7b",
+                "description": "HMAC-SHA256 signature"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"webhook_message_id\": \"evt_malformed_001\",\n  \"api_version\": 1,\n  \"event_type\": \"card_payment_created\",\n  \"resource\": {\n    \"payment_id\": \"pay_malformed_001\"\n    // Missing comma and closing braces"
+            },
+            "url": {
+              "raw": "{{base_url}}/callback/payment",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "callback",
+                "payment"
+              ]
+            },
+            "description": "Malformed JSON payload should be rejected"
+          },
+          "response": []
+        },
+        {
+          "name": "Invalid Payment Amount (Negative)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 400 Bad Request\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test(\"Response indicates validation error\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.false;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Pay-Signature",
+                "value": "b556ae52a0187c7c6154724fbad985d60e08a7d88784f752fd71b0e38efa906c",
+                "description": "HMAC-SHA256 signature"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"webhook_message_id\":\"evt_negative_amount_001\",\"api_version\":1,\"event_type\":\"card_payment_succeeded\",\"created_date\":\"2024-01-15T10:00:00.000Z\",\"resource_id\":\"pay_negative_001\",\"resource_type\":\"payment\",\"resource\":{\"payment_id\":\"pay_negative_001\",\"payment_provider\":\"worldpay\",\"amount\":-10000,\"reference\":\"REF-NEGATIVE-001\",\"description\":\"Negative amount test\",\"state\":{\"status\":\"created\",\"finished\":false},\"return_url\":\"https://example.com/return\",\"created_date\":\"2024-01-15T10:00:00.000Z\"}}"
+            },
+            "url": {
+              "raw": "{{base_url}}/callback/payment",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "callback",
+                "payment"
+              ]
+            },
+            "description": "Negative payment amount should be rejected"
+          },
+          "response": []
+        }
+      ],
+      "description": "Various validation error scenarios"
+    },
+    {
+      "name": "Idempotency & Duplicate Handling",
+      "item": [
+        {
+          "name": "Duplicate Webhook - First Request",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response indicates success\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Pay-Signature",
+                "value": "48326f2f4758b4085c6b80a49dfee0033cf5b75a80cfc1565d68907a93d59a68",
+                "description": "HMAC-SHA256 signature"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"webhook_message_id\":\"evt_duplicate_test_001\",\"api_version\":1,\"event_type\":\"card_payment_succeeded\",\"created_date\":\"2024-01-15T10:00:00.000Z\",\"resource_id\":\"pay_duplicate_001\",\"resource_type\":\"payment\",\"resource\":{\"payment_id\":\"pay_duplicate_001\",\"payment_provider\":\"worldpay\",\"amount\":10000,\"reference\":\"REF-DUPLICATE-001\",\"description\":\"Duplicate test payment\",\"state\":{\"status\":\"created\",\"finished\":false},\"return_url\":\"https://example.com/return\",\"created_date\":\"2024-01-15T10:00:00.000Z\"}}"
+            },
+            "url": {
+              "raw": "{{base_url}}/callback/payment",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "callback",
+                "payment"
+              ]
+            },
+            "description": "First webhook - should be processed"
+          },
+          "response": []
+        },
+        {
+          "name": "Duplicate Webhook - Second Request (Idempotent)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 (idempotent)\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response indicates duplicate detected\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "    // System should handle duplicates gracefully",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Pay-Signature",
+                "value": "48326f2f4758b4085c6b80a49dfee0033cf5b75a80cfc1565d68907a93d59a68",
+                "description": "HMAC-SHA256 signature"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"webhook_message_id\":\"evt_duplicate_test_001\",\"api_version\":1,\"event_type\":\"card_payment_succeeded\",\"created_date\":\"2024-01-15T10:00:00.000Z\",\"resource_id\":\"pay_duplicate_001\",\"resource_type\":\"payment\",\"resource\":{\"payment_id\":\"pay_duplicate_001\",\"payment_provider\":\"worldpay\",\"amount\":10000,\"reference\":\"REF-DUPLICATE-001\",\"description\":\"Duplicate test payment\",\"state\":{\"status\":\"created\",\"finished\":false},\"return_url\":\"https://example.com/return\",\"created_date\":\"2024-01-15T10:00:00.000Z\"}}"
+            },
+            "url": {
+              "raw": "{{base_url}}/callback/payment",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "callback",
+                "payment"
+              ]
+            },
+            "description": "Duplicate webhook - should be handled idempotently"
+          },
+          "response": []
+        }
+      ],
+      "description": "Test idempotent handling of duplicate webhooks"
+    },
+    {
+      "name": "Terminal State Protection",
+      "item": [
+        {
+          "name": "1. Create Payment for Terminal State Test",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Pay-Signature",
+                "value": "0c340d4fad2301f412c648be85afbfb41df2b57aae39d1f23e3d9c2a431a144a",
+                "description": "HMAC-SHA256 signature"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"webhook_message_id\":\"evt_terminal_created_001\",\"api_version\":1,\"event_type\":\"card_payment_succeeded\",\"created_date\":\"2024-01-15T10:00:00.000Z\",\"resource_id\":\"pay_terminal_001\",\"resource_type\":\"payment\",\"resource\":{\"payment_id\":\"pay_terminal_001\",\"payment_provider\":\"worldpay\",\"amount\":10000,\"reference\":\"REF-TERMINAL-001\",\"description\":\"Terminal state protection test\",\"state\":{\"status\":\"created\",\"finished\":false},\"return_url\":\"https://example.com/return\",\"created_date\":\"2024-01-15T10:00:00.000Z\"}}"
+            },
+            "url": {
+              "raw": "{{base_url}}/callback/payment",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "callback",
+                "payment"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "2. Payment Failed (Terminal State)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Pay-Signature",
+                "value": "88f15ded20d33c47e82f5dd48c5960e8ca93bdf36f93ffea858b73a1bcf14836",
+                "description": "HMAC-SHA256 signature"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"webhook_message_id\":\"evt_terminal_failed_001\",\"api_version\":1,\"event_type\":\"card_payment_succeeded\",\"created_date\":\"2024-01-15T10:05:00.000Z\",\"resource_id\":\"pay_terminal_001\",\"resource_type\":\"payment\",\"resource\":{\"payment_id\":\"pay_terminal_001\",\"payment_provider\":\"worldpay\",\"amount\":10000,\"reference\":\"REF-TERMINAL-001\",\"description\":\"Terminal state protection test\",\"state\":{\"status\":\"failed\",\"finished\":true,\"message\":\"Payment declined\",\"code\":\"P0010\"},\"return_url\":\"https://example.com/return\",\"created_date\":\"2024-01-15T10:00:00.000Z\"}}"
+            },
+            "url": {
+              "raw": "{{base_url}}/callback/payment",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "callback",
+                "payment"
+              ]
+            },
+            "description": "Payment enters terminal FAILED state"
+          },
+          "response": []
+        },
+        {
+          "name": "3. Attempt to Update Terminal State (Should Be Rejected)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 400 or 409 (terminal state protection)\", function () {",
+                  "    pm.expect([400, 409]).to.include(pm.response.code);",
+                  "});",
+                  "",
+                  "pm.test(\"Response indicates terminal state protection\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.false;",
+                  "    // Error message should mention terminal state",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Pay-Signature",
+                "value": "0def86e7e95edcb24e830616e1afc9f0cc4624a227f7b4d1ae4e861eaae97988",
+                "description": "HMAC-SHA256 signature"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"webhook_message_id\":\"evt_terminal_update_attempt_001\",\"api_version\":1,\"event_type\":\"card_payment_succeeded\",\"created_date\":\"2024-01-15T10:10:00.000Z\",\"resource_id\":\"pay_terminal_001\",\"resource_type\":\"payment\",\"resource\":{\"payment_id\":\"pay_terminal_001\",\"payment_provider\":\"worldpay\",\"amount\":10000,\"reference\":\"REF-TERMINAL-001\",\"description\":\"Terminal state protection test\",\"state\":{\"status\":\"success\",\"finished\":true},\"return_url\":\"https://example.com/return\",\"created_date\":\"2024-01-15T10:00:00.000Z\"}}"
+            },
+            "url": {
+              "raw": "{{base_url}}/callback/payment",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "callback",
+                "payment"
+              ]
+            },
+            "description": "Attempt to update payment from FAILED (terminal) to SUCCESS should be rejected"
+          },
+          "response": []
+        }
+      ],
+      "description": "Test that terminal states (FAILED, CANCELLED, REFUNDED) cannot be changed"
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Pre-request script for all requests",
+          "console.log('Webhook Test: ' + pm.info.requestName);"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Global test script",
+          "pm.test(\"Response time is acceptable\", function () {",
+          "    pm.expect(pm.response.responseTime).to.be.below(5000);",
+          "});",
+          "",
+          "pm.test(\"Response has Content-Type header\", function () {",
+          "    pm.response.to.have.header(\"Content-Type\");",
+          "});"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "webhook_secret",
+      "value": "test-signing-key-456",
+      "type": "string"
+    }
+  ]
+}

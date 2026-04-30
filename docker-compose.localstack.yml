@@ -1,0 +1,18 @@
+version: '3.8'
+services:
+  localstack:
+    image: localstack/localstack:0.14.5
+    container_name: localstack_main
+    ports:
+      - "4566:4566"   # Edge port for all services
+    environment:
+      - SERVICES=lambda,sqs
+      - DEBUG=1
+      - LAMBDA_EXECUTOR=docker-reuse
+      - DOCKER_HOST=unix:///var/run/docker.sock
+    volumes:
+      - ./DESNZ-SYEIA-Lambdas/pay-callback-reconciler:/var/task/pay-callback-reconciler
+      - ./DESNZ-SYEIA-Lambdas/pay-callback-relay:/var/task/pay-callback-relay
+      - ./inbound-event-receiver:/var/task/inbound-event-receiver
+      - ./localstack-init:/etc/localstack/init/ready.d
+      - /var/run/docker.sock:/var/run/docker.sock

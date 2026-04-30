@@ -17,6 +17,7 @@ SET timezone = 'UTC';
 CREATE TABLE IF NOT EXISTS payment_webhooks (
     id SERIAL PRIMARY KEY,
     webhook_id VARCHAR(255) NOT NULL UNIQUE,
+    payment_id VARCHAR(255),
     govuk_pay_id VARCHAR(255) NOT NULL,
     event_type VARCHAR(100) NOT NULL,
     webhook_data JSONB NOT NULL,
