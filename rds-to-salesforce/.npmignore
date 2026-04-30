@@ -1,0 +1,5 @@
+# Exclude test files and folders from npm package and deployment
+
+tests/
+*.test.js
+*.spec.js

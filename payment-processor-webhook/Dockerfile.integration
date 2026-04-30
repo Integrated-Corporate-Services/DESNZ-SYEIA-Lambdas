@@ -1,0 +1,126 @@
+# Dockerfile for Payment Processor Webhook - Integration Testing
+# Simulates Lambda execution in Docker for local testing
+
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm install --production
+
+# Copy application code
+COPY . .
+
+# Create a simple entrypoint that polls SQS and processes messages
+# This simulates Lambda's SQS trigger
+COPY <<'EOF' /app/sqs-poller.js
+import { SQSClient, ReceiveMessageCommand, DeleteMessageCommand } from '@aws-sdk/client-sqs';
+import { handler } from './handler.js';
+
+const sqsClient = new SQSClient({
+  region: process.env.AWS_REGION || 'eu-west-2',
+  endpoint: process.env.AWS_ENDPOINT_URL || 'http://localstack:4566',
+  forcePathStyle: true,
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID || 'test',
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || 'test',
+  },
+});
+
+const QUEUE_URL = process.env.WEBHOOK_SQS_QUEUE_URL;
+const POLL_INTERVAL = 2000; // 2 seconds
+
+console.log('🚀 Payment Processor Webhook - SQS Poller started');
+console.log('📋 Queue URL:', QUEUE_URL);
+
+async function pollAndProcess() {
+  try {
+    // Receive messages from SQS
+    const receiveParams = {
+      QueueUrl: QUEUE_URL,
+      MaxNumberOfMessages: 10,
+      WaitTimeSeconds: 5,
+      VisibilityTimeout: 30,
+    };
+
+    const { Messages } = await sqsClient.send(new ReceiveMessageCommand(receiveParams));
+
+    if (Messages && Messages.length > 0) {
+      console.log(`📨 Received ${Messages.length} message(s) from SQS`);
+
+      // Convert to Lambda event format
+      const event = {
+        Records: Messages.map(msg => ({
+          messageId: msg.MessageId,
+          receiptHandle: msg.ReceiptHandle,
+          body: msg.Body,
+          attributes: msg.Attributes || {},
+          messageAttributes: msg.MessageAttributes || {},
+          eventSource: 'aws:sqs',
+          eventSourceARN: `arn:aws:sqs:${process.env.AWS_REGION}:000000000000:payment-webhook-queue`,
+          awsRegion: process.env.AWS_REGION || 'eu-west-2',
+        })),
+      };
+
+      // Mock Lambda context
+      const context = {
+        getRemainingTimeInMillis: () => 300000, // 5 minutes
+        awsRequestId: `integration-test-${Date.now()}`,
+        functionName: 'payment-processor-webhook',
+      };
+
+      // Process through Lambda handler
+      const result = await handler(event, context);
+
+      // Delete successfully processed messages
+      const failedIds = new Set((result.batchItemFailures || []).map(f => f.itemIdentifier));
+      
+      for (const msg of Messages) {
+        if (!failedIds.has(msg.MessageId)) {
+          await sqsClient.send(new DeleteMessageCommand({
+            QueueUrl: QUEUE_URL,
+            ReceiptHandle: msg.ReceiptHandle,
+          }));
+          console.log(`✅ Deleted message ${msg.MessageId} from queue`);
+        } else {
+          console.log(`⚠️ Message ${msg.MessageId} will be retried (processing failed)`);
+        }
+      }
+    }
+  } catch (error) {
+    console.error('❌ Error polling SQS:', error);
+  }
+
+  // Continue polling
+  setTimeout(pollAndProcess, POLL_INTERVAL);
+}
+
+// Start polling
+pollAndProcess();
+EOF
+
+# Health check script
+COPY <<'EOF' /app/healthcheck.js
+import http from 'http';
+
+const server = http.createServer((req, res) => {
+  if (req.url === '/health') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ status: 'healthy', service: 'payment-processor-webhook' }));
+  } else {
+    res.writeHead(404);
+    res.end();
+  }
+});
+
+const PORT = 8080;
+server.listen(PORT, () => {
+  console.log(`Health check server listening on port ${PORT}`);
+});
+EOF
+
+# Start both health check and poller
+CMD node healthcheck.js & node sqs-poller.js

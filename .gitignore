@@ -1,0 +1,20 @@
+# Node.js
+node_modules/
+
+# Lambda deployment packages
+*.zip
+
+# Logs
+logs/
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment files
+.env
+.env.*
+
+# PowerShell scripts
+*.ps1

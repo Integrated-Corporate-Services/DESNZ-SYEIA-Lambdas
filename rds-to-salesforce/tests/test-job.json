@@ -1,0 +1,250 @@
+{
+  "applicationId": "11111111-aaaa-4aaa-aaaa-aaaaaaaaaaaa",
+  "formType": "S37",
+  "metadata": {
+    "source": "SYEIA",
+    "schemaVersion": 1
+  },
+  "sections": {
+    "route": [
+      {
+        "route_id": "8e0aec37-3a55-4f97-910a-68d2959ca792",
+        "routeName": "Route A",
+        "gridPoints": [
+          {
+            "easting": 400000,
+            "northing": 200000,
+            "point_id": "dfb933f8-a0ea-4a97-a180-3d1dd194f89a"
+          },
+          {
+            "easting": 500000,
+            "northing": 200000,
+            "point_id": "99815023-9879-4ea0-9214-b09e922fcd35"
+          }
+        ],
+        "disconnectedroute_justification": ""
+      },
+      {
+        "route_id": "d3b315ee-94eb-48b0-ba4c-b6bec43cdbbe",
+        "routeName": "Route B",
+        "gridPoints": [
+          {
+            "easting": 200000,
+            "northing": 200000,
+            "point_id": "02a548ba-6ce4-4343-9515-b4b0b9c6dc8a"
+          },
+          {
+            "easting": 250000,
+            "northing": 200000,
+            "point_id": "c33fc2af-1b22-4604-b144-90bf1191b32e"
+          }
+        ],
+        "disconnectedroute_justification": "weqweq"
+      }
+    ],
+    "eiaFees": [
+      {
+        "eia_id": "049000aa-8bf0-4d4f-8918-74a09ad7c6d6",
+        "created_at": "2025-11-07T20:43:00.341Z",
+        "created_by": "f25279f6-f4f5-4e11-bd46-d7541aadac8a",
+        "updated_at": "2025-11-07T20:43:00.341Z",
+        "updated_by": "f05a5073-c52c-4d13-b5f7-5a7b6e5be464",
+        "application_id": "11111111-aaaa-4aaa-aaaa-aaaaaaaaaaaa",
+        "screening_only": true,
+        "requires_full_eia": true,
+        "is_eia_development": false
+      }
+    ],
+    "parishes": [],
+    "planDocuments": [
+      {
+        "title": "Plan Document",
+        "file_id": "11111111-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+        "added_at": "2025-11-07T20:31:07.044Z",
+        "added_by": "44444444-4444-4444-4444-444444444444",
+        "category": "PLAN_INFO",
+        "description": "Test plan document",
+        "document_id": "66666666-ffff-4fff-ffff-ffffffffffff",
+        "subcategory": null,
+        "application_id": "11111111-aaaa-4aaa-aaaa-aaaaaaaaaaaa",
+        "virtual_folder": "plans"
+      }
+    ],
+    "worksOverview": {
+        "createdBy": null,
+        "polesAdded": 122,
+        "poleComments": "NA",
+        "poleMaterial": "2312",
+        "applicationId": "11111111-aaaa-4aaa-aaaa-aaaaaaaaaaaa",
+        "lastUpdatedBy": null,
+        "polesReplaced": 123,
+        "generalComments": "NA",
+        "vehiclesRequired": "qweq",
+        "estimatedDuration": "1231",
+        "excavationDetails": "vbnvb",
+        "chemicalTreatments": "12312",
+        "excavationRequired": true,
+        "removalDescription": "tyjyuj",
+        "accessRoutesDetails": "qweq",
+        "roadClosuresRequired": true,
+        "addingOrReplacingLines": true,
+        "addingOrReplacingPoles": true,
+        "overheadLineDescription": "Desc",
+        "removingExistingEquipment": true,
+        "usingExistingAccessRoutes": true,
+        "vegetationClearanceDetails": "zxcz",
+        "vegetationClearanceRequired": true
+    },
+    "networkOperator": {
+      "created_at": "2025-11-07T20:31:07.036Z",
+      "created_by": "44444444-4444-4444-4444-444444444444",
+      "operator_ref": "OP-REF-001",
+      "submitted_at": "2025-11-07T20:43:04.892Z",
+      "application_party": {
+        "role": "Applicant",
+        "email": "jane.doe@nationalgrid.co.uk",
+        "line1": "1 Alpha Street",
+        "line2": null,
+        "phone": "04567 890123",
+        "country": "UK",
+        "postcode": "A1 1AA",
+        "person_id": "44444444-4444-4444-4444-444444444444",
+        "town_city": "London",
+        "contact_id": "ccccccc5-cccc-cccc-cccc-ccccccccccc5",
+        "is_primary": true,
+        "person_name": "Jane Doe",
+        "application_id": "11111111-aaaa-4aaa-aaaa-aaaaaaaaaaaa",
+        "organisation_id": "11111111-1111-1111-1111-111111111111",
+        "organisation_name": "National Grid Electricity Distribution (NGED)",
+        "additional_contact": null,
+        "contact_isconfirmed": true,
+        "application_party_id": "aaaaaaa1-aaaa-aaaa-aaaa-aaaaaaaaaaa1"
+      }
+    },
+    "projectOverview": {
+      "project_details": {
+        "created_at": "2025-11-07T20:31:07.044Z",
+        "created_by": "44444444-4444-4444-4444-444444444444",
+        "project_id": "aaaa1111-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+        "updated_at": "2025-11-07T20:40:30.075Z",
+        "project_name": "Project Alpha",
+        "application_id": "11111111-aaaa-4aaa-aaaa-aaaaaaaaaaaa",
+        "project_description": "Alpha project description"
+      },
+      "application_cpo_form": null,
+      "application_relations": [
+        {
+          "details": "Related to Beta",
+          "created_at": "2025-11-07T20:40:30.075Z",
+          "project_name": "Project Beta",
+          "relation_type": "ASSOCIATED",
+          "application_id": "11111111-aaaa-4aaa-aaaa-aaaaaaaaaaaa",
+          "related_application_id": "22222222-bbbb-4bbb-bbbb-bbbbbbbbbbbb",
+          "application_relation_id": "f4abec95-ad0f-4f95-8369-fea4d898c86b"
+        }
+      ],
+      "application_project_overview": {
+        "updated_at": "2025-11-07T20:40:30.075Z",
+        "application_id": "11111111-aaaa-4aaa-aaaa-aaaaaaaaaaaa",
+        "plan_reference": "PlanRef-001",
+        "max_structure_height_m": "45.50",
+        "latest_work_start_date_year": "2025",
+        "latest_work_start_date_month": "12",
+        "earliest_work_start_date_year": "2025",
+        "earliest_work_start_date_month": "01"
+      }
+    },
+    "assetInformation": [
+      {
+        "asset_id": "55555555-5555-4555-8555-555555555555",
+        "tori_noi": null,
+        "asset_type": "OHL",
+        "created_at": "2025-11-07T20:31:07.051Z",
+        "created_by": "admin",
+        "description": "add 2 new spans, and remove 4 poles.",
+        "is_existing": false,
+        "application_id": "11111111-aaaa-4aaa-aaaa-aaaaaaaaaaaa",
+        "asset_reference": "REF-004",
+        "last_updated_at": "2025-11-07T20:31:07.051Z",
+        "last_updated_by": "admin"
+      },
+      {
+        "asset_id": "11111111-1111-4111-8111-111111111111",
+        "tori_noi": "qweqw",
+        "asset_type": "s37",
+        "created_at": "2025-11-07T20:31:07.051Z",
+        "created_by": "system",
+        "description": null,
+        "is_existing": false,
+        "application_id": "11111111-aaaa-4aaa-aaaa-aaaaaaaaaaaa",
+        "asset_reference": "123123",
+        "last_updated_at": "2025-11-07T20:40:41.573Z",
+        "last_updated_by": "system"
+      }
+    ],
+    "sensitiveAreaChecks": {
+      "layers": [
+        "Ancient Woodland (England)",
+        "Areas of Outstanding Natural Beauty (England) (National Landscape)",
+        "Ramsar Sites (England)",
+        "Registered Parks and Gardens (England)",
+        "Sites of Special Scientific Interest (England)",
+        "SSSI Impact Risk Zones (England)"
+      ],
+      "application_id": "11111111-aaaa-4aaa-aaaa-aaaaaaaaaaaa"
+    },
+    "sensitiveAreaReview": {
+      "id": "7856b6c9-193e-4378-b366-a83587245ade",
+      "route_id": "8e0aec37-3a55-4f97-910a-68d2959ca792",
+      "created_at": "2025-11-07T20:42:29.804Z",
+      "updated_at": "2025-11-07T20:42:29.804Z",
+      "reviewed_at": null,
+      "reviewed_by": null,
+      "settings_id": "6aa657e5-b856-4c7f-86e2-4934b7e6326d",
+      "application_id": "11111111-aaaa-4aaa-aaaa-aaaaaaaaaaaa",
+      "asset_presence_option_id": 3,
+      "other_sensitive_areas_note": "qweqw"
+    },
+    "supportingDocuments": [
+      {
+        "title": "error messasge.png",
+        "file_id": "915f218e-643c-44b6-973d-755c812a1e7f",
+        "added_at": "2025-11-07T20:42:49.887Z",
+        "added_by": "44444444-4444-4444-4444-444444444444",
+        "category": "SUPPORT_INFO",
+        "description": null,
+        "document_id": "f77fb449-1743-4242-8ac8-7733cf763456",
+        "subcategory": null,
+        "application_id": "11111111-aaaa-4aaa-aaaa-aaaaaaaaaaaa",
+        "virtual_folder": "11111111-aaaa-4aaa-aaaa-aaaaaaaaaaaa/SUPPORT_INFO/"
+      }
+    ],
+    "supportingQuestions": [
+      {
+        "id": "ede03f96-4652-4f9e-ac3d-1e463c3b7a72",
+        "created_at": "2025-11-07T20:42:51.373Z",
+        "updated_at": "2025-11-07T20:42:51.373Z",
+        "application_id": "11111111-aaaa-4aaa-aaaa-aaaaaaaaaaaa",
+        "wayleaves_obtained": false,
+        "applicant_supporting_comments": "qeqweq",
+        "wayleaves_not_obtained_reason": "qweqw",
+        "esqcr_2002_compliance_confirmed": true,
+        "has_additional_supporting_documents": true
+      }
+    ],
+    "sensitiveAreaReviewDocuments": [
+      {
+        "title": "map-4.png",
+        "file_id": "9a438213-9f36-424b-a0ae-760c55876a24",
+        "added_at": "2025-11-07T20:42:27.353Z",
+        "added_by": "44444444-4444-4444-4444-444444444444",
+        "category": "SENSITIVE_AREA_REVIEW",
+        "description": null,
+        "document_id": "5c687cc7-256d-47dc-8a30-0b0937d205f8",
+        "subcategory": null,
+        "application_id": "11111111-aaaa-4aaa-aaaa-aaaaaaaaaaaa",
+        "virtual_folder": "11111111-aaaa-4aaa-aaaa-aaaaaaaaaaaa/SENSITIVE_AREA_REVIEW"
+      }
+    ]
+  }
+}
