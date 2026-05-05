@@ -1,18 +1,20 @@
+import { SQSRecord } from 'aws-lambda';
 import log from './logger.js';
+import type { SQSMessageBody } from '../types/index.js';
 
 /**
  * Validate required environment variables at Lambda cold start
  * @throws {Error} if any required variables are missing
  */
-export function validateEnvVars() {
-  const required = {
+export function validateEnvVars(): boolean {
+  const required: Record<string, string[]> = {
     database: ['PGHOST', 'PGUSER', 'PGPASSWORD', 'PGDATABASE'],
     sqs: ['WEBHOOK_SQS_QUEUE_URL'],
     ecs: ['ECS_CLUSTER_ARN', 'ECS_WEBHOOK_TASK_DEFINITION'],
     security: ['GOVUK_PAY_WEBHOOK_SECRET'],
   };
 
-  const missing = [];
+  const missing: string[] = [];
   Object.entries(required).forEach(([category, vars]) => {
     vars.forEach(v => {
       if (!process.env[v]) {
@@ -34,13 +36,13 @@ export function validateEnvVars() {
 /**
  * Validate SQS message structure
  */
-export function validateSQSMessage(message) {
+export function validateSQSMessage(message: SQSRecord): SQSMessageBody {
   if (!message || !message.body) {
     throw new Error('Invalid SQS message: missing body');
   }
 
   try {
-    const body = JSON.parse(message.body);
+    const body: SQSMessageBody = JSON.parse(message.body);
     
     if (!body.webhook) {
       throw new Error('Invalid SQS message: missing webhook');

@@ -1,6 +1,11 @@
-﻿import crypto from 'crypto';
+import crypto from 'crypto';
 import log from '../util/logger.js';
-export function validateSignature(payload, signature, secret) {
+
+export function validateSignature(
+  payload: string, 
+  signature: string, 
+  secret: string
+): boolean {
   if (!signature || !secret || !payload) {
     log.warn('[signatureValidator] Missing data');
     return false;

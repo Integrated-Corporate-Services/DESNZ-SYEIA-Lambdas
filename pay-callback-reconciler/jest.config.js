@@ -7,7 +7,6 @@ export default {
     'index.js',
     '!**/node_modules/**',
     '!**/tests/**',
-    '!**/dead-code/**',
   ],
   coverageThreshold: {
     global: {

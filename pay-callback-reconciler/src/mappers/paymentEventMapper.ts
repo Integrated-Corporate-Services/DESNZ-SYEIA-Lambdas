@@ -1,5 +1,5 @@
-﻿export function mapEventType(govukPayType) {
-  const mapping = {
+export function mapEventType(govukPayType: string): string {
+  const mapping: Record<string, string> = {
     'payment.confirmed': 'PAYMENT_CONFIRMED',
     'payment.captured': 'PAYMENT_CAPTURED',
     'payment.settled': 'PAYMENT_SETTLED',

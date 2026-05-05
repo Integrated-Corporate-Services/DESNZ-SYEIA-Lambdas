@@ -1,15 +1,34 @@
-﻿import {
+import {
   isValidTransition,
   deriveStatusFromEvents,
   canTransitionToTerminal,
+  PaymentState,
+  PaymentEventType,
 } from './stateMachine.js';
 import log from '../util/logger.js';
+import type { Payment, PaymentEvent, GovUKPayWebhook } from '../types/index.js';
+
+interface ProcessContext {
+  eventId: string;
+  requestId: string;
+}
+
+interface ProcessResult {
+  action: 'PROCESS' | 'DUPLICATE' | 'IGNORE';
+  reason?: string;
+  eventType?: string;
+  allEvents?: string[];
+  currentStatus?: PaymentState;
+  finalStatus?: PaymentState;
+  statusChanged?: boolean;
+  processed?: boolean;
+}
 
 /**
  * Map GOV.UK Pay event types to internal event types
  */
-function normalizeEventType(govukPayEventType) {
-  const mapping = {
+function normalizeEventType(govukPayEventType: string): string {
+  const mapping: Record<string, string> = {
     'card_payment_succeeded': 'payment.confirmed',
     'card_payment_captured': 'payment.captured',
     'card_payment_settled': 'payment.settled',
@@ -25,15 +44,15 @@ function normalizeEventType(govukPayEventType) {
  * Process payment event with out-of-order resilience
  */
 export async function processPaymentEventWithOrdering(
-  payment,
-  allEvents,
-  newEvent,
-  context
-) {
+  payment: Payment,
+  allEvents: PaymentEvent[],
+  newEvent: GovUKPayWebhook,
+  context: ProcessContext
+): Promise<ProcessResult> {
   const { eventId } = context;
   const rawEventType = newEvent.event_type;
   const newEventType = normalizeEventType(rawEventType);
-  const currentStatus = payment.status || 'INITIAL';
+  const currentStatus = (payment.status || 'INITIAL') as PaymentState;
 
   // Filter out the current event (just inserted by idempotency check) from the list
   const previousEvents = allEvents.filter(e => e.event_id !== eventId);
@@ -54,7 +73,7 @@ export async function processPaymentEventWithOrdering(
   // 1. Check if already processed using RAW event type (idempotency at type level)
   // Note: event_id level idempotency is already handled by idempotencyService
   // This check prevents processing the same event TYPE twice (e.g., two different card_payment_succeeded events)
-  if (processedRawEventTypes.includes(rawEventType)) {
+  if (processedRawEventTypes.includes(rawEventType as any)) {
     log.info('[eventProcessor] Event type already processed', { rawEventType });
     return {
       action: 'DUPLICATE',
@@ -64,9 +83,9 @@ export async function processPaymentEventWithOrdering(
   }
 
   // 2. Validate transition
-  if (!isValidTransition(currentStatus, newEventType)) {
+  if (!isValidTransition(currentStatus, newEventType as PaymentEventType)) {
     // Try terminal state transitions
-    if (!canTransitionToTerminal(currentStatus, newEventType)) {
+    if (!canTransitionToTerminal(currentStatus, newEventType as PaymentEventType)) {
       log.warn('[eventProcessor] Invalid transition', {
         current: currentStatus,
         attempting: newEventType,
@@ -103,8 +122,8 @@ export async function processPaymentEventWithOrdering(
 /**
  * Extract event-specific data for database update
  */
-export function extractEventData(eventType, resourceData) {
-  const updates = {
+export function extractEventData(eventType: string, resourceData: any): Record<string, any> {
+  const updates: Record<string, any> = {
     last_event_type: eventType,
     last_event_at: new Date(),
   };

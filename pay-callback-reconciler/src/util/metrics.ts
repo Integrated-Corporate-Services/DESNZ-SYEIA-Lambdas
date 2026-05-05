@@ -1,4 +1,4 @@
-﻿import { CloudWatchClient, PutMetricDataCommand } from '@aws-sdk/client-cloudwatch';
+import { CloudWatchClient, PutMetricDataCommand, StandardUnit } from '@aws-sdk/client-cloudwatch';
 import log from './logger.js';
 
 const cwClient = new CloudWatchClient({ 
@@ -7,11 +7,15 @@ const cwClient = new CloudWatchClient({
 
 /**
  * Record metric to CloudWatch
- * @param {string} metricName - Name of the metric
- * @param {number} value - Metric value
- * @param {string} unit - CloudWatch unit (Count, Milliseconds, etc.)
+ * @param metricName - Name of the metric
+ * @param value - Metric value
+ * @param unit - CloudWatch unit (Count, Milliseconds, etc.)
  */
-export async function recordMetric(metricName, value, unit = 'Count') {
+export async function recordMetric(
+  metricName: string, 
+  value: number, 
+  unit: StandardUnit | string = 'Count'
+): Promise<void> {
   try {
     // Only send to CloudWatch in non-local environments
     if (process.env.NODE_ENV === 'local' || process.env.NODE_ENV === 'test') {
@@ -25,7 +29,7 @@ export async function recordMetric(metricName, value, unit = 'Count') {
         {
           MetricName: metricName,
           Value: value,
-          Unit: unit,
+          Unit: unit as StandardUnit,
           Timestamp: new Date(),
         }
       ],
@@ -33,10 +37,11 @@ export async function recordMetric(metricName, value, unit = 'Count') {
 
     log.debug('[metrics] Metric recorded to CloudWatch', { metricName, value, unit });
   } catch (err) {
+    const error = err as Error;
     // Don't fail processing if metrics fail
     log.error('[metrics] Failed to record metric', { 
       metricName, 
-      error: err.message 
+      error: error.message 
     });
   }
 }
