@@ -44,6 +44,9 @@
     /* Completeness */
     "skipLibCheck": true,
     
+    /* Global Types */
+    "types": ["node", "jest"],
+    
     /* Module Resolution */
     "baseUrl": ".",
     "paths": {
@@ -67,9 +70,7 @@
   ],
   "exclude": [
     "node_modules",
-    "dist",
-    "**/*.test.ts",
-    "**/*.test.js"
+    "dist"
   ],
   "ts-node": {
     "esm": true,

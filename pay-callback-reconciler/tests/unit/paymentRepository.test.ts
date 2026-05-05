@@ -4,8 +4,11 @@
 
 import { updatePaymentWithOrdering } from '../../src/database/paymentRepository.js';
 import { query } from '../../src/util/database.js';
+import type { UpdatePaymentData } from '../../src/types/index.js';
 
 jest.mock('../../src/util/database.js');
+
+const mockQuery = query as jest.MockedFunction<typeof query>;
 
 describe('PaymentRepository - Security', () => {
   beforeEach(() => {
@@ -14,12 +17,16 @@ describe('PaymentRepository - Security', () => {
 
   describe('updatePaymentWithOrdering', () => {
     test('should allow valid fields', async () => {
-      const mockQuery = query.mockResolvedValue({
-        rows: [{ govuk_pay_id: 'pay_123', status: 'CONFIRMED' }]
+      mockQuery.mockResolvedValue({
+        rows: [{ govuk_pay_id: 'pay_123', status: 'confirmed' }],
+        command: 'UPDATE',
+        rowCount: 1,
+        oid: 0,
+        fields: []
       });
 
-      const updates = {
-        status: 'CONFIRMED',
+      const updates: UpdatePaymentData = {
+        status: 'confirmed',
         event_history: ['payment.confirmed'],
         event_count: 1,
       };
@@ -33,8 +40,8 @@ describe('PaymentRepository - Security', () => {
     });
 
     test('should prevent SQL injection via malicious field names', async () => {
-      const updates = {
-        'status; DROP TABLE payments; --': 'CONFIRMED',
+      const updates: any = {
+        'status; DROP TABLE payments; --': 'confirmed',
         validField: 'value',
       };
 
@@ -44,12 +51,16 @@ describe('PaymentRepository - Security', () => {
     });
 
     test('should filter out non-whitelisted fields', async () => {
-      const mockQuery = query.mockResolvedValue({
-        rows: [{ govuk_pay_id: 'pay_123', status: 'CONFIRMED' }]
+      mockQuery.mockResolvedValue({
+        rows: [{ govuk_pay_id: 'pay_123', status: 'confirmed' }],
+        command: 'UPDATE',
+        rowCount: 1,
+        oid: 0,
+        fields: []
       });
 
-      const updates = {
-        status: 'CONFIRMED',
+      const updates: any = {
+        status: 'confirmed',
         maliciousField: 'should be ignored',
         unknownField: 'also ignored',
       };
@@ -63,7 +74,7 @@ describe('PaymentRepository - Security', () => {
     });
 
     test('should throw error when no valid fields provided', async () => {
-      const updates = {
+      const updates: any = {
         invalidField1: 'value1',
         invalidField2: 'value2',
       };
