@@ -1,0 +1,1 @@
+{"metadata":{"webhookId":"bd2f987d-0081-45ab-b55f-8df2dfc1cda2","paymentId":"test-payment-001","eventType":"card_payment_succeeded"},"webhook":{"resource":{"payment_id":"test-payment-001"},"event_type":"card_payment_succeeded"}}

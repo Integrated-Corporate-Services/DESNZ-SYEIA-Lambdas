@@ -1,0 +1,79 @@
+{
+  "compilerOptions": {
+    /* Language and Environment */
+    "target": "ES2020",
+    "lib": ["ES2020"],
+    "module": "ESNext",
+    "moduleResolution": "node",
+    
+    /* Emit */
+    "outDir": "./dist",
+    "rootDir": "./",
+    "sourceMap": true,
+    "declaration": true,
+    "declarationMap": true,
+    "removeComments": false,
+    "importHelpers": false,
+    "downlevelIteration": true,
+    "newLine": "lf",
+    
+    /* Interop Constraints */
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true,
+    "isolatedModules": true,
+    "allowJs": true,
+    "checkJs": false,
+    
+    /* Type Checking */
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "strictBindCallApply": true,
+    "strictPropertyInitialization": true,
+    "noImplicitThis": true,
+    "alwaysStrict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+    "noPropertyAccessFromIndexSignature": false,
+    
+    /* Completeness */
+    "skipLibCheck": true,
+    
+    /* Global Types */
+    "types": ["node", "jest"],
+    
+    /* Module Resolution */
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@database/*": ["src/database/*"],
+      "@services/*": ["src/services/*"],
+      "@util/*": ["src/util/*"],
+      "@validators/*": ["src/validators/*"],
+      "@types/*": ["src/types/*"],
+      "@queries/*": ["src/queries/*"]
+    },
+    
+    /* Advanced */
+    "resolveJsonModule": true
+  },
+  "include": [
+    "src/**/*",
+    "handler.ts",
+    "index.ts",
+    "tests/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ],
+  "ts-node": {
+    "esm": true,
+    "experimentalSpecifierResolution": "node"
+  }
+}
