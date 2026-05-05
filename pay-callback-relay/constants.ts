@@ -1,2 +1,2 @@
 export const TABLE_PAYMENT_WEBHOOKS = 'payment_webhooks';
-export const STATUS_PROCESSING = 'processing';
+export const STATUS_PROCESSING = 'PENDING';

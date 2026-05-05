@@ -21,7 +21,6 @@
     },
     "dependencies": {
         "pg": "^8.20.0",
-        "winston": "^3.11.0",
         "@aws-sdk/client-sqs": "^3.0.0",
         "@aws-sdk/client-ecs": "^3.0.0",
         "@aws-sdk/client-cloudwatch": "^3.0.0"

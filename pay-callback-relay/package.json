@@ -8,8 +8,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-sqs": "^3.500.0",
-    "pg": "^8.11.3",
-    "winston": "^3.10.0"
+    "pg": "^8.11.3"
   },
   "devDependencies": {
     "@types/jest": "^30.0.0",
