@@ -1,6 +1,6 @@
-import { pollAndEnqueueWebhooks } from '../pollService';
-import * as webhookRepo from '../repositories/webhookRepository';
-import * as sqsService from '../services/sqsService';
+import { pollAndEnqueueWebhooks } from '../../src/services/pollService';
+import * as webhookRepo from '../../src/repositories/webhookRepository';
+import * as sqsService from '../../src/services/sqsService';
 
 describe('pollAndEnqueueWebhooks', () => {
   beforeEach(() => {

@@ -1,6 +1,6 @@
-import { validateEnvVars } from './util/env';
-import log from './util/logger';
-import { pollAndEnqueueWebhooks } from './pollService';
+import { validateEnvVars } from './src/util/env';
+import log from './src/util/logger';
+import { pollAndEnqueueWebhooks } from './src/services/pollService';
 
 let envValidated = false;
 function ensureEnvValidation() {

@@ -1,3 +1,5 @@
+// Type definitions for payment webhook processing
+
 export interface WebhookRow {
   webhook_id: string;
   payment_id: string;

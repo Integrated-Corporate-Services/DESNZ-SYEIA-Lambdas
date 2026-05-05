@@ -1,9 +1,9 @@
 // Integration test for pollAndEnqueueWebhooks
 // Requires test DB and SQS (LocalStack recommended)
-import { pollAndEnqueueWebhooks } from '../pollService';
-import { getPool } from '../database/pool';
+import { pollAndEnqueueWebhooks } from '../../src/services/pollService';
+import { getPool } from '../../src/database/pool';
 import { SQSClient, ReceiveMessageCommand, DeleteMessageCommand } from '@aws-sdk/client-sqs';
-import { TABLE_PAYMENT_WEBHOOKS, STATUS_PROCESSING } from '../constants';
+import { TABLE_PAYMENT_WEBHOOKS, STATUS_PROCESSING } from '../../src/constants';
 
 describe('pollAndEnqueueWebhooks integration', () => {
   const pool = getPool();
