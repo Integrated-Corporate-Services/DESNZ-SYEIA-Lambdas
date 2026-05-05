@@ -2,10 +2,10 @@
  * Tests for Signature Validator
  */
 
-import { validateSignature } from '../validators/signatureValidator.js';
+import { validateSignature } from '../../src/validators/signatureValidator.js';
 import crypto from 'crypto';
 
-jest.mock('../util/logger.js', () => ({
+jest.mock('../../src/util/logger.js', () => ({
   default: {
     warn: jest.fn(),
     error: jest.fn(),

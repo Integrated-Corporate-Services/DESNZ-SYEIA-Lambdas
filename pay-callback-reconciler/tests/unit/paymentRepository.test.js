@@ -2,10 +2,10 @@
  * Tests for Payment Repository - SQL injection prevention
  */
 
-import { updatePaymentWithOrdering } from '../database/paymentRepository.js';
-import { query } from '../util/database.js';
+import { updatePaymentWithOrdering } from '../../src/database/paymentRepository.js';
+import { query } from '../../src/util/database.js';
 
-jest.mock('../util/database.js');
+jest.mock('../../src/util/database.js');
 
 describe('PaymentRepository - Security', () => {
   beforeEach(() => {

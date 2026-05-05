@@ -2,12 +2,12 @@ export default {
   testEnvironment: 'node',
   testMatch: ['**/tests/**/*.test.js'],
   collectCoverageFrom: [
-    '**/*.js',
+    'src/**/*.js',
+    'handler.js',
+    'index.js',
     '!**/node_modules/**',
     '!**/tests/**',
-    '!**/handler-cjs.js',
-    '!**/wrapper.js',
-    '!**/localTest.mjs',
+    '!**/dead-code/**',
   ],
   coverageThreshold: {
     global: {

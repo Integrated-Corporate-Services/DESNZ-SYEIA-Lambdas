@@ -2,11 +2,11 @@
  * Tests for Idempotency Service
  */
 
-import { checkAndRecordIdempotency } from '../idempotencyService.js';
-import { recordIdempotentEvent, findEventById } from '../database/idempotencyRepository.js';
+import { checkAndRecordIdempotency } from '../../src/idempotencyService.js';
+import { recordIdempotentEvent, findEventById } from '../../src/database/idempotencyRepository.js';
 
-jest.mock('../database/idempotencyRepository.js');
-jest.mock('../util/logger.js', () => ({
+jest.mock('../../src/database/idempotencyRepository.js');
+jest.mock('../../src/util/logger.js', () => ({
   default: {
     info: jest.fn(),
     error: jest.fn(),

@@ -1,6 +1,6 @@
-﻿import { processSQSBatch } from './paymentProcessor.js';
-import { validateEnvVars } from './util/validation.js';
-import log from './util/logger.js';
+﻿import { processSQSBatch } from './src/paymentProcessor.js';
+import { validateEnvVars } from './src/util/validation.js';
+import log from './src/util/logger.js';
 
 // Validate environment variables at cold start (outside handler)
 let envValidated = false;

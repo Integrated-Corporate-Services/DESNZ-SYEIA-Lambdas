@@ -2,9 +2,9 @@
  * Tests for Environment Validation
  */
 
-import { validateEnvVars, validateSQSMessage } from '../util/validation.js';
+import { validateEnvVars, validateSQSMessage } from '../../src/util/validation.js';
 
-jest.mock('../util/logger.js', () => ({
+jest.mock('../../src/util/logger.js', () => ({
   default: {
     info: jest.fn(),
     error: jest.fn(),
