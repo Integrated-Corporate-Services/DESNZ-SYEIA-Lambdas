@@ -1,8 +1,7 @@
-
-import log from './util/logger';
-import { getUnenqueuedWebhooks, markWebhookEnqueued } from './repositories/webhookRepository';
-import { enqueueWebhookToSQS } from './services/sqsService';
-import type { SQSEnqueueResult } from './types';
+import log from '../util/logger';
+import { getUnenqueuedWebhooks, markWebhookEnqueued } from '../repositories/webhookRepository';
+import { enqueueWebhookToSQS } from './sqsService';
+import type { SQSEnqueueResult } from '../types';
 
 export async function pollAndEnqueueWebhooks(): Promise<{ message: string; results: SQSEnqueueResult[] }> {
   const webhooks = await getUnenqueuedWebhooks();

@@ -1,8 +1,8 @@
-import { getPool } from './database/pool';
-import log from './util/logger';
+import { getPool } from '../database/pool';
+import log from '../util/logger';
 import { SQSClient, SendMessageCommand } from '@aws-sdk/client-sqs';
-import type { WebhookRow, SQSEnqueueResult } from './pollUnenqueuedWebhooks.types';
-import { TABLE_PAYMENT_WEBHOOKS, STATUS_PROCESSING } from './poll-unenqueued-webhooks.constants';
+import type { WebhookRow, SQSEnqueueResult } from '../types';
+import { TABLE_PAYMENT_WEBHOOKS, STATUS_PROCESSING } from '../constants';
 
 const sqs = new SQSClient({ region: process.env.AWS_REGION, endpoint: process.env.AWS_ENDPOINT_URL });
 const SQS_QUEUE_URL = process.env.SQS_QUEUE_URL;

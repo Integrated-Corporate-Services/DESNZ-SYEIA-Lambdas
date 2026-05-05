@@ -6,9 +6,9 @@
  * - Updates enqueued_at timestamp
  */
 
-import { validateEnvVars } from './util/env';
-import log from './util/logger';
-import { pollAndEnqueueWebhooks } from './poll-unenqueued-webhooks.constants';
+import { validateEnvVars } from './src/util/env';
+import log from './src/util/logger';
+import { pollAndEnqueueWebhooks } from './src/services/pollUnenqueuedWebhooks.service';
 
 let envValidated = false;
 function ensureEnvValidation() {
