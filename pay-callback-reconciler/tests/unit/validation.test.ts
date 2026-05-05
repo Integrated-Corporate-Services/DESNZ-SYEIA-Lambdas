@@ -6,10 +6,13 @@ import { validateEnvVars, validateSQSMessage } from '../../src/util/validation.j
 import type { SQSRecord } from 'aws-lambda';
 
 jest.mock('../../src/util/logger.js', () => ({
+  __esModule: true,
   default: {
     info: jest.fn(),
     error: jest.fn(),
-  }
+    warn: jest.fn(),
+    debug: jest.fn(),
+  },
 }));
 
 describe('Environment Validation', () => {

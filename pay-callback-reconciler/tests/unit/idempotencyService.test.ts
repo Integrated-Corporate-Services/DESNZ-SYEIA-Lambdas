@@ -8,11 +8,13 @@ import type { PaymentEvent } from '../../src/types/index.js';
 
 jest.mock('../../src/database/idempotencyRepository.js');
 jest.mock('../../src/util/logger.js', () => ({
+  __esModule: true,
   default: {
     info: jest.fn(),
     error: jest.fn(),
+    warn: jest.fn(),
     debug: jest.fn(),
-  }
+  },
 }));
 
 const mockRecordIdempotentEvent = recordIdempotentEvent as jest.MockedFunction<typeof recordIdempotentEvent>;

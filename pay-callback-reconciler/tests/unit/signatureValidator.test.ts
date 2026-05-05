@@ -6,10 +6,13 @@ import { validateSignature } from '../../src/validators/signatureValidator.js';
 import crypto from 'crypto';
 
 jest.mock('../../src/util/logger.js', () => ({
+  __esModule: true,
   default: {
-    warn: jest.fn(),
+    info: jest.fn(),
     error: jest.fn(),
-  }
+    warn: jest.fn(),
+    debug: jest.fn(),
+  },
 }));
 
 describe('SignatureValidator', () => {

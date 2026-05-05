@@ -34,7 +34,7 @@ describe('PaymentRepository - Security', () => {
       await updatePaymentWithOrdering('pay_123', updates);
 
       expect(mockQuery).toHaveBeenCalled();
-      const calledQuery = mockQuery.mock.calls[0][0];
+      const calledQuery = mockQuery.mock.calls[0]![0];
       expect(calledQuery).toContain('UPDATE payments SET');
       expect(calledQuery).toContain('status = $1');
     });
@@ -67,7 +67,7 @@ describe('PaymentRepository - Security', () => {
 
       await updatePaymentWithOrdering('pay_123', updates);
 
-      const calledQuery = mockQuery.mock.calls[0][0];
+      const calledQuery = mockQuery.mock.calls[0]![0];
       expect(calledQuery).not.toContain('maliciousField');
       expect(calledQuery).not.toContain('unknownField');
       expect(calledQuery).toContain('status');
