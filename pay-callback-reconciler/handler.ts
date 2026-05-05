@@ -1,11 +1,12 @@
-﻿import { processSQSBatch } from './src/paymentProcessor.js';
+import { SQSEvent, SQSBatchResponse, Context } from 'aws-lambda';
+import { processSQSBatch } from './src/services/paymentProcessor.js';
 import { validateEnvVars } from './src/util/validation.js';
 import log from './src/util/logger.js';
 
 // Validate environment variables at cold start (outside handler)
 let envValidated = false;
 
-function ensureEnvValidation() {
+function ensureEnvValidation(): void {
   if (!envValidated) {
     validateEnvVars();
     envValidated = true;
@@ -34,8 +35,8 @@ function ensureEnvValidation() {
  *   ]
  * }
  */
-export const handler = async (event, context) => {
-  const requestId = context?.requestId || context?.awsRequestId || 'unknown';
+export const handler = async (event: SQSEvent, context: Context): Promise<SQSBatchResponse> => {
+  const requestId = context?.awsRequestId || 'unknown';
   const startTime = Date.now();
 
   try {
@@ -71,10 +72,11 @@ export const handler = async (event, context) => {
     return result;
     
   } catch (err) {
+    const error = err as Error;
     log.error('[handler] Unhandled error', { 
       requestId, 
-      error: err.message,
-      stack: err.stack,
+      error: error.message,
+      stack: error.stack,
     });
     
     // Throw error to make SQS retry all messages in batch

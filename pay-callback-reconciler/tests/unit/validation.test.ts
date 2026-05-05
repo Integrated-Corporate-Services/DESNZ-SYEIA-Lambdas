@@ -3,12 +3,16 @@
  */
 
 import { validateEnvVars, validateSQSMessage } from '../../src/util/validation.js';
+import type { SQSRecord } from 'aws-lambda';
 
 jest.mock('../../src/util/logger.js', () => ({
+  __esModule: true,
   default: {
     info: jest.fn(),
     error: jest.fn(),
-  }
+    warn: jest.fn(),
+    debug: jest.fn(),
+  },
 }));
 
 describe('Environment Validation', () => {
@@ -62,50 +66,50 @@ describe('Environment Validation', () => {
 
   describe('validateSQSMessage', () => {
     test('should validate correct SQS message', () => {
-      const message = {
+      const message: Partial<SQSRecord> = {
         body: JSON.stringify({
           webhook: { type: 'payment.confirmed', data: { id: 'pay_123' } },
           metadata: { webhookId: 'evt_123', paymentId: 'pay_123' }
         })
       };
 
-      const result = validateSQSMessage(message);
+      const result = validateSQSMessage(message as SQSRecord);
       expect(result).toHaveProperty('webhook');
       expect(result).toHaveProperty('metadata');
     });
 
     test('should throw error for missing body', () => {
-      const message = {};
+      const message = {} as SQSRecord;
 
       expect(() => validateSQSMessage(message)).toThrow('Invalid SQS message: missing body');
     });
 
     test('should throw error for invalid JSON', () => {
-      const message = {
+      const message: Partial<SQSRecord> = {
         body: 'invalid json {'
       };
 
-      expect(() => validateSQSMessage(message)).toThrow('body is not valid JSON');
+      expect(() => validateSQSMessage(message as SQSRecord)).toThrow('body is not valid JSON');
     });
 
     test('should throw error for missing webhook', () => {
-      const message = {
+      const message: Partial<SQSRecord> = {
         body: JSON.stringify({
           metadata: { webhookId: 'evt_123', paymentId: 'pay_123' }
         })
       };
 
-      expect(() => validateSQSMessage(message)).toThrow('missing webhook');
+      expect(() => validateSQSMessage(message as SQSRecord)).toThrow('missing webhook');
     });
 
     test('should throw error for missing metadata', () => {
-      const message = {
+      const message: Partial<SQSRecord> = {
         body: JSON.stringify({
           webhook: { type: 'payment.confirmed', data: { id: 'pay_123' } }
         })
       };
 
-      expect(() => validateSQSMessage(message)).toThrow('missing metadata');
+      expect(() => validateSQSMessage(message as SQSRecord)).toThrow('missing metadata');
     });
   });
 });

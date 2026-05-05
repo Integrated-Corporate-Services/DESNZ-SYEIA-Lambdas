@@ -1,23 +1,28 @@
-﻿import { processPaymentEventWithOrdering, extractEventData } from './stateManagement/eventProcessor.js';
-import { updatePaymentWithOrdering, findByGovukPayId, getPaymentEvents, createPayment } from './database/paymentRepository.js';
-import { createOutboxRecord } from './database/outboxRepository.js';
-import { recordMetric } from './util/metrics.js';
-import { validateSignature } from './validators/signatureValidator.js';
+import { SQSRecord, SQSBatchResponse, Context } from 'aws-lambda';
+import { processPaymentEventWithOrdering, extractEventData } from '../stateManagement/eventProcessor.js';
+import { updatePaymentWithOrdering, findByGovukPayId, getPaymentEvents, createPayment } from '../database/paymentRepository.js';
+import { createOutboxRecord } from '../database/outboxRepository.js';
+import { recordMetric } from '../util/metrics.js';
+import { validateSignature } from '../validators/signatureValidator.js';
 import { checkAndRecordIdempotency } from './idempotencyService.js';
-import { beginTransaction, commitTransaction, rollbackTransaction } from './util/database.js';
-import log from './util/logger.js';
+import { beginTransaction, commitTransaction, rollbackTransaction } from '../util/database.js';
+import log from '../util/logger.js';
+import type { SQSMessageBody, ProcessResult } from '../types/index.js';
 
 /**
  * Process payment webhook from SQS message
  * Lambda is triggered by SQS event source mapping from backend
  * Now with transactions, signature validation, and proper idempotency
  */
-export async function processPaymentFromSQS(sqsMessage, context) {
-  const { requestId } = context;
+export async function processPaymentFromSQS(
+  sqsMessage: SQSRecord, 
+  context: Context
+): Promise<ProcessResult> {
+  const requestId = context.awsRequestId;
 
   try {
     // Parse SQS message body
-    const messageBody = JSON.parse(sqsMessage.body);
+    const messageBody: SQSMessageBody = JSON.parse(sqsMessage.body);
     const { webhook, metadata } = messageBody;
     
     const eventId = metadata.webhookId;
@@ -97,7 +102,7 @@ export async function processPaymentFromSQS(sqsMessage, context) {
         const initialData = {
           reference: webhook.resource?.reference || null,
           amount: webhook.resource?.amount || null,
-          status: 'pending',
+          status: 'pending' as const,
           description: webhook.resource?.description || null
         };
         
@@ -128,13 +133,16 @@ export async function processPaymentFromSQS(sqsMessage, context) {
       }
 
       // 7. Extract event-specific data (use normalized event type from processResult)
-      const eventData = extractEventData(processResult.eventType, webhook.resource);
+      const eventData = extractEventData(processResult.eventType || '', webhook.resource);
 
       // 8. Update payment with new status and event history
+      // Convert PaymentState (UPPERCASE) to PaymentStatus (lowercase)
+      const statusToUpdate = processResult.finalStatus?.toLowerCase() as any;
+      
       const updateData = {
-        status: processResult.finalStatus,
-        event_history: processResult.allEvents,
-        event_count: processResult.allEvents.length,
+        status: statusToUpdate,
+        event_history: processResult.allEvents || [],
+        event_count: processResult.allEvents?.length || 0,
         ...eventData,
       };
 
@@ -186,9 +194,10 @@ export async function processPaymentFromSQS(sqsMessage, context) {
     } catch (txError) {
       // Rollback transaction on any error
       await rollbackTransaction();
+      const error = txError as Error;
       log.error('[paymentProcessor] Transaction rolled back', { 
         requestId,
-        error: txError.message,
+        error: error.message,
         eventId,
         govukPayId
       });
@@ -196,11 +205,12 @@ export async function processPaymentFromSQS(sqsMessage, context) {
     }
 
   } catch (err) {
+    const error = err as Error;
     log.error('[paymentProcessor] Error processing from SQS', { 
       requestId,
       err,
-      message: err.message,
-      stack: err.stack,
+      message: error.message,
+      stack: error.stack,
     });
     recordMetric('payment.webhook.error', 1);
     throw err;
@@ -212,15 +222,18 @@ export async function processPaymentFromSQS(sqsMessage, context) {
  * Lambda can receive up to 10 messages in a batch
  * Processes with limited parallelism to avoid overwhelming database
  */
-export async function processSQSBatch(records, context) {
+export async function processSQSBatch(
+  records: SQSRecord[], 
+  context: Context
+): Promise<SQSBatchResponse> {
   log.info('[paymentProcessor] Processing SQS batch', { 
     recordCount: records.length,
-    requestId: context.requestId,
+    requestId: context.awsRequestId,
   });
 
   const BUFFER_MS = 5000; // 5 second buffer before timeout
   const PARALLEL_LIMIT = 3; // Process 3 records at a time
-  const batchItemFailures = [];
+  const batchItemFailures: { itemIdentifier: string }[] = [];
 
   try {
     for (let i = 0; i < records.length; i += PARALLEL_LIMIT) {
@@ -230,14 +243,16 @@ export async function processSQSBatch(records, context) {
         log.warn('[paymentProcessor] Lambda timeout approaching, stopping batch processing', {
           recordIndex: i,
           remainingMs: remainingTime,
-          requestId: context.requestId,
+          requestId: context.awsRequestId,
         });
         
         // Return remaining records as failures for SQS to retry
         for (let j = i; j < records.length; j++) {
-          batchItemFailures.push({
-            itemIdentifier: records[j].messageId
-          });
+          if (records[j]) {
+            batchItemFailures.push({
+              itemIdentifier: records[j]!.messageId
+            });
+          }
         }
         break;
       }
@@ -251,13 +266,14 @@ export async function processSQSBatch(records, context) {
       // Collect failures
       results.forEach((result, idx) => {
         if (result.status === 'rejected') {
+          const error = result.reason as Error;
           log.error('[paymentProcessor] Record processing failed', {
-            messageId: batch[idx].messageId,
-            error: result.reason?.message,
-            requestId: context.requestId,
+            messageId: batch[idx]?.messageId,
+            error: error?.message,
+            requestId: context.awsRequestId,
           });
           batchItemFailures.push({
-            itemIdentifier: batch[idx].messageId
+            itemIdentifier: batch[idx]?.messageId || ''
           });
         }
       });
@@ -270,16 +286,17 @@ export async function processSQSBatch(records, context) {
       total: records.length,
       successful,
       failed,
-      requestId: context.requestId,
+      requestId: context.awsRequestId,
     });
 
     // Return partial batch failure response
     return { batchItemFailures };
 
   } catch (err) {
+    const error = err as Error;
     log.error('[paymentProcessor] Batch processing error', {
-      error: err.message,
-      requestId: context.requestId,
+      error: error.message,
+      requestId: context.awsRequestId,
     });
     throw err;
   }

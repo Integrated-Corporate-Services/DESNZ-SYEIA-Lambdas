@@ -1,15 +1,26 @@
-﻿import pg from 'pg';
+import { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg';
 import log from './logger.js';
-const { Pool } = pg;
 
 // Global pool for Lambda container reuse
-let pool = null;
+let pool: Pool | null = null;
 
-export function getPool() {
+export interface DatabaseConfig {
+  host?: string;
+  port?: number;
+  database?: string;
+  user?: string;
+  password?: string;
+  ssl?: boolean | { rejectUnauthorized: boolean };
+  max?: number;
+  idleTimeoutMillis?: number;
+  connectionTimeoutMillis?: number;
+}
+
+export function getPool(): Pool {
   if (!pool) {
-    pool = new Pool({
+    const config: DatabaseConfig = {
       host: process.env.PGHOST,
-      port: process.env.PGPORT || 5432,
+      port: parseInt(process.env.PGPORT || '5432'),
       database: process.env.PGDATABASE,
       user: process.env.PGUSER,
       password: process.env.PGPASSWORD,
@@ -17,22 +28,28 @@ export function getPool() {
       max: parseInt(process.env.DB_POOL_SIZE || '5'),  // Lower for Lambda
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 5000,
-    });
+    };
 
-    pool.on('error', (err) => {
+    pool = new Pool(config);
+
+    pool.on('error', (err: Error) => {
       log.error('[database] Unexpected pool error', { error: err.message });
     });
   }
   return pool;
 }
 
-export async function query(text, values, retries = 3) {
-  let lastError;
+export async function query<T extends QueryResultRow = any>(
+  text: string,
+  values?: any[],
+  retries: number = 3
+): Promise<QueryResult<T>> {
+  let lastError: Error | undefined;
   const startTime = Date.now();
 
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
-      const res = await getPool().query(text, values);
+      const res = await getPool().query<T>(text, values);
       const duration = Date.now() - startTime;
 
       if (duration > 1000) {
@@ -45,12 +62,15 @@ export async function query(text, values, retries = 3) {
 
       return res;
     } catch (err) {
-      lastError = err;
+      lastError = err as Error;
 
       // Don't retry syntax errors
-      if (err.message.includes('syntax error')) {
-        log.error('[database] Query syntax error', { query: text.substring(0, 100), error: err.message });
-        throw err;
+      if (lastError.message.includes('syntax error')) {
+        log.error('[database] Query syntax error', { 
+          query: text.substring(0, 100), 
+          error: lastError.message 
+        });
+        throw lastError;
       }
 
       if (attempt < retries) {
@@ -58,7 +78,7 @@ export async function query(text, values, retries = 3) {
         log.warn('[database] Query failed, retrying', {
           attempt,
           delay,
-          error: err.code,
+          error: (lastError as any).code,
         });
         await new Promise(r => setTimeout(r, delay));
       }
@@ -67,30 +87,35 @@ export async function query(text, values, retries = 3) {
 
   log.error('[database] Query failed after retries', {
     query: text.substring(0, 100),
-    error: lastError.message,
+    error: lastError?.message,
   });
   throw lastError;
 }
 
 // Begin transaction
-export async function beginTransaction() {
+export async function beginTransaction(): Promise<QueryResult> {
   return await query('BEGIN');
 }
 
 // Commit transaction
-export async function commitTransaction() {
+export async function commitTransaction(): Promise<QueryResult> {
   return await query('COMMIT');
 }
 
 // Rollback transaction
-export async function rollbackTransaction() {
+export async function rollbackTransaction(): Promise<QueryResult> {
   return await query('ROLLBACK');
 }
 
 // Close pool (for graceful shutdown)
-export async function closePool() {
+export async function closePool(): Promise<void> {
   if (pool) {
     await pool.end();
     pool = null;
   }
+}
+
+// Get a client for transactions
+export async function getClient(): Promise<PoolClient> {
+  return await getPool().connect();
 }

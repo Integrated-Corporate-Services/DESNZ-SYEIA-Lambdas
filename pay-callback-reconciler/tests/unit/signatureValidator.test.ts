@@ -6,10 +6,13 @@ import { validateSignature } from '../../src/validators/signatureValidator.js';
 import crypto from 'crypto';
 
 jest.mock('../../src/util/logger.js', () => ({
+  __esModule: true,
   default: {
-    warn: jest.fn(),
+    info: jest.fn(),
     error: jest.fn(),
-  }
+    warn: jest.fn(),
+    debug: jest.fn(),
+  },
 }));
 
 describe('SignatureValidator', () => {
@@ -33,7 +36,7 @@ describe('SignatureValidator', () => {
   });
 
   test('should reject when signature is missing', () => {
-    const result = validateSignature(payload, null, secret);
+    const result = validateSignature(payload, '', secret);
     expect(result).toBe(false);
   });
 
@@ -42,13 +45,13 @@ describe('SignatureValidator', () => {
       .update(payload)
       .digest('hex');
 
-    const result = validateSignature(payload, signature, null);
+    const result = validateSignature(payload, signature, '');
     expect(result).toBe(false);
   });
 
   test('should reject when payload is missing', () => {
     const signature = 'some_signature';
-    const result = validateSignature(null, signature, secret);
+    const result = validateSignature('', signature, secret);
     expect(result).toBe(false);
   });
 
