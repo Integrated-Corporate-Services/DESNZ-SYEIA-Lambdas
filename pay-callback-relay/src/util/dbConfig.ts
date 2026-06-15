@@ -65,8 +65,11 @@ async function fetchSecretFromArn(secretArn: string): Promise<DbCredentials> {
   const response = await client.send(new GetSecretValueCommand({ SecretId: secretArn }));
 
   const payload = response.SecretString
-    ?? Buffer.from(response.SecretBinary as Uint8Array).toString('utf8');
+    ?? (response.SecretBinary ? Buffer.from(response.SecretBinary as Uint8Array).toString('utf8') : undefined);
 
+  if (!payload) {
+    throw new Error('Secrets Manager secret has no SecretString or SecretBinary payload.');
+  }
   const parsed = JSON.parse(payload) as DbCredentials;
   if (!parsed.username || !parsed.password) {
     throw new Error("Secret JSON must contain 'username' and 'password'.");
