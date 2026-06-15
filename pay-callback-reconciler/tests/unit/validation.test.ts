@@ -78,6 +78,7 @@ describe('Environment Validation', () => {
       process.env.DB_NAME = 'icseip';
       process.env.DB_PORT = '5432';
       process.env.REGION = 'eu-west-2';
+      process.env.GOVUK_PAY_WEBHOOK_SECRET = 'secret123';
 
       expect(() => validateEnvVars()).not.toThrow();
     });
@@ -98,7 +99,21 @@ describe('Environment Validation', () => {
       expect(error?.message).toContain('DB credentials (DB_CREDENTIALS|PGUSER+PGPASSWORD|DB_USER+DB_PASSWORD)');
     });
 
-    test('should throw error when security vars are missing in local mode', () => {
+    test('should throw error when GOVUK_PAY_WEBHOOK_SECRET is missing in AWS mode', () => {
+      clearDbEnvVars();
+      delete process.env.AWS_ENDPOINT_URL;
+
+      process.env.HOST_NAME = 'dev-eip-dev.example.rds.amazonaws.com';
+      process.env.DB_CREDENTIALS = 'arn:aws:secretsmanager:eu-west-2:123456789012:secret:example';
+      process.env.DB_NAME = 'icseip';
+      process.env.DB_PORT = '5432';
+      process.env.REGION = 'eu-west-2';
+      delete process.env.GOVUK_PAY_WEBHOOK_SECRET;
+
+      expect(() => validateEnvVars()).toThrow('GOVUK_PAY_WEBHOOK_SECRET (security)');
+    });
+
+    test('should throw error when GOVUK_PAY_WEBHOOK_SECRET is missing in LocalStack mode', () => {
       process.env.PGHOST = 'localhost';
       process.env.PGUSER = 'postgres';
       process.env.PGPASSWORD = 'password';

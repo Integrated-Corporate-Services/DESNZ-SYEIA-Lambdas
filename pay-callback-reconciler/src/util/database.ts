@@ -23,48 +23,50 @@ export interface DatabaseConfig {
   connectionTimeoutMillis?: number;
 }
 
+async function initializePool(): Promise<void> {
+  const credentials = await resolveDbCredentials();
+
+  const config: DatabaseConfig = {
+    host: getDbHost(),
+    port: getDbPort(),
+    database: getDbName(),
+    user: credentials.username,
+    password: credentials.password,
+    ssl: shouldUseDbSsl() ? { rejectUnauthorized: false } : false,
+    max: parseInt(process.env.DB_POOL_SIZE || '5', 10),
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 5000,
+  };
+
+  pool = new Pool(config);
+
+  pool.on('error', (err: Error) => {
+    log.error('[database] Unexpected pool error', { error: err.message });
+  });
+
+  log.info('[database] Database pool initialized', {
+    host: config.host,
+    port: config.port,
+    database: config.database,
+    ssl: Boolean(config.ssl),
+  });
+}
+
 export async function ensurePoolInitialized(): Promise<void> {
   if (pool) {
     return;
   }
 
   if (!initPromise) {
-    initPromise = (async () => {
-      try {
-        const credentials = await resolveDbCredentials();
-
-        const config: DatabaseConfig = {
-          host: getDbHost(),
-          port: getDbPort(),
-          database: getDbName(),
-          user: credentials.username,
-          password: credentials.password,
-          ssl: shouldUseDbSsl() ? { rejectUnauthorized: false } : false,
-          max: parseInt(process.env.DB_POOL_SIZE || '5', 10),
-          idleTimeoutMillis: 30000,
-          connectionTimeoutMillis: 5000,
-        };
-
-        pool = new Pool(config);
-
-        pool.on('error', (err: Error) => {
-          log.error('[database] Unexpected pool error', { error: err.message });
-        });
-
-        log.info('[database] Database pool initialized', {
-          host: config.host,
-          port: config.port,
-          database: config.database,
-          ssl: Boolean(config.ssl),
-        });
-      } catch (err) {
-        initPromise = null;
-        throw err;
-      }
-    })();
+    initPromise = initializePool();
   }
 
-  await initPromise;
+  try {
+    await initPromise;
+  } catch (err) {
+    initPromise = null;
+    throw err;
+  }
 }
 
 export function getPool(): Pool {

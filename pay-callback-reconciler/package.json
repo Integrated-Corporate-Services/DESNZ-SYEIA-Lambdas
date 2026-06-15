@@ -16,7 +16,7 @@
     "description": "Lambda for processing GOV.UK Pay webhooks via SQS - triggered by backend webhook service",
     "version": "2.0.0",
     "engines": {
-        "node": "18.x"
+        "node": "20.x"
     },
     "name": "payment-processor-webhook-lambda",
     "main": "handler.js",
@@ -24,7 +24,7 @@
     "devDependencies": {
         "@types/aws-lambda": "^8.10.161",
         "@types/jest": "^29.5.0",
-        "@types/node": "^18.19.0",
+        "@types/node": "^20.19.0",
         "@types/pg": "^8.10.0",
         "@typescript-eslint/eslint-plugin": "^6.0.0",
         "@typescript-eslint/parser": "^6.0.0",

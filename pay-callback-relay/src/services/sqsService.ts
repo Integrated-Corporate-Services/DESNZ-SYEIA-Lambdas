@@ -2,18 +2,26 @@ import { SendMessageCommand, SQSClient } from '@aws-sdk/client-sqs';
 import { SQSEnqueueResult, WebhookRow } from '../types';
 import { getAwsRegion } from '../util/dbConfig';
 
+let sqsClient: SQSClient | null = null;
+
 function getSqsClient(): SQSClient {
-  const endpoint = process.env.AWS_ENDPOINT_URL;
-  return new SQSClient({
-    region: getAwsRegion(),
-    ...(endpoint ? { endpoint } : {}),
-  });
+  if (!sqsClient) {
+    const endpoint = process.env.AWS_ENDPOINT_URL;
+    sqsClient = new SQSClient({
+      region: getAwsRegion(),
+      ...(endpoint ? { endpoint } : {}),
+    });
+  }
+
+  return sqsClient;
 }
 
 function getQueueUrl(): string {
   const queueUrl = process.env.SQS_QUEUE_URL || process.env.WEBHOOK_SQS_QUEUE_URL;
   if (!queueUrl) {
-    throw new Error('SQS queue URL not configured');
+    throw new Error(
+      'SQS queue URL not configured (SQS_QUEUE_URL|WEBHOOK_SQS_QUEUE_URL)'
+    );
   }
 
   return queueUrl;

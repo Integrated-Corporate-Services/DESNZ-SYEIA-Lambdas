@@ -38,6 +38,10 @@ export function validateEnvVars(): boolean {
     missing.push('AWS region (AWS_REGION|REGION)');
   }
 
+  if (!process.env.GOVUK_PAY_WEBHOOK_SECRET) {
+    missing.push('GOVUK_PAY_WEBHOOK_SECRET (security)');
+  }
+
   if (isLocalStackEnvironment()) {
     if (!process.env.WEBHOOK_SQS_QUEUE_URL) {
       missing.push('WEBHOOK_SQS_QUEUE_URL (sqs)');
@@ -49,10 +53,6 @@ export function validateEnvVars(): boolean {
 
     if (!process.env.ECS_WEBHOOK_TASK_DEFINITION) {
       missing.push('ECS_WEBHOOK_TASK_DEFINITION (ecs)');
-    }
-
-    if (!process.env.GOVUK_PAY_WEBHOOK_SECRET) {
-      missing.push('GOVUK_PAY_WEBHOOK_SECRET (security)');
     }
   }
 
