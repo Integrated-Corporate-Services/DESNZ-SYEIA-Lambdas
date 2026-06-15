@@ -2,11 +2,11 @@
     "type": "module",
     "scripts": {
         "build": "tsc",
-        "prepare": "npm run build && node scripts/copy-lambda-bundle.cjs",
+        "prepare": "npm run build",
         "build:watch": "tsc --watch",
         "test": "jest",
         "test:watch": "jest --watch",
-        "deploy": "npm run build && node scripts/copy-lambda-bundle.cjs && zip -r lambda.zip handler.js src package.json package-lock.json node_modules && echo 'Upload lambda.zip to AWS Lambda'",
+        "deploy": "npm run build && zip -r lambda.zip handler.js src package.json package-lock.json node_modules && echo 'Upload lambda.zip to AWS Lambda'",
         "lint": "eslint . --ext .ts,.js",
         "lint:fix": "eslint . --ext .ts,.js --fix",
         "type-check": "tsc --noEmit",
@@ -20,7 +20,6 @@
     },
     "name": "payment-processor-webhook-lambda",
     "main": "handler.js",
-    "types": "dist/handler.d.ts",
     "devDependencies": {
         "@types/aws-lambda": "^8.10.161",
         "@types/jest": "^29.5.0",
