@@ -6,8 +6,13 @@ const SQS_QUEUE_URL = process.env.SQS_QUEUE_URL;
 
 export async function enqueueWebhookToSQS(webhook: WebhookRow): Promise<SQSEnqueueResult> {
   try {
+    const parsedPayload =
+      typeof webhook.raw_payload === 'string'
+        ? JSON.parse(webhook.raw_payload)
+        : webhook.raw_payload;
+
     const messageBody = {
-      webhook: JSON.parse(webhook.raw_payload),
+      webhook: parsedPayload,
       metadata: {
         webhookId: webhook.webhook_id,
         paymentId: webhook.payment_id,

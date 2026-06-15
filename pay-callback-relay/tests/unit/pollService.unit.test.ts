@@ -19,7 +19,7 @@ describe('pollAndEnqueueWebhooks', () => {
       webhook_id: 'id1',
       payment_id: 'pid1',
       event_type: 'PAYMENT',
-      status: 'processing',
+      status: 'pending',
       raw_payload: '{}',
       correlation_id: null,
     };
@@ -36,7 +36,7 @@ describe('pollAndEnqueueWebhooks', () => {
       webhook_id: 'id2',
       payment_id: 'pid2',
       event_type: 'PAYMENT',
-      status: 'processing',
+      status: 'pending',
       raw_payload: '{}',
       correlation_id: null,
     };
