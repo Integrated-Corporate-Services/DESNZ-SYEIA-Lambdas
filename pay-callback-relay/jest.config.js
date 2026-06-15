@@ -18,6 +18,6 @@ module.exports = {
     },
   },
   transform: {
-    '^.+\\.ts$': ['ts-jest', { tsconfig: { types: ['jest', 'node'] } }],
+    '^.+\\.ts$': ['ts-jest', { tsconfig: { compilerOptions: { types: ['jest', 'node'] } } }],
   },
 };
