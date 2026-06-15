@@ -2,4 +2,4 @@
  * Constants Exports
  */
 
-export * from './payment.constants';
+export * from './payment.constants.js';

@@ -12,7 +12,12 @@ export function getDbHost(): string {
 }
 
 export function getDbPort(): number {
-  return Number(process.env.PGPORT || process.env.DB_PORT || 5432);
+  const port = Number(process.env.PGPORT || process.env.DB_PORT || 5432);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new Error(`Invalid database port: ${process.env.PGPORT || process.env.DB_PORT}`);
+  }
+
+  return port;
 }
 
 export function getDbName(): string {
@@ -24,7 +29,7 @@ export function getAwsRegion(): string {
 }
 
 export function hasDbCredentialsConfigured(): boolean {
-  if (process.env.DB_CREDENTIALS) {
+  if (process.env.DB_CREDENTIALS?.trim()) {
     return true;
   }
 
@@ -65,19 +70,29 @@ export async function resolveDbCredentials(): Promise<DbCredentials> {
     return cachedCredentials;
   }
 
-  const dbCredentials = process.env.DB_CREDENTIALS;
+  const dbCredentials = process.env.DB_CREDENTIALS?.trim();
   if (dbCredentials) {
+    if (dbCredentials.startsWith('arn:aws:secretsmanager:')) {
+      cachedCredentials = await fetchSecretFromArn(dbCredentials);
+      return cachedCredentials;
+    }
+
     try {
       const parsed = JSON.parse(dbCredentials) as DbCredentials;
       if (parsed.username && parsed.password) {
         cachedCredentials = parsed;
         return parsed;
       }
-    } catch {
-      if (dbCredentials.startsWith('arn:aws:secretsmanager:')) {
-        cachedCredentials = await fetchSecretFromArn(dbCredentials);
-        return cachedCredentials;
+
+      throw new Error("DB_CREDENTIALS JSON must contain 'username' and 'password'.");
+    } catch (err) {
+      if (err instanceof SyntaxError) {
+        throw new Error(
+          'DB_CREDENTIALS must be a Secrets Manager ARN or valid JSON with username and password.'
+        );
       }
+
+      throw err;
     }
   }
 

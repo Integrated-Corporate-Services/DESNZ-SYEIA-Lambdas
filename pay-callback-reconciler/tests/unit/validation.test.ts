@@ -18,9 +18,34 @@ jest.mock('../../src/util/logger.js', () => ({
 describe('Environment Validation', () => {
   const originalEnv = process.env;
 
+  const dbEnvKeys = [
+    'PGHOST',
+    'DB_HOST',
+    'HOST_NAME',
+    'PGUSER',
+    'DB_USER',
+    'PGPASSWORD',
+    'DB_PASSWORD',
+    'PGDATABASE',
+    'DB_NAME',
+    'PGPORT',
+    'DB_PORT',
+    'DB_CREDENTIALS',
+    'AWS_REGION',
+    'REGION',
+    'AWS_ENDPOINT_URL',
+  ] as const;
+
+  function clearDbEnvVars(): void {
+    dbEnvKeys.forEach((key) => {
+      delete process.env[key];
+    });
+  }
+
   beforeEach(() => {
     jest.clearAllMocks();
     process.env = { ...originalEnv };
+    clearDbEnvVars();
   });
 
   afterAll(() => {
@@ -45,6 +70,9 @@ describe('Environment Validation', () => {
     });
 
     test('should pass with AWS Lambda environment variables', () => {
+      clearDbEnvVars();
+      delete process.env.AWS_ENDPOINT_URL;
+
       process.env.HOST_NAME = 'dev-eip-dev.example.rds.amazonaws.com';
       process.env.DB_CREDENTIALS = 'arn:aws:secretsmanager:eu-west-2:123456789012:secret:example';
       process.env.DB_NAME = 'icseip';
@@ -55,17 +83,19 @@ describe('Environment Validation', () => {
     });
 
     test('should throw error when database vars are missing', () => {
-      delete process.env.PGHOST;
-      delete process.env.PGUSER;
-      delete process.env.PGPASSWORD;
-      delete process.env.PGDATABASE;
-      delete process.env.PGPORT;
-      delete process.env.AWS_REGION;
-      delete process.env.REGION;
+      clearDbEnvVars();
 
-      expect(() => validateEnvVars()).toThrow('Missing required environment variables');
-      expect(() => validateEnvVars()).toThrow('DB host (PGHOST|DB_HOST|HOST_NAME)');
-      expect(() => validateEnvVars()).toThrow('DB credentials (DB_CREDENTIALS|PGUSER+PGPASSWORD|DB_USER+DB_PASSWORD)');
+      let error: Error | undefined;
+      try {
+        validateEnvVars();
+      } catch (err) {
+        error = err as Error;
+      }
+
+      expect(error).toBeDefined();
+      expect(error?.message).toContain('Missing required environment variables');
+      expect(error?.message).toContain('DB host (PGHOST|DB_HOST|HOST_NAME)');
+      expect(error?.message).toContain('DB credentials (DB_CREDENTIALS|PGUSER+PGPASSWORD|DB_USER+DB_PASSWORD)');
     });
 
     test('should throw error when security vars are missing in local mode', () => {
