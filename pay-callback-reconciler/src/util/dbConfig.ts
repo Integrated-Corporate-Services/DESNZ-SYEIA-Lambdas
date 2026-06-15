@@ -1,11 +1,17 @@
 import { GetSecretValueCommand, SecretsManagerClient } from '@aws-sdk/client-secrets-manager';
 
+// Database configuration helpers mirrored in pay-callback-reconciler (independent Lambda zip bundles).
+
 interface DbCredentials {
   username: string;
   password: string;
 }
 
 let cachedCredentials: DbCredentials | null = null;
+
+export function resetDbConfigCache(): void {
+  cachedCredentials = null;
+}
 
 export function getDbHost(): string {
   return process.env.PGHOST || process.env.DB_HOST || process.env.HOST_NAME || '';
@@ -47,11 +53,15 @@ export function shouldUseDbSsl(): boolean {
     return true;
   }
 
-  return Boolean(process.env.HOST_NAME || process.env.DB_CREDENTIALS);
+  return Boolean(process.env.HOST_NAME);
 }
 
 async function fetchSecretFromArn(secretArn: string): Promise<DbCredentials> {
-  const client = new SecretsManagerClient({ region: getAwsRegion() });
+  const endpoint = process.env.AWS_ENDPOINT_URL;
+  const client = new SecretsManagerClient({
+    region: getAwsRegion(),
+    ...(endpoint ? { endpoint } : {}),
+  });
   const response = await client.send(new GetSecretValueCommand({ SecretId: secretArn }));
 
   const payload = response.SecretString

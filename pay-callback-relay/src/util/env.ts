@@ -1,5 +1,5 @@
 import log from './logger';
-import { getDbHost, getDbName, getAwsRegion, hasDbCredentialsConfigured } from './dbConfig';
+import { getDbHost, getDbName, hasDbCredentialsConfigured } from './dbConfig';
 
 function hasEnv(name: string): boolean {
   return Boolean(process.env[name]);
@@ -28,7 +28,7 @@ export function validateEnvVars(): void {
     missing.push('DB port (DB_PORT|PGPORT)');
   }
 
-  if (!getAwsRegion()) {
+  if (!hasEnv('AWS_REGION') && !hasEnv('REGION')) {
     missing.push('AWS region (AWS_REGION|REGION)');
   }
 

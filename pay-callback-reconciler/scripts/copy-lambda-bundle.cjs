@@ -20,7 +20,8 @@ function removeGeneratedJsFiles(targetDir) {
   }
 }
 
-function copyJsFiles(sourceDir, targetDir) {  fs.mkdirSync(targetDir, { recursive: true });
+function copyJsFiles(sourceDir, targetDir) {
+  fs.mkdirSync(targetDir, { recursive: true });
 
   for (const entry of fs.readdirSync(sourceDir, { withFileTypes: true })) {
     const sourcePath = path.join(sourceDir, entry.name);
@@ -42,6 +43,7 @@ if (fs.existsSync('handler.js')) {
   fs.unlinkSync('handler.js');
 }
 
-fs.copyFileSync(path.join('dist', 'handler.js'), 'handler.js');copyJsFiles(path.join('dist', 'src'), 'src');
+fs.copyFileSync(path.join('dist', 'handler.js'), 'handler.js');
+copyJsFiles(path.join('dist', 'src'), 'src');
 
 console.log('Lambda bundle copied to package root (handler.js + src/**/*.js)');
