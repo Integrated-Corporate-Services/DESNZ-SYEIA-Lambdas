@@ -18,6 +18,6 @@ export default {
     },
   },
   transform: {
-    '^.+\\.ts$': 'ts-jest',
+    '^.+\\.ts$': ['ts-jest', { tsconfig: { types: ['jest', 'node'] } }],
   },
 };

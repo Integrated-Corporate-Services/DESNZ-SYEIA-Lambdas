@@ -2,14 +2,15 @@
     "type": "module",
     "scripts": {
         "build": "tsc",
+        "prepare": "npm run build && node scripts/copy-lambda-bundle.cjs",
         "build:watch": "tsc --watch",
         "test": "jest",
         "test:watch": "jest --watch",
-        "deploy": "npm run build && zip -r lambda.zip dist package.json package-lock.json node_modules && echo 'Upload lambda.zip to AWS Lambda'",
+        "deploy": "npm run build && node scripts/copy-lambda-bundle.cjs && zip -r lambda.zip handler.js src package.json package-lock.json node_modules && echo 'Upload lambda.zip to AWS Lambda'",
         "lint": "eslint . --ext .ts,.js",
         "lint:fix": "eslint . --ext .ts,.js --fix",
         "type-check": "tsc --noEmit",
-        "start": "node dist/handler.js",
+        "start": "node handler.js",
         "dev": "ts-node-esm handler.ts"
     },
     "description": "Lambda for processing GOV.UK Pay webhooks via SQS - triggered by backend webhook service",
@@ -18,7 +19,7 @@
         "node": "18.x"
     },
     "name": "payment-processor-webhook-lambda",
-    "main": "dist/handler.js",
+    "main": "handler.js",
     "types": "dist/handler.d.ts",
     "devDependencies": {
         "@types/aws-lambda": "^8.10.161",
@@ -30,13 +31,14 @@
         "eslint": "^8.0.0",
         "jest": "^30.2.0",
         "ts-jest": "^29.1.0",
-        "ts-node": "^10.9.2",
-        "typescript": "^5.3.0"
+        "ts-node": "^10.9.2"
     },
     "dependencies": {
         "@aws-sdk/client-cloudwatch": "^3.0.0",
         "@aws-sdk/client-ecs": "^3.0.0",
+        "@aws-sdk/client-secrets-manager": "^3.0.0",
         "@aws-sdk/client-sqs": "^3.0.0",
-        "pg": "^8.20.0"
+        "pg": "^8.20.0",
+        "typescript": "^5.3.0"
     }
 }

@@ -1,8 +1,15 @@
 import { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg';
 import log from './logger.js';
+import {
+  getDbHost,
+  getDbName,
+  getDbPort,
+  resolveDbCredentials,
+  shouldUseDbSsl,
+} from './dbConfig.js';
 
-// Global pool for Lambda container reuse
 let pool: Pool | null = null;
+let initPromise: Promise<void> | null = null;
 
 export interface DatabaseConfig {
   host?: string;
@@ -16,26 +23,50 @@ export interface DatabaseConfig {
   connectionTimeoutMillis?: number;
 }
 
+export async function ensurePoolInitialized(): Promise<void> {
+  if (pool) {
+    return;
+  }
+
+  if (!initPromise) {
+    initPromise = (async () => {
+      const credentials = await resolveDbCredentials();
+
+      const config: DatabaseConfig = {
+        host: getDbHost(),
+        port: getDbPort(),
+        database: getDbName(),
+        user: credentials.username,
+        password: credentials.password,
+        ssl: shouldUseDbSsl() ? { rejectUnauthorized: false } : false,
+        max: parseInt(process.env.DB_POOL_SIZE || '5', 10),
+        idleTimeoutMillis: 30000,
+        connectionTimeoutMillis: 5000,
+      };
+
+      pool = new Pool(config);
+
+      pool.on('error', (err: Error) => {
+        log.error('[database] Unexpected pool error', { error: err.message });
+      });
+
+      log.info('[database] Database pool initialized', {
+        host: config.host,
+        port: config.port,
+        database: config.database,
+        ssl: Boolean(config.ssl),
+      });
+    })();
+  }
+
+  await initPromise;
+}
+
 export function getPool(): Pool {
   if (!pool) {
-    const config: DatabaseConfig = {
-      host: process.env.PGHOST,
-      port: parseInt(process.env.PGPORT || '5432'),
-      database: process.env.PGDATABASE,
-      user: process.env.PGUSER,
-      password: process.env.PGPASSWORD,
-      ssl: process.env.PGSSLMODE === 'require' ? { rejectUnauthorized: false } : false,
-      max: parseInt(process.env.DB_POOL_SIZE || '5'),  // Lower for Lambda
-      idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 5000,
-    };
-
-    pool = new Pool(config);
-
-    pool.on('error', (err: Error) => {
-      log.error('[database] Unexpected pool error', { error: err.message });
-    });
+    throw new Error('Database pool not initialized. Call ensurePoolInitialized() first.');
   }
+
   return pool;
 }
 
@@ -64,11 +95,10 @@ export async function query<T extends QueryResultRow = any>(
     } catch (err) {
       lastError = err as Error;
 
-      // Don't retry syntax errors
       if (lastError.message.includes('syntax error')) {
-        log.error('[database] Query syntax error', { 
-          query: text.substring(0, 100), 
-          error: lastError.message 
+        log.error('[database] Query syntax error', {
+          query: text.substring(0, 100),
+          error: lastError.message,
         });
         throw lastError;
       }
@@ -80,7 +110,7 @@ export async function query<T extends QueryResultRow = any>(
           delay,
           error: (lastError as any).code,
         });
-        await new Promise(r => setTimeout(r, delay));
+        await new Promise((r) => setTimeout(r, delay));
       }
     }
   }
@@ -92,30 +122,26 @@ export async function query<T extends QueryResultRow = any>(
   throw lastError;
 }
 
-// Begin transaction
 export async function beginTransaction(): Promise<QueryResult> {
   return await query('BEGIN');
 }
 
-// Commit transaction
 export async function commitTransaction(): Promise<QueryResult> {
   return await query('COMMIT');
 }
 
-// Rollback transaction
 export async function rollbackTransaction(): Promise<QueryResult> {
   return await query('ROLLBACK');
 }
 
-// Close pool (for graceful shutdown)
 export async function closePool(): Promise<void> {
   if (pool) {
     await pool.end();
     pool = null;
+    initPromise = null;
   }
 }
 
-// Get a client for transactions
 export async function getClient(): Promise<PoolClient> {
   return await getPool().connect();
 }

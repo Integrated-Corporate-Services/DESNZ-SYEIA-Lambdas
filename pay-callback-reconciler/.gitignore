@@ -6,3 +6,5 @@ lambda.zip
 *.log
 .DS_Store
 coverage/
+handler.js
+src/**/*.js

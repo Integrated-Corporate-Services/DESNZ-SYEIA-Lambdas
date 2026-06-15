@@ -1,8 +1,23 @@
-import { SQSClient, SendMessageCommand } from '@aws-sdk/client-sqs';
+import { SendMessageCommand, SQSClient } from '@aws-sdk/client-sqs';
 import { SQSEnqueueResult, WebhookRow } from '../types';
+import { getAwsRegion } from '../util/dbConfig';
 
-const sqs = new SQSClient({ region: process.env.AWS_REGION, endpoint: process.env.AWS_ENDPOINT_URL });
-const SQS_QUEUE_URL = process.env.SQS_QUEUE_URL;
+function getSqsClient(): SQSClient {
+  const endpoint = process.env.AWS_ENDPOINT_URL;
+  return new SQSClient({
+    region: getAwsRegion(),
+    ...(endpoint ? { endpoint } : {}),
+  });
+}
+
+function getQueueUrl(): string {
+  const queueUrl = process.env.SQS_QUEUE_URL || process.env.WEBHOOK_SQS_QUEUE_URL;
+  if (!queueUrl) {
+    throw new Error('SQS queue URL not configured');
+  }
+
+  return queueUrl;
+}
 
 export async function enqueueWebhookToSQS(webhook: WebhookRow): Promise<SQSEnqueueResult> {
   try {
@@ -17,14 +32,15 @@ export async function enqueueWebhookToSQS(webhook: WebhookRow): Promise<SQSEnque
         webhookId: webhook.webhook_id,
         paymentId: webhook.payment_id,
         eventType: webhook.event_type,
-        source: 'eventbridge-scheduler',
+        source: 'inbound-event-receiver',
         correlationId: webhook.correlation_id,
         timestamp: new Date().toISOString(),
       },
     };
-    await sqs.send(
+
+    await getSqsClient().send(
       new SendMessageCommand({
-        QueueUrl: SQS_QUEUE_URL,
+        QueueUrl: getQueueUrl(),
         MessageBody: JSON.stringify(messageBody),
         MessageAttributes: {
           EventType: { DataType: 'String', StringValue: webhook.event_type },
@@ -33,6 +49,7 @@ export async function enqueueWebhookToSQS(webhook: WebhookRow): Promise<SQSEnque
         },
       })
     );
+
     return { webhookId: webhook.webhook_id, success: true };
   } catch (err) {
     return {

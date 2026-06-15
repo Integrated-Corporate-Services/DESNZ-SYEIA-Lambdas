@@ -1,6 +1,7 @@
 import { SQSEvent, SQSBatchResponse, Context } from 'aws-lambda';
 import { processSQSBatch } from './src/services/paymentProcessor.js';
 import { validateEnvVars } from './src/util/validation.js';
+import { ensurePoolInitialized } from './src/util/database.js';
 import log from './src/util/logger.js';
 
 // Validate environment variables at cold start (outside handler)
@@ -42,6 +43,7 @@ export const handler = async (event: SQSEvent, context: Context): Promise<SQSBat
   try {
     // Validate environment on first invocation or after container restart
     ensureEnvValidation();
+    await ensurePoolInitialized();
 
     // Check if this is an SQS event
     if (!event.Records || !Array.isArray(event.Records)) {

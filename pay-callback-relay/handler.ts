@@ -1,3 +1,4 @@
+import { ensurePoolInitialized } from './src/database/pool';
 import { validateEnvVars } from './src/util/env';
 import log from './src/util/logger';
 import { pollAndEnqueueWebhooks } from './src/services/pollService';
@@ -13,6 +14,7 @@ function ensureEnvValidation() {
 export const handler = async (event?: any, context?: any) => {
   try {
     ensureEnvValidation();
+    await ensurePoolInitialized();
     const result = await pollAndEnqueueWebhooks();
     log.info('[handler] Polling and enqueue complete', { result });
     return result;

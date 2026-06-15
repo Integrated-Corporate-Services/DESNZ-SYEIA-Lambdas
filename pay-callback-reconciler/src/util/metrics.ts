@@ -2,7 +2,7 @@ import { CloudWatchClient, PutMetricDataCommand, StandardUnit } from '@aws-sdk/c
 import log from './logger.js';
 
 const cwClient = new CloudWatchClient({ 
-  region: process.env.AWS_REGION || 'eu-west-2' 
+  region: process.env.AWS_REGION || process.env.REGION || 'eu-west-2',
 });
 
 /**
