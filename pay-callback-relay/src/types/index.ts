@@ -5,7 +5,7 @@ export interface WebhookRow {
   payment_id: string;
   event_type: string;
   status: string;
-  raw_payload: string;
+  raw_payload: string | Record<string, unknown>;
   correlation_id: string | null;
 }
 
