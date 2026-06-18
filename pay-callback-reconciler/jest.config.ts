@@ -7,7 +7,7 @@ const config: Config = {
     '^(\\.{1,2}/.*)\\.js$': '$1',
   },
   transform: {
-    '^.+\\.tsx?$': 'ts-jest',
+    '^.+\\.tsx?$': ['ts-jest', { tsconfig: { types: ['jest', 'node'] } }],
   },
   testMatch: ['**/tests/**/*.test.ts'],
   collectCoverageFrom: [
