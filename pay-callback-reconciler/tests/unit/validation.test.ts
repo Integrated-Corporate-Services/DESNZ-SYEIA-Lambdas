@@ -34,6 +34,9 @@ describe('Environment Validation', () => {
     'AWS_REGION',
     'REGION',
     'AWS_ENDPOINT_URL',
+    'GOVUK_PAY_WEBHOOK_SECRET',
+    'GOVPAY_WEBHOOK_SIGNING_KEY',
+    'GOVPAY_CALLBACK_SIGNING_SECRET',
   ] as const;
 
   function clearDbEnvVars(): void {
@@ -99,7 +102,7 @@ describe('Environment Validation', () => {
       expect(error?.message).toContain('DB credentials (DB_CREDENTIALS|PGUSER+PGPASSWORD|DB_USER+DB_PASSWORD)');
     });
 
-    test('should throw error when GOVUK_PAY_WEBHOOK_SECRET is missing in AWS mode', () => {
+    test('should pass with GOVPAY_WEBHOOK_SIGNING_KEY instead of GOVUK_PAY_WEBHOOK_SECRET', () => {
       clearDbEnvVars();
       delete process.env.AWS_ENDPOINT_URL;
 
@@ -108,12 +111,25 @@ describe('Environment Validation', () => {
       process.env.DB_NAME = 'icseip';
       process.env.DB_PORT = '5432';
       process.env.REGION = 'eu-west-2';
-      delete process.env.GOVUK_PAY_WEBHOOK_SECRET;
+      process.env.GOVPAY_WEBHOOK_SIGNING_KEY = 'secret123';
 
-      expect(() => validateEnvVars()).toThrow('GOVUK_PAY_WEBHOOK_SECRET (security)');
+      expect(() => validateEnvVars()).not.toThrow();
     });
 
-    test('should throw error when GOVUK_PAY_WEBHOOK_SECRET is missing in LocalStack mode', () => {
+    test('should throw error when webhook signing secret is missing in AWS mode', () => {
+      clearDbEnvVars();
+      delete process.env.AWS_ENDPOINT_URL;
+
+      process.env.HOST_NAME = 'dev-eip-dev.example.rds.amazonaws.com';
+      process.env.DB_CREDENTIALS = 'arn:aws:secretsmanager:eu-west-2:123456789012:secret:example';
+      process.env.DB_NAME = 'icseip';
+      process.env.DB_PORT = '5432';
+      process.env.REGION = 'eu-west-2';
+
+      expect(() => validateEnvVars()).toThrow('webhook signing secret');
+    });
+
+    test('should throw error when webhook signing secret is missing in LocalStack mode', () => {
       process.env.PGHOST = 'localhost';
       process.env.PGUSER = 'postgres';
       process.env.PGPASSWORD = 'password';
@@ -124,9 +140,8 @@ describe('Environment Validation', () => {
       process.env.WEBHOOK_SQS_QUEUE_URL = 'https://sqs.region.amazonaws.com/queue';
       process.env.ECS_CLUSTER_ARN = 'arn:aws:ecs:region:account:cluster/name';
       process.env.ECS_WEBHOOK_TASK_DEFINITION = 'task-def';
-      delete process.env.GOVUK_PAY_WEBHOOK_SECRET;
 
-      expect(() => validateEnvVars()).toThrow('GOVUK_PAY_WEBHOOK_SECRET (security)');
+      expect(() => validateEnvVars()).toThrow('webhook signing secret');
     });
   });
 
