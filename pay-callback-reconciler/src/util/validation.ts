@@ -2,10 +2,7 @@ import { SQSRecord } from 'aws-lambda';
 import log from './logger.js';
 import type { SQSMessageBody } from '../types/index.js';
 import { getDbHost, getDbName, hasDbCredentialsConfigured } from './dbConfig.js';
-import {
-  hasGovukPayWebhookSecretConfigured,
-  WEBHOOK_SECRET_ENV_ALIASES,
-} from './webhookSecret.js';
+import { hasGovukPayWebhookSecretConfigured } from './webhookSecret.js';
 
 function hasEnv(name: string): boolean {
   return Boolean(process.env[name]);
@@ -42,8 +39,13 @@ export function validateEnvVars(): boolean {
     missing.push('AWS region (AWS_REGION|REGION)');
   }
 
+  // Webhook signing secret is optional at cold start: inbound-event-receiver validates
+  // signatures before relay enqueues with source=inbound-event-receiver (worker skips re-check).
+  // Secret is only required at runtime for direct GOV.UK Pay → worker messages.
   if (!hasGovukPayWebhookSecretConfigured()) {
-    missing.push(`webhook signing secret (${WEBHOOK_SECRET_ENV_ALIASES})`);
+    log.warn(
+      '[validation] Webhook signing secret not configured; direct webhook signature validation will fail if used'
+    );
   }
 
   if (isLocalStackEnvironment()) {

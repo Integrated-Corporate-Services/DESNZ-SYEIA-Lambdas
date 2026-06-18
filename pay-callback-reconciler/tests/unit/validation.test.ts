@@ -116,7 +116,7 @@ describe('Environment Validation', () => {
       expect(() => validateEnvVars()).not.toThrow();
     });
 
-    test('should throw error when webhook signing secret is missing in AWS mode', () => {
+    test('should pass AWS Lambda environment without webhook signing secret', () => {
       clearDbEnvVars();
       delete process.env.AWS_ENDPOINT_URL;
 
@@ -126,10 +126,10 @@ describe('Environment Validation', () => {
       process.env.DB_PORT = '5432';
       process.env.REGION = 'eu-west-2';
 
-      expect(() => validateEnvVars()).toThrow('webhook signing secret');
+      expect(() => validateEnvVars()).not.toThrow();
     });
 
-    test('should throw error when webhook signing secret is missing in LocalStack mode', () => {
+    test('should pass LocalStack environment without webhook signing secret', () => {
       process.env.PGHOST = 'localhost';
       process.env.PGUSER = 'postgres';
       process.env.PGPASSWORD = 'password';
@@ -141,7 +141,7 @@ describe('Environment Validation', () => {
       process.env.ECS_CLUSTER_ARN = 'arn:aws:ecs:region:account:cluster/name';
       process.env.ECS_WEBHOOK_TASK_DEFINITION = 'task-def';
 
-      expect(() => validateEnvVars()).toThrow('webhook signing secret');
+      expect(() => validateEnvVars()).not.toThrow();
     });
   });
 
