@@ -18,9 +18,34 @@ jest.mock('../../src/util/logger.js', () => ({
 describe('Environment Validation', () => {
   const originalEnv = process.env;
 
+  const dbEnvKeys = [
+    'PGHOST',
+    'DB_HOST',
+    'HOST_NAME',
+    'PGUSER',
+    'DB_USER',
+    'PGPASSWORD',
+    'DB_PASSWORD',
+    'PGDATABASE',
+    'DB_NAME',
+    'PGPORT',
+    'DB_PORT',
+    'DB_CREDENTIALS',
+    'AWS_REGION',
+    'REGION',
+    'AWS_ENDPOINT_URL',
+  ] as const;
+
+  function clearDbEnvVars(): void {
+    dbEnvKeys.forEach((key) => {
+      delete process.env[key];
+    });
+  }
+
   beforeEach(() => {
     jest.clearAllMocks();
     process.env = { ...originalEnv };
+    clearDbEnvVars();
   });
 
   afterAll(() => {
@@ -33,6 +58,9 @@ describe('Environment Validation', () => {
       process.env.PGUSER = 'postgres';
       process.env.PGPASSWORD = 'password';
       process.env.PGDATABASE = 'testdb';
+      process.env.PGPORT = '5432';
+      process.env.AWS_REGION = 'eu-west-2';
+      process.env.AWS_ENDPOINT_URL = 'http://localhost:4566';
       process.env.WEBHOOK_SQS_QUEUE_URL = 'https://sqs.region.amazonaws.com/queue';
       process.env.ECS_CLUSTER_ARN = 'arn:aws:ecs:region:account:cluster/name';
       process.env.ECS_WEBHOOK_TASK_DEFINITION = 'task-def';
@@ -41,20 +69,58 @@ describe('Environment Validation', () => {
       expect(() => validateEnvVars()).not.toThrow();
     });
 
-    test('should throw error when database vars are missing', () => {
-      delete process.env.PGHOST;
-      delete process.env.PGUSER;
+    test('should pass with AWS Lambda environment variables', () => {
+      clearDbEnvVars();
+      delete process.env.AWS_ENDPOINT_URL;
 
-      expect(() => validateEnvVars()).toThrow('Missing required environment variables');
-      expect(() => validateEnvVars()).toThrow('PGHOST (database)');
-      expect(() => validateEnvVars()).toThrow('PGUSER (database)');
+      process.env.HOST_NAME = 'dev-eip-dev.example.rds.amazonaws.com';
+      process.env.DB_CREDENTIALS = 'arn:aws:secretsmanager:eu-west-2:123456789012:secret:example';
+      process.env.DB_NAME = 'icseip';
+      process.env.DB_PORT = '5432';
+      process.env.REGION = 'eu-west-2';
+      process.env.GOVUK_PAY_WEBHOOK_SECRET = 'secret123';
+
+      expect(() => validateEnvVars()).not.toThrow();
     });
 
-    test('should throw error when security vars are missing', () => {
+    test('should throw error when database vars are missing', () => {
+      clearDbEnvVars();
+
+      let error: Error | undefined;
+      try {
+        validateEnvVars();
+      } catch (err) {
+        error = err as Error;
+      }
+
+      expect(error).toBeDefined();
+      expect(error?.message).toContain('Missing required environment variables');
+      expect(error?.message).toContain('DB host (PGHOST|DB_HOST|HOST_NAME)');
+      expect(error?.message).toContain('DB credentials (DB_CREDENTIALS|PGUSER+PGPASSWORD|DB_USER+DB_PASSWORD)');
+    });
+
+    test('should throw error when GOVUK_PAY_WEBHOOK_SECRET is missing in AWS mode', () => {
+      clearDbEnvVars();
+      delete process.env.AWS_ENDPOINT_URL;
+
+      process.env.HOST_NAME = 'dev-eip-dev.example.rds.amazonaws.com';
+      process.env.DB_CREDENTIALS = 'arn:aws:secretsmanager:eu-west-2:123456789012:secret:example';
+      process.env.DB_NAME = 'icseip';
+      process.env.DB_PORT = '5432';
+      process.env.REGION = 'eu-west-2';
+      delete process.env.GOVUK_PAY_WEBHOOK_SECRET;
+
+      expect(() => validateEnvVars()).toThrow('GOVUK_PAY_WEBHOOK_SECRET (security)');
+    });
+
+    test('should throw error when GOVUK_PAY_WEBHOOK_SECRET is missing in LocalStack mode', () => {
       process.env.PGHOST = 'localhost';
       process.env.PGUSER = 'postgres';
       process.env.PGPASSWORD = 'password';
       process.env.PGDATABASE = 'testdb';
+      process.env.PGPORT = '5432';
+      process.env.AWS_REGION = 'eu-west-2';
+      process.env.AWS_ENDPOINT_URL = 'http://localhost:4566';
       process.env.WEBHOOK_SQS_QUEUE_URL = 'https://sqs.region.amazonaws.com/queue';
       process.env.ECS_CLUSTER_ARN = 'arn:aws:ecs:region:account:cluster/name';
       process.env.ECS_WEBHOOK_TASK_DEFINITION = 'task-def';

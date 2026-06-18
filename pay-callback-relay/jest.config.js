@@ -1,4 +1,4 @@
-export default {
+module.exports = {
   testEnvironment: 'node',
   testMatch: ['**/tests/unit/**/*.test.ts', '**/tests/integration/**/*.test.ts'],
   collectCoverageFrom: [
@@ -18,6 +18,6 @@ export default {
     },
   },
   transform: {
-    '^.+\\.ts$': 'ts-jest',
+    '^.+\\.ts$': ['ts-jest', { tsconfig: { types: ['jest', 'node'] } }],
   },
 };

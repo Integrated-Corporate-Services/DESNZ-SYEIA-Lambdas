@@ -2,16 +2,27 @@
   "name": "poll-unenq-lambda",
   "version": "1.0.0",
   "main": "handler.js",
-  "type": "module",
+  "engines": {
+    "node": "20.x"
+  },
   "scripts": {
-    "test:integration": "node --experimental-vm-modules ./node_modules/.bin/jest --config jest.config.integration.cjs"
+    "build": "tsc",
+    "prepare": "npm run build",
+    "test": "npm run test:unit",
+    "test:unit": "jest tests/unit",
+    "test:integration": "jest --config jest.config.integration.cjs"
   },
   "dependencies": {
+    "@aws-sdk/client-secrets-manager": "^3.500.0",
     "@aws-sdk/client-sqs": "^3.500.0",
-    "pg": "^8.11.3"
+    "pg": "^8.11.3",
+    "typescript": "^5.3.0"
   },
   "devDependencies": {
     "@types/jest": "^30.0.0",
+    "@types/node": "^20.0.0",
+    "@types/pg": "^8.0.0",
+    "dotenv": "^16.0.0",
     "jest": "^30.3.0",
     "ts-jest": "^29.4.9"
   }

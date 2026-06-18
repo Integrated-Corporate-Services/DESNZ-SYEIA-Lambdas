@@ -1,18 +1,20 @@
 // Integration test for pollAndEnqueueWebhooks
 // Requires test DB and SQS (LocalStack recommended)
 import { pollAndEnqueueWebhooks } from '../../src/services/pollService';
-import { getPool } from '../../src/database/pool';
+import { ensurePoolInitialized, getPool } from '../../src/database/pool';
 import { SQSClient, ReceiveMessageCommand, DeleteMessageCommand } from '@aws-sdk/client-sqs';
 import { TABLE_PAYMENT_WEBHOOKS, STATUS_PROCESSING } from '../../src/constants';
 
 describe('pollAndEnqueueWebhooks integration', () => {
-  const pool = getPool();
   const sqs = new SQSClient({ region: process.env.AWS_REGION, endpoint: process.env.AWS_ENDPOINT_URL });
   const SQS_QUEUE_URL = process.env.SQS_QUEUE_URL;
   let webhookId: string;
+  let pool: ReturnType<typeof getPool>;
   const govukPayId = 'pay_test_1777277750706_new'; // Existing value from your test data
 
   beforeAll(async () => {
+    await ensurePoolInitialized();
+    pool = getPool();
     // Insert a test webhook row with all required columns
     webhookId = 'test-webhook-' + Date.now();
     const webhookData = {
