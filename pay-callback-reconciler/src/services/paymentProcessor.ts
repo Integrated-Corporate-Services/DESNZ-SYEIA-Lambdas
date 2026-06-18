@@ -7,6 +7,7 @@ import { validateSignature } from '../validators/signatureValidator.js';
 import { checkAndRecordIdempotency } from './idempotencyService.js';
 import { beginTransaction, commitTransaction, rollbackTransaction } from '../util/database.js';
 import log from '../util/logger.js';
+import { getGovukPayWebhookSecret } from '../util/webhookSecret.js';
 import type { SQSMessageBody, ProcessResult } from '../types/index.js';
 
 /**
@@ -45,7 +46,7 @@ export async function processPaymentFromSQS(
         eventId 
       });
     } else {
-      const webhookSecret = process.env.GOVUK_PAY_WEBHOOK_SECRET;
+      const webhookSecret = getGovukPayWebhookSecret();
       if (!signature || !webhookSecret) {
         log.error('[paymentProcessor] Signature validation failed: missing data', { requestId, eventId });
         recordMetric('payment.webhook.signature_missing', 1);

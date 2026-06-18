@@ -2,6 +2,10 @@ import { SQSRecord } from 'aws-lambda';
 import log from './logger.js';
 import type { SQSMessageBody } from '../types/index.js';
 import { getDbHost, getDbName, hasDbCredentialsConfigured } from './dbConfig.js';
+import {
+  hasGovukPayWebhookSecretConfigured,
+  WEBHOOK_SECRET_ENV_ALIASES,
+} from './webhookSecret.js';
 
 function hasEnv(name: string): boolean {
   return Boolean(process.env[name]);
@@ -38,8 +42,8 @@ export function validateEnvVars(): boolean {
     missing.push('AWS region (AWS_REGION|REGION)');
   }
 
-  if (!process.env.GOVUK_PAY_WEBHOOK_SECRET) {
-    missing.push('GOVUK_PAY_WEBHOOK_SECRET (security)');
+  if (!hasGovukPayWebhookSecretConfigured()) {
+    missing.push(`webhook signing secret (${WEBHOOK_SECRET_ENV_ALIASES})`);
   }
 
   if (isLocalStackEnvironment()) {
