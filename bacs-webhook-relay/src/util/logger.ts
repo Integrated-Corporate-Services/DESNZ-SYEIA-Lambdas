@@ -3,7 +3,7 @@ import { LOG_MARKERS } from '../constants/log.constants';
 type LogLevel = 'error' | 'warn' | 'info' | 'debug';
 
 const LEVELS: Record<LogLevel, number> = { error: 0, warn: 1, info: 2, debug: 3 };
-const SERVICE = process.env.SERVICE_NAME || 'bacs-relay-lambda';
+const SERVICE = process.env.SERVICE_NAME || 'bacs-webhook-relay';
 const ACTIVE_LEVEL = (process.env.LOG_LEVEL as LogLevel) || 'info';
 const THRESHOLD = LEVELS[ACTIVE_LEVEL] ?? LEVELS.info;
 

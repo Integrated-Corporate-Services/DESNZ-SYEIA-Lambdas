@@ -62,7 +62,7 @@ class RelayService {
 
     try {
       const envelope = messageBuilderService.build(row);
-      const out = await sqsConfig.sendToBacsRelayQueue({
+      const out = await sqsConfig.sendToBacsWebhookRelayQueue({
         body: envelope,
         attributes: {
           WebhookId: row.webhook_id,
@@ -90,7 +90,7 @@ class RelayService {
       if (err instanceof PoisonMessageError) {
         const reason = err.message;
         try {
-          await sqsConfig.sendToBacsRelayDeadLetterQueue(
+          await sqsConfig.sendToBacsWebhookRelayDeadLetterQueue(
             { body: { webhookId: row.webhook_id, paymentId: row.payment_id, error: reason, raw: row.raw_payload } },
             reason,
           );

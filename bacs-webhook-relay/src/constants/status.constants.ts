@@ -22,4 +22,4 @@ export const RELAY_OUTCOME = {
 
 export type RelayOutcome = (typeof RELAY_OUTCOME)[keyof typeof RELAY_OUTCOME];
 
-export const BACS_RELAY_SCHEMA_VERSION = '1';
+export const BACS_WEBHOOK_RELAY_SCHEMA_VERSION = '1';

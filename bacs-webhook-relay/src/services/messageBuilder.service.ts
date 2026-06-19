@@ -1,10 +1,10 @@
 import { PoisonMessageError } from '../errors/AppError';
 import { createLogger } from '../util/logger';
 import {
-  BACS_RELAY_SCHEMA_VERSION,
+  BACS_WEBHOOK_RELAY_SCHEMA_VERSION,
   SOURCE_BACS,
 } from '../constants/status.constants';
-import type { PaymentWebhookRow, BacsRelayEnvelope } from '../types';
+import type { PaymentWebhookRow, BacsWebhookRelayEnvelope } from '../types';
 
 const log = createLogger('messageBuilder.service.ts');
 
@@ -13,7 +13,7 @@ const METHOD = {
 } as const;
 
 class MessageBuilderService {
-  build(row: PaymentWebhookRow): BacsRelayEnvelope {
+  build(row: PaymentWebhookRow): BacsWebhookRelayEnvelope {
     log.start(METHOD.BUILD, { webhookId: row.webhook_id });
 
     let payload: Record<string, unknown>;
@@ -38,8 +38,8 @@ class MessageBuilderService {
       ? row.created_at.toISOString()
       : new Date(row.created_at).toISOString();
 
-    const envelope: BacsRelayEnvelope = {
-      schemaVersion: BACS_RELAY_SCHEMA_VERSION,
+    const envelope: BacsWebhookRelayEnvelope = {
+      schemaVersion: BACS_WEBHOOK_RELAY_SCHEMA_VERSION,
       source: SOURCE_BACS,
       webhookId: row.webhook_id,
       paymentId: row.payment_id,

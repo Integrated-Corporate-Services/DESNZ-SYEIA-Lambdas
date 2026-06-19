@@ -15,7 +15,7 @@ export interface PaymentWebhookRow {
   updated_at: Date | string;
 }
 
-export interface BacsRelayEnvelope {
+export interface BacsWebhookRelayEnvelope {
   schemaVersion: '1';
   source: 'BACS';
   webhookId: string;
@@ -27,7 +27,7 @@ export interface BacsRelayEnvelope {
   payload: Record<string, unknown>;
 }
 
-export interface BacsRelayConfig {
+export interface BacsWebhookRelayConfig {
   batchSize: number;
 }
 

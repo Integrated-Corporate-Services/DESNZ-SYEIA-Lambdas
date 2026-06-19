@@ -15,8 +15,8 @@ import { RETRY_DEFAULTS } from '../constants/defaults.constants';
 const log = createLogger('sqs.config.ts');
 
 const METHOD = {
-  SEND_TO_BACS_RELAY_QUEUE: 'sendToBacsRelayQueue',
-  SEND_TO_BACS_RELAY_DLQ: 'sendToBacsRelayDeadLetterQueue',
+  SEND_TO_BACS_WEBHOOK_RELAY_QUEUE: 'sendToBacsWebhookRelayQueue',
+  SEND_TO_BACS_WEBHOOK_RELAY_DLQ: 'sendToBacsWebhookRelayDeadLetterQueue',
   SEND_TO: 'sendTo',
   GET_CLIENT: 'getClient',
 } as const;
@@ -31,20 +31,20 @@ export interface SqsSendInput {
 class SqsConfig {
   private client: SQSClient | undefined;
 
-  async sendToBacsRelayQueue(input: SqsSendInput): Promise<SendMessageCommandOutput> {
-    log.start(METHOD.SEND_TO_BACS_RELAY_QUEUE);
+  async sendToBacsWebhookRelayQueue(input: SqsSendInput): Promise<SendMessageCommandOutput> {
+    log.start(METHOD.SEND_TO_BACS_WEBHOOK_RELAY_QUEUE);
     const env = envConfig.get();
     const out = await this.sendTo(env.PARTNER_WEBHOOKS_QUEUE_URL, input, 'partner-webhooks-queue');
-    log.debug(METHOD.SEND_TO_BACS_RELAY_QUEUE, LOG_MESSAGES.SQS_MESSAGE_SENT_MAIN, { messageId: out.MessageId });
-    log.end(METHOD.SEND_TO_BACS_RELAY_QUEUE);
+    log.debug(METHOD.SEND_TO_BACS_WEBHOOK_RELAY_QUEUE, LOG_MESSAGES.SQS_MESSAGE_SENT_MAIN, { messageId: out.MessageId });
+    log.end(METHOD.SEND_TO_BACS_WEBHOOK_RELAY_QUEUE);
     return out;
   }
 
-  async sendToBacsRelayDeadLetterQueue(
+  async sendToBacsWebhookRelayDeadLetterQueue(
     input: SqsSendInput,
     reason: string,
   ): Promise<SendMessageCommandOutput> {
-    log.start(METHOD.SEND_TO_BACS_RELAY_DLQ);
+    log.start(METHOD.SEND_TO_BACS_WEBHOOK_RELAY_DLQ);
     const env = envConfig.get();
     const out = await this.sendTo(
       env.PARTNER_WEBHOOKS_DLQ_URL,
@@ -58,11 +58,11 @@ class SqsConfig {
       },
       'partner-webhooks-dlq',
     );
-    log.warn(METHOD.SEND_TO_BACS_RELAY_DLQ, LOG_MESSAGES.SQS_MESSAGE_SENT_DLQ, {
+    log.warn(METHOD.SEND_TO_BACS_WEBHOOK_RELAY_DLQ, LOG_MESSAGES.SQS_MESSAGE_SENT_DLQ, {
       messageId: out.MessageId,
       reason,
     });
-    log.end(METHOD.SEND_TO_BACS_RELAY_DLQ);
+    log.end(METHOD.SEND_TO_BACS_WEBHOOK_RELAY_DLQ);
     return out;
   }
 
