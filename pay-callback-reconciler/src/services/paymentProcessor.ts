@@ -1,49 +1,100 @@
 import { SQSRecord, SQSBatchResponse, Context } from 'aws-lambda';
 import { processPaymentEventWithOrdering, extractEventData } from '../stateManagement/eventProcessor.js';
-import { updatePaymentWithOrdering, findByGovukPayId, getPaymentEvents, createPayment } from '../database/paymentRepository.js';
-import { createOutboxRecord } from '../database/outboxRepository.js';
+import { updatePaymentWithOrdering, findByPaymentId, getPaymentEvents } from '../database/paymentRepository.js';
 import { recordMetric } from '../util/metrics.js';
 import { validateSignature } from '../validators/signatureValidator.js';
 import { checkAndRecordIdempotency } from './idempotencyService.js';
 import { beginTransaction, commitTransaction, rollbackTransaction } from '../util/database.js';
 import log from '../util/logger.js';
 import { getGovukPayWebhookSecret } from '../util/webhookSecret.js';
-import type { SQSMessageBody, ProcessResult } from '../types/index.js';
+import {
+  resolveWebhookEventData,
+  resolveWebhookEventTimestamp,
+} from '../util/webhookPayload.js';
+import { markWebhookProcessed } from '../database/webhookRepository.js';
+import {
+  isApplicationOutboxEnabled,
+  buildPaymentOutboxPayload,
+  createPaymentStatusNotification,
+} from '../database/applicationOutboxRepository.js';
+import { mapEventType } from '../mappers/paymentEventMapper.js';
+import type { SQSMessageBody, ProcessResult, GovUKPayWebhook, Payment } from '../types/index.js';
+
+async function completeWebhookReconciliation(params: {
+  eventId: string;
+  payment: Payment;
+  paymentId: string;
+  rawEventType: string;
+  normalizedEventType?: string;
+  statusChanged?: boolean;
+  newStatus?: string;
+  allEvents?: string[];
+}): Promise<void> {
+  await markWebhookProcessed(params.eventId);
+
+  if (
+    !params.statusChanged ||
+    !params.payment.application_id ||
+    !isApplicationOutboxEnabled() ||
+    !params.normalizedEventType
+  ) {
+    return;
+  }
+
+  const outboxEventType = mapEventType(params.normalizedEventType);
+  const payloadJson = buildPaymentOutboxPayload({
+    payment: params.payment,
+    paymentId: params.paymentId,
+    newStatus: params.newStatus ?? params.payment.status,
+    outboxEventType,
+    rawEventType: params.rawEventType,
+    webhookId: params.eventId,
+    eventHistory: params.allEvents,
+  });
+
+  const outboxId = await createPaymentStatusNotification({
+    applicationId: params.payment.application_id,
+    eventType: outboxEventType,
+    payloadJson,
+  });
+
+  log.info('[paymentProcessor] application_outbox notification created', {
+    outboxId,
+    applicationId: params.payment.application_id,
+    eventType: outboxEventType,
+  });
+}
 
 /**
  * Process payment webhook from SQS message
- * Lambda is triggered by SQS event source mapping from backend
- * Now with transactions, signature validation, and proper idempotency
  */
 export async function processPaymentFromSQS(
-  sqsMessage: SQSRecord, 
+  sqsMessage: SQSRecord,
   context: Context
 ): Promise<ProcessResult> {
   const requestId = context.awsRequestId;
 
   try {
-    // Parse SQS message body
     const messageBody: SQSMessageBody = JSON.parse(sqsMessage.body);
     const { webhook, metadata } = messageBody;
-    
+
     const eventId = metadata.webhookId;
-    const govukPayId = metadata.paymentId;
+    const paymentId = metadata.paymentId;
     const eventType = metadata.eventType;
     const signature = metadata.signature;
 
-    log.info('[paymentProcessor] Processing webhook from SQS', { 
-      eventId, 
-      govukPayId,
+    log.info('[paymentProcessor] Processing webhook from SQS', {
+      eventId,
+      paymentId,
       eventType,
       source: metadata.source,
-      requestId 
+      requestId,
     });
 
-    // 1. Validate signature (skip if already validated by inbound-event-receiver)
     if (metadata.source === 'inbound-event-receiver') {
-      log.info('[paymentProcessor] Skipping signature validation - already validated by inbound receiver', { 
-        requestId, 
-        eventId 
+      log.info('[paymentProcessor] Skipping signature validation - already validated by inbound receiver', {
+        requestId,
+        eventId,
       });
     } else {
       const webhookSecret = getGovukPayWebhookSecret();
@@ -55,135 +106,122 @@ export async function processPaymentFromSQS(
 
       const webhookPayload = JSON.stringify(webhook);
       const isValidSignature = validateSignature(webhookPayload, signature, webhookSecret);
-      
+
       if (!isValidSignature) {
-        log.error('[paymentProcessor] Invalid webhook signature', { 
-          requestId, 
+        log.error('[paymentProcessor] Invalid webhook signature', {
+          requestId,
           eventId,
-          govukPayId
+          paymentId,
         });
         recordMetric('payment.webhook.signature_invalid', 1);
         throw new Error('Invalid webhook signature');
       }
     }
 
-    log.debug('[paymentProcessor] Signature validated', { eventId });
+    const eventTimestamp = resolveWebhookEventTimestamp(webhook, metadata);
+    const eventData = resolveWebhookEventData(webhook);
 
-    // 2. Check idempotency BEFORE processing (race condition safe)
-    const eventTimestamp = webhook.timestamp || new Date().toISOString();
-    const idempotencyCheck = await checkAndRecordIdempotency(
-      eventId, 
-      govukPayId, 
-      eventType, 
-      webhook.data,
-      eventTimestamp
-    );
-
-    if (idempotencyCheck.isDuplicate) {
-      log.info('[paymentProcessor] Duplicate event ignored', { eventId, govukPayId });
-      recordMetric('payment.webhook.duplicate', 1);
-      return { 
-        action: 'DUPLICATE', 
-        reason: 'Event already processed',
-        eventId 
-      };
-    }
-
-    // 3. Start database transaction
     await beginTransaction();
 
     try {
-      // 4. Find existing payment (with row lock) or create if not found
-      let payment = await findByGovukPayId(govukPayId);
-      
-      if (!payment) {
-        log.info('[paymentProcessor] Payment not found - creating new payment', { govukPayId });
-        
-        // Extract initial data from webhook
-        const initialData = {
-          reference: webhook.resource?.reference || null,
-          amount: webhook.resource?.amount || null,
-          status: 'pending' as const,
-          description: webhook.resource?.description || null
+      const idempotencyCheck = await checkAndRecordIdempotency(
+        eventId,
+        paymentId,
+        eventType,
+        eventData,
+        eventTimestamp
+      );
+
+      if (idempotencyCheck.isDuplicate) {
+        await rollbackTransaction();
+        await markWebhookProcessed(eventId);
+        log.info('[paymentProcessor] Duplicate event ignored', { eventId, paymentId });
+        recordMetric('payment.webhook.duplicate', 1);
+        return {
+          action: 'DUPLICATE',
+          reason: 'Event already processed',
+          eventId,
         };
-        
-        payment = await createPayment(govukPayId, initialData);
-        log.info('[paymentProcessor] Payment created', { govukPayId, paymentId: payment.id });
-        recordMetric('payment.created', 1);
       }
 
-      // 5. Get all existing events
-      const allEvents = await getPaymentEvents(govukPayId);
+      const payment = await findByPaymentId(paymentId);
 
-      // 6. Process event with state machine
+      if (!payment) {
+        throw new Error(
+          `Payment not found for payment_id=${paymentId}. ` +
+            'A row must exist in public.payment before webhook processing.'
+        );
+      }
+
+      const allEvents = await getPaymentEvents(paymentId);
+
       const processResult = await processPaymentEventWithOrdering(
         payment,
         allEvents,
-        webhook,
+        webhook as GovUKPayWebhook,
         { eventId, requestId }
       );
 
-      if (processResult.action !== 'PROCESS') {
+      if (processResult.action === 'IGNORE') {
         await rollbackTransaction();
-        log.info('[paymentProcessor] Event not processed', {
-          action: processResult.action,
+        log.info('[paymentProcessor] Out-of-order event — rolling back for SQS retry', {
           reason: processResult.reason,
+          eventId,
+          paymentId,
         });
         recordMetric(`payment.event.${processResult.action.toLowerCase()}`, 1);
+        throw new Error(`Out-of-order webhook: ${processResult.reason ?? 'invalid transition'}`);
+      }
+
+      if (processResult.action === 'DUPLICATE') {
+        await completeWebhookReconciliation({
+          eventId,
+          payment,
+          paymentId,
+          rawEventType: eventType,
+        });
+        await commitTransaction();
+        log.info('[paymentProcessor] Event type already applied', {
+          reason: processResult.reason,
+        });
+        recordMetric('payment.webhook.duplicate', 1);
         return processResult;
       }
 
-      // 7. Extract event-specific data (use normalized event type from processResult)
-      const eventData = extractEventData(processResult.eventType || '', webhook.resource);
+      if (processResult.action !== 'PROCESS') {
+        await rollbackTransaction();
+        return processResult;
+      }
 
-      // 8. Update payment with new status and event history
-      // Convert PaymentState (UPPERCASE) to PaymentStatus (lowercase)
-      const statusToUpdate = processResult.finalStatus?.toLowerCase() as any;
-      
-      const updateData = {
-        status: statusToUpdate,
-        event_history: processResult.allEvents || [],
-        event_count: processResult.allEvents?.length || 0,
-        ...eventData,
-      };
+      const updateData = extractEventData(
+        processResult.finalStatus!,
+        webhook.resource
+      );
 
-      const updated = await updatePaymentWithOrdering(govukPayId, updateData);
+      const updated = await updatePaymentWithOrdering(paymentId, updateData);
 
       log.info('[paymentProcessor] Payment updated', {
-        govukPayId,
+        paymentId,
         oldStatus: payment.status,
         newStatus: updated.status,
         allEvents: processResult.allEvents,
       });
 
-      // 9. Create outbox job for downstream systems (if status changed)
-      if (processResult.statusChanged) {
-        await createOutboxRecord({
-          aggregate_id: govukPayId,
-          aggregate_type: 'Payment',
-          event_type: `PAYMENT_${updated.status}`,
-          payload_snapshot_json: JSON.stringify({
-            paymentId: updated.id,
-            govukPayId: updated.govuk_pay_id,
-            status: updated.status,
-            eventHistory: processResult.allEvents,
-            eventTimestamp: new Date().toISOString(),
-          }),
-          created_at: new Date(),
-        });
+      await completeWebhookReconciliation({
+        eventId,
+        payment: updated,
+        paymentId,
+        rawEventType: eventType,
+        normalizedEventType: processResult.eventType,
+        statusChanged: processResult.statusChanged,
+        newStatus: updated.status,
+        allEvents: processResult.allEvents,
+      });
 
-        log.info('[paymentProcessor] Outbox job created for status change', {
-          paymentId: updated.id,
-          newStatus: updated.status,
-        });
-      }
-
-      // 10. Commit transaction - all operations succeeded
       await commitTransaction();
 
-      // 11. Record metrics
       recordMetric('payment.webhook.processed', 1);
-      recordMetric(`payment.webhook.${webhook.type}`, 1);
+      recordMetric(`payment.webhook.${eventType}`, 1);
       recordMetric('payment.status', 1, updated.status);
 
       return {
@@ -191,23 +229,20 @@ export async function processPaymentFromSQS(
         payment: updated,
         statusChanged: processResult.statusChanged,
       };
-
     } catch (txError) {
-      // Rollback transaction on any error
       await rollbackTransaction();
       const error = txError as Error;
-      log.error('[paymentProcessor] Transaction rolled back', { 
+      log.error('[paymentProcessor] Transaction rolled back', {
         requestId,
         error: error.message,
         eventId,
-        govukPayId
+        paymentId,
       });
       throw txError;
     }
-
   } catch (err) {
     const error = err as Error;
-    log.error('[paymentProcessor] Error processing from SQS', { 
+    log.error('[paymentProcessor] Error processing from SQS', {
       requestId,
       err,
       message: error.message,
@@ -218,27 +253,21 @@ export async function processPaymentFromSQS(
   }
 }
 
-/**
- * Process batch of SQS messages with timeout handling
- * Lambda can receive up to 10 messages in a batch
- * Processes with limited parallelism to avoid overwhelming database
- */
 export async function processSQSBatch(
-  records: SQSRecord[], 
+  records: SQSRecord[],
   context: Context
 ): Promise<SQSBatchResponse> {
-  log.info('[paymentProcessor] Processing SQS batch', { 
+  log.info('[paymentProcessor] Processing SQS batch', {
     recordCount: records.length,
     requestId: context.awsRequestId,
   });
 
-  const BUFFER_MS = 5000; // 5 second buffer before timeout
-  const PARALLEL_LIMIT = 3; // Process 3 records at a time
+  const BUFFER_MS = 5000;
+  const PARALLEL_LIMIT = 3;
   const batchItemFailures: { itemIdentifier: string }[] = [];
 
   try {
     for (let i = 0; i < records.length; i += PARALLEL_LIMIT) {
-      // Check remaining time before processing each batch
       const remainingTime = context.getRemainingTimeInMillis();
       if (remainingTime < BUFFER_MS) {
         log.warn('[paymentProcessor] Lambda timeout approaching, stopping batch processing', {
@@ -246,25 +275,22 @@ export async function processSQSBatch(
           remainingMs: remainingTime,
           requestId: context.awsRequestId,
         });
-        
-        // Return remaining records as failures for SQS to retry
+
         for (let j = i; j < records.length; j++) {
           if (records[j]) {
             batchItemFailures.push({
-              itemIdentifier: records[j]!.messageId
+              itemIdentifier: records[j]!.messageId,
             });
           }
         }
         break;
       }
 
-      // Process batch of records in parallel
       const batch = records.slice(i, Math.min(i + PARALLEL_LIMIT, records.length));
       const results = await Promise.allSettled(
-        batch.map(record => processPaymentFromSQS(record, context))
+        batch.map((record) => processPaymentFromSQS(record, context))
       );
 
-      // Collect failures
       results.forEach((result, idx) => {
         if (result.status === 'rejected') {
           const error = result.reason as Error;
@@ -274,25 +300,20 @@ export async function processSQSBatch(
             requestId: context.awsRequestId,
           });
           batchItemFailures.push({
-            itemIdentifier: batch[idx]?.messageId || ''
+            itemIdentifier: batch[idx]?.messageId || '',
           });
         }
       });
     }
 
-    const successful = records.length - batchItemFailures.length;
-    const failed = batchItemFailures.length;
-
     log.info('[paymentProcessor] Batch processing complete', {
       total: records.length,
-      successful,
-      failed,
+      successful: records.length - batchItemFailures.length,
+      failed: batchItemFailures.length,
       requestId: context.awsRequestId,
     });
 
-    // Return partial batch failure response
     return { batchItemFailures };
-
   } catch (err) {
     const error = err as Error;
     log.error('[paymentProcessor] Batch processing error', {

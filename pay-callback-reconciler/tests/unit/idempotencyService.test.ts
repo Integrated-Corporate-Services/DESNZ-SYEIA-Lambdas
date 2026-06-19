@@ -50,7 +50,7 @@ describe('IdempotencyService', () => {
     test('should return isDuplicate: true for existing event', async () => {
       const existingEvent: PaymentEvent = {
         event_id: 'evt_123',
-        govuk_pay_id: 'pay_456',
+        payment_id: 'pay_456',
         event_type: 'payment.confirmed',
         event_data: { amount: 1000 },
         event_timestamp: '2026-04-24T10:00:00Z',

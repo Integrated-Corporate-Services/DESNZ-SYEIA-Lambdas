@@ -13,6 +13,30 @@
 export type PaymentState = 'INITIAL' | 'PENDING' | 'CONFIRMED' | 'CAPTURED' | 'SETTLED' | 'FAILED' | 'EXPIRED' | 'REFUNDED';
 export type PaymentEventType = 'payment.confirmed' | 'payment.captured' | 'payment.settled' | 'payment.failed' | 'payment.expired' | 'payment.refunded';
 
+const DB_STATUS_TO_STATE: Record<string, PaymentState> = {
+  created: 'PENDING',
+  pending: 'PENDING',
+  initial: 'INITIAL',
+  confirmed: 'CONFIRMED',
+  captured: 'CAPTURED',
+  settled: 'SETTLED',
+  failed: 'FAILED',
+  expired: 'EXPIRED',
+  cancelled: 'EXPIRED',
+  refunded: 'REFUNDED',
+};
+
+const STATE_TO_DB_STATUS: Record<PaymentState, string> = {
+  INITIAL: 'created',
+  PENDING: 'created',
+  CONFIRMED: 'confirmed',
+  CAPTURED: 'captured',
+  SETTLED: 'settled',
+  FAILED: 'failed',
+  EXPIRED: 'expired',
+  REFUNDED: 'refunded',
+};
+
 /**
  * Valid state transitions
  */
@@ -73,6 +97,20 @@ export const VALID_TRANSITIONS: Record<PaymentState, Partial<Record<PaymentEvent
   // Terminal: REFUNDED (no transitions)
   'REFUNDED': {},
 };
+
+/** Map public.payment.status to internal state machine state */
+export function normalizePaymentStatusForStateMachine(status: string | null | undefined): PaymentState {
+  if (!status) return 'INITIAL';
+  const mapped = DB_STATUS_TO_STATE[status.toLowerCase()];
+  if (mapped) return mapped;
+  const upper = status.toUpperCase() as PaymentState;
+  return VALID_TRANSITIONS[upper] ? upper : 'PENDING';
+}
+
+/** Map internal state machine state to public.payment.status */
+export function mapStateToDbStatus(state: PaymentState): string {
+  return STATE_TO_DB_STATUS[state] ?? state.toLowerCase();
+}
 
 /**
  * Event type to status mapping
@@ -138,5 +176,5 @@ export function canTransitionToTerminal(currentStatus: PaymentState, eventType: 
     return ['CONFIRMED', 'CAPTURED', 'SETTLED'].includes(currentStatus);
   }
 
-  return true;
+  return false;
 }
