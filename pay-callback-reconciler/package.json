@@ -11,7 +11,8 @@
         "lint:fix": "eslint . --ext .ts,.js --fix",
         "type-check": "tsc --noEmit",
         "start": "node handler.js",
-        "dev": "ts-node-esm handler.ts"
+        "dev": "ts-node-esm handler.ts",
+        "db:check": "node scripts/check-dev-schema.mjs"
     },
     "description": "Lambda for processing GOV.UK Pay webhooks via SQS - triggered by backend webhook service",
     "version": "2.0.0",

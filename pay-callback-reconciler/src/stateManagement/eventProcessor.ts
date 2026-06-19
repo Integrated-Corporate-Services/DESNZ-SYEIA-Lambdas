@@ -2,11 +2,13 @@ import {
   isValidTransition,
   deriveStatusFromEvents,
   canTransitionToTerminal,
+  normalizePaymentStatusForStateMachine,
+  mapStateToDbStatus,
   PaymentState,
   PaymentEventType,
 } from './stateMachine.js';
 import log from '../util/logger.js';
-import type { Payment, PaymentEvent, GovUKPayWebhook } from '../types/index.js';
+import type { Payment, PaymentEvent, GovUKPayWebhook, GovUKPayResource } from '../types/index.js';
 
 interface ProcessContext {
   eventId: string;
@@ -24,25 +26,19 @@ interface ProcessResult {
   processed?: boolean;
 }
 
-/**
- * Map GOV.UK Pay event types to internal event types
- */
 function normalizeEventType(govukPayEventType: string): string {
   const mapping: Record<string, string> = {
-    'card_payment_succeeded': 'payment.confirmed',
-    'card_payment_captured': 'payment.captured',
-    'card_payment_settled': 'payment.settled',
-    'card_payment_failed': 'payment.failed',
-    'card_payment_expired': 'payment.expired',
-    'card_payment_refunded': 'payment.refunded',
+    card_payment_succeeded: 'payment.confirmed',
+    card_payment_captured: 'payment.captured',
+    card_payment_settled: 'payment.settled',
+    card_payment_failed: 'payment.failed',
+    card_payment_expired: 'payment.expired',
+    card_payment_refunded: 'payment.refunded',
   };
-  
+
   return mapping[govukPayEventType] || govukPayEventType;
 }
 
-/**
- * Process payment event with out-of-order resilience
- */
 export async function processPaymentEventWithOrdering(
   payment: Payment,
   allEvents: PaymentEvent[],
@@ -52,15 +48,13 @@ export async function processPaymentEventWithOrdering(
   const { eventId } = context;
   const rawEventType = newEvent.event_type;
   const newEventType = normalizeEventType(rawEventType);
-  const currentStatus = (payment.status || 'INITIAL') as PaymentState;
+  const currentStatus = normalizePaymentStatusForStateMachine(payment.status);
 
-  // Filter out the current event (just inserted by idempotency check) from the list
-  const previousEvents = allEvents.filter(e => e.event_id !== eventId);
-  
-  // Get all RAW event types already processed (for duplicate detection)
-  const processedRawEventTypes = previousEvents.map(e => e.event_type);
-  // Get normalized event types (for state machine logic)
-  const processedNormalizedEventTypes = previousEvents.map(e => normalizeEventType(e.event_type));
+  const previousEvents = allEvents.filter((e) => e.event_id !== eventId);
+  const processedRawEventTypes = previousEvents.map((e) => e.event_type);
+  const processedNormalizedEventTypes = previousEvents
+    .map((e) => normalizeEventType(e.event_type))
+    .filter((t): t is string => Boolean(t));
 
   log.info('[eventProcessor] Processing event', {
     eventId,
@@ -70,10 +64,7 @@ export async function processPaymentEventWithOrdering(
     allEventsSoFar: processedNormalizedEventTypes,
   });
 
-  // 1. Check if already processed using RAW event type (idempotency at type level)
-  // Note: event_id level idempotency is already handled by idempotencyService
-  // This check prevents processing the same event TYPE twice (e.g., two different card_payment_succeeded events)
-  if (processedRawEventTypes.includes(rawEventType as any)) {
+  if (processedRawEventTypes.includes(rawEventType as PaymentEventType)) {
     log.info('[eventProcessor] Event type already processed', { rawEventType });
     return {
       action: 'DUPLICATE',
@@ -82,9 +73,7 @@ export async function processPaymentEventWithOrdering(
     };
   }
 
-  // 2. Validate transition
   if (!isValidTransition(currentStatus, newEventType as PaymentEventType)) {
-    // Try terminal state transitions
     if (!canTransitionToTerminal(currentStatus, newEventType as PaymentEventType)) {
       log.warn('[eventProcessor] Invalid transition', {
         current: currentStatus,
@@ -97,7 +86,6 @@ export async function processPaymentEventWithOrdering(
     }
   }
 
-  // 3. Calculate final status if we add this event
   const eventTypesWithNew = [...processedNormalizedEventTypes, newEventType];
   const finalStatus = deriveStatusFromEvents(eventTypesWithNew);
 
@@ -106,7 +94,6 @@ export async function processPaymentEventWithOrdering(
     derivedStatus: finalStatus,
   });
 
-  // 4. Check if status will change
   const statusChanged = finalStatus !== currentStatus;
 
   return {
@@ -120,53 +107,27 @@ export async function processPaymentEventWithOrdering(
 }
 
 /**
- * Extract event-specific data for database update
+ * Fields to update on public.payment (minimal — detail is in payment_events).
  */
-export function extractEventData(eventType: string, resourceData: any): Record<string, any> {
-  const updates: Record<string, any> = {
-    last_event_type: eventType,
-    last_event_at: new Date(),
+export function extractEventData(
+  finalStatus: PaymentState,
+  resourceData: GovUKPayResource | undefined
+): Record<string, unknown> {
+  const updates: Record<string, unknown> = {
+    status: mapStateToDbStatus(finalStatus),
   };
 
-  // Extract common fields from GOV.UK Pay resource
   if (resourceData) {
     if (resourceData.amount) updates.amount = resourceData.amount;
     if (resourceData.reference) updates.reference = resourceData.reference;
     if (resourceData.description) updates.description = resourceData.description;
+    if (resourceData.state?.finished !== undefined) {
+      updates.finished = resourceData.state.finished;
+    }
   }
 
-  switch (eventType) {
-    case 'payment.confirmed':
-      updates.confirmed_at = new Date();
-      if (resourceData?.payment_id) updates.transaction_id = resourceData.payment_id;
-      break;
-
-    case 'payment.captured':
-      updates.captured_at = new Date();
-      if (resourceData?.amount) updates.capture_amount = resourceData.amount;
-      break;
-
-    case 'payment.settled':
-      updates.settled_at = new Date();
-      if (resourceData?.amount) updates.settled_amount = resourceData.amount;
-      break;
-
-    case 'payment.failed':
-      updates.failed_at = new Date();
-      if (resourceData?.state?.message) updates.failure_reason = resourceData.state.message;
-      if (resourceData?.state?.code) updates.failure_code = resourceData.state.code;
-      break;
-
-    case 'payment.expired':
-      updates.expired_at = new Date();
-      break;
-
-    case 'payment.refunded':
-      updates.refunded_at = new Date();
-      if (resourceData?.refund_summary?.amount_available) {
-        updates.refund_amount = resourceData.refund_summary.amount_available;
-      }
-      break;
+  if (['CONFIRMED', 'CAPTURED', 'SETTLED', 'REFUNDED'].includes(finalStatus)) {
+    updates.finished = true;
   }
 
   return updates;

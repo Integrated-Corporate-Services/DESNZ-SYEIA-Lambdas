@@ -1,6 +1,5 @@
 /**
  * SQS and Webhook Types
- * Type definitions for SQS events and GOV.UK Pay webhooks
  */
 
 import { SQSRecord, SQSBatchResponse, SQSBatchItemFailure, Context } from 'aws-lambda';
@@ -18,14 +17,20 @@ export interface WebhookMetadata {
   timestamp?: string;
 }
 
+/** GOV.UK Pay webhook body (as stored in payment_webhooks.raw_payload). */
 export interface GovUKPayWebhook {
-  type: string;
-  timestamp: string;
-  event_id: string;
-  event_type: string;  // GOV.UK Pay event type like 'card_payment_succeeded'
-  resource_type: string;
-  resource: GovUKPayResource;
-  data?: any;  // Additional data from webhook
+  webhook_message_id?: string;
+  api_version?: number;
+  created_date?: string;
+  resource_id?: string;
+  resource_type?: string;
+  event_type: string;
+  resource?: GovUKPayResource;
+  /** Legacy / alternate shapes */
+  type?: string;
+  timestamp?: string;
+  event_id?: string;
+  data?: unknown;
 }
 
 export interface GovUKPayResource {
@@ -64,23 +69,11 @@ export interface ProcessResult {
   action: 'PROCESS' | 'PROCESSED' | 'DUPLICATE' | 'OUT_OF_ORDER' | 'INVALID' | 'IGNORE';
   reason?: string;
   eventId?: string;
-  payment?: any;
+  payment?: unknown;
   statusChanged?: boolean;
   eventType?: string;
   finalStatus?: string;
   allEvents?: string[];
   processed?: boolean;
   currentStatus?: string;
-}
-
-export interface LambdaContext {
-  requestId: string;
-  awsRequestId: string;
-  functionName: string;
-  functionVersion: string;
-  invokedFunctionArn: string;
-  memoryLimitInMB: string;
-  logGroupName: string;
-  logStreamName: string;
-  getRemainingTimeInMillis: () => number;
 }

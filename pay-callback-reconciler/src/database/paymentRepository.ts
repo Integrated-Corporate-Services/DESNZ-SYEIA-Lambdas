@@ -1,70 +1,35 @@
 import { QueryResult } from 'pg';
 import { query } from '../util/database.js';
 import { paymentQueries, ALLOWED_UPDATE_FIELDS } from '../queries/index.js';
-import type { Payment, CreatePaymentData, UpdatePaymentData, PaymentEvent } from '../types/index.js';
+import type { Payment, UpdatePaymentData, PaymentEvent } from '../types/index.js';
 
-export async function findByGovukPayId(govukPayId: string): Promise<Payment | null> {
+export async function findByPaymentId(paymentId: string): Promise<Payment | null> {
   const result: QueryResult<Payment> = await query(
-    paymentQueries.findByGovukPayId,
-    [govukPayId]
+    paymentQueries.findByPaymentId,
+    [paymentId]
   );
   return result.rows[0] || null;
 }
 
-/**
- * Create a new payment record
- */
-export async function createPayment(
-  govukPayId: string, 
-  initialData: CreatePaymentData = {}
-): Promise<Payment> {
-  const {
-    reference = null,
-    amount = null,
-    status = 'pending',
-    description = null
-  } = initialData;
+/** @deprecated Use findByPaymentId */
+export const findByGovukPayId = findByPaymentId;
 
-  const result: QueryResult<Payment> = await query(
-    paymentQueries.createPayment,
-    [govukPayId, reference, amount, status, description]
-  );
-
-  if (!result.rows[0]) {
-    throw new Error('Failed to create payment');
-  }
-  return result.rows[0];
-}
-
-/**
- * Get all payment events (for state derivation)
- * Orders by event_timestamp from webhook, then received_at as fallback
- */
-export async function getPaymentEvents(govukPayId: string): Promise<PaymentEvent[]> {
+export async function getPaymentEvents(paymentId: string): Promise<PaymentEvent[]> {
   const result: QueryResult<PaymentEvent> = await query(
     paymentQueries.getPaymentEvents,
-    [govukPayId]
+    [paymentId]
   );
   return result.rows || [];
 }
 
-/**
- * Update payment with out-of-order handling (SQL injection safe)
- */
 export async function updatePaymentWithOrdering(
-  govukPayId: string, 
+  paymentId: string,
   updates: UpdatePaymentData
 ): Promise<Payment> {
-  // Filter to only allowed fields
-  const validUpdates: Record<string, any> = {};
-  Object.keys(updates).forEach(key => {
-    if (ALLOWED_UPDATE_FIELDS.includes(key as any)) {
-      // Stringify JSONB fields
-      if (key === 'event_history' && updates[key as keyof UpdatePaymentData] !== null && updates[key as keyof UpdatePaymentData] !== undefined) {
-        validUpdates[key] = JSON.stringify(updates[key as keyof UpdatePaymentData]);
-      } else {
-        validUpdates[key] = updates[key as keyof UpdatePaymentData];
-      }
+  const validUpdates: Record<string, unknown> = {};
+  Object.keys(updates).forEach((key) => {
+    if (ALLOWED_UPDATE_FIELDS.includes(key as (typeof ALLOWED_UPDATE_FIELDS)[number])) {
+      validUpdates[key] = updates[key as keyof UpdatePaymentData];
     }
   });
 
@@ -76,14 +41,11 @@ export async function updatePaymentWithOrdering(
     .map((key, idx) => `${key} = $${idx + 1}`)
     .join(', ');
 
-  const values = [...Object.values(validUpdates), govukPayId];
+  const values = [...Object.values(validUpdates), paymentId];
 
-  const queryText = `UPDATE payments SET ${setClauses}, updated_at = NOW() WHERE govuk_pay_id = $${Object.keys(validUpdates).length + 1} RETURNING *`;
+  const queryText = `UPDATE payment SET ${setClauses}, updated_at = NOW() WHERE payment_id = $${Object.keys(validUpdates).length + 1} RETURNING *`;
 
-  const result: QueryResult<Payment> = await query(
-    queryText,
-    values
-  );
+  const result: QueryResult<Payment> = await query(queryText, values);
 
   if (!result.rows[0]) {
     throw new Error('Payment not found for update');
@@ -91,20 +53,22 @@ export async function updatePaymentWithOrdering(
   return result.rows[0];
 }
 
-/**
- * Record payment event with timestamp from webhook
- */
 export async function recordPaymentEvent(data: {
   event_id: string;
-  govuk_pay_id: string;
+  payment_id: string;
   event_type: string;
-  event_data: any;
+  event_data: unknown;
   event_timestamp: string | Date;
 }): Promise<PaymentEvent> {
   const result: QueryResult<PaymentEvent> = await query(
     paymentQueries.recordPaymentEvent,
-    [data.event_id, data.govuk_pay_id, data.event_type, 
-     JSON.stringify(data.event_data), data.event_timestamp]
+    [
+      data.event_id,
+      data.payment_id,
+      data.event_type,
+      JSON.stringify(data.event_data),
+      data.event_timestamp,
+    ]
   );
 
   if (!result.rows[0]) {

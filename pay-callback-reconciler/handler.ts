@@ -18,11 +18,11 @@ function ensureEnvValidation(): void {
  * Lambda handler triggered by SQS event source mapping
  * 
  * Architecture Flow:
- * 1. Backend receives webhook from GOV.UK Pay (HTTP)
- * 2. Backend validates and sends to SQS
+ * 2. Relay Lambda polls payment_webhooks and sends to SQS
  * 3. SQS triggers this Lambda via event source mapping
- * 4. Lambda processes payment webhook asynchronously
- * 5. Updates payment status and creates outbox events
+ * 4. Lambda updates public.payment and payment_events
+ * 5. Marks payment_webhooks.status = processed
+ * 6. Optionally inserts application_outbox when ENABLE_APPLICATION_OUTBOX=true
  * 
  * SQS Event Structure:
  * {
