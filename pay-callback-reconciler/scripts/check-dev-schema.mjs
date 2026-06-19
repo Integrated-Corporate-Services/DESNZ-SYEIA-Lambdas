@@ -260,7 +260,7 @@ async function main() {
 
     console.log('Missing tables:', missingTables.join(', '));
 
-    console.log('Run migrations/001_payment_webhooks.sql and migrations/002_worker_schema.sql');
+    console.log('Run migrations/001_worker_schema.sql (payment_webhooks comes from payment service)');
 
   }
 

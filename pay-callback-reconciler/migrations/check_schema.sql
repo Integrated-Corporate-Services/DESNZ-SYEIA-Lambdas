@@ -1,4 +1,5 @@
--- pgAdmin: compare icseip schema vs pay-callback-reconciler (payment + payment_events only)
+-- Read-only schema check for icseip (pgAdmin or psql)
+-- payment_webhooks is owned by desnz-syeia-payment-service
 
 SELECT required.table_name,
        CASE WHEN t.table_name IS NOT NULL THEN 'present' ELSE '*** MISSING ***' END AS status
