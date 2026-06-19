@@ -1,8 +1,6 @@
 -- Reconciler worker schema (icseip)
--- Reuses public.payment; adds payment_events only.
-
-ALTER TABLE public.payment
-  ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+-- Reuses public.payment (owned by desnz-syeia-backend-beta; no column changes).
+-- Adds payment_events only.
 
 CREATE TABLE IF NOT EXISTS payment_events (
   event_id          TEXT PRIMARY KEY,

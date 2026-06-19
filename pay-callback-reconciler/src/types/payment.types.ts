@@ -11,7 +11,6 @@ export interface Payment {
   status: string;
   description: string | null;
   created_at: Date;
-  updated_at?: Date;
   finished?: boolean | null;
   provider?: string | null;
 }

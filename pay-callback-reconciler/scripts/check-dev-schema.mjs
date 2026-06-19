@@ -52,7 +52,7 @@ const REQUIRED_TABLES = {
 
   ],
 
-  payment: ['payment_id', 'status', 'amount', 'reference', 'description', 'finished', 'updated_at'],
+  payment: ['payment_id', 'status', 'amount', 'reference', 'description', 'finished'],
 
   payment_events: [
 

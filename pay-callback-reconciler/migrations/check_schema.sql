@@ -12,7 +12,6 @@ WITH expected AS (
   SELECT * FROM (VALUES
     ('payment', 'payment_id'), ('payment', 'status'), ('payment', 'amount'),
     ('payment', 'reference'), ('payment', 'description'), ('payment', 'finished'),
-    ('payment', 'updated_at'),
     ('payment_events', 'event_id'), ('payment_events', 'payment_id'),
     ('payment_events', 'event_type'), ('payment_events', 'event_data'),
     ('payment_events', 'event_timestamp'), ('payment_events', 'processed'), ('payment_events', 'received_at')
