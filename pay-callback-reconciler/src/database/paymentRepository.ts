@@ -43,7 +43,7 @@ export async function updatePaymentWithOrdering(
 
   const values = [...Object.values(validUpdates), paymentId];
 
-  const queryText = `UPDATE payment SET ${setClauses}, updated_at = NOW() WHERE payment_id = $${Object.keys(validUpdates).length + 1} RETURNING *`;
+  const queryText = `UPDATE payment SET ${setClauses} WHERE payment_id = $${Object.keys(validUpdates).length + 1} RETURNING *`;
 
   const result: QueryResult<Payment> = await query(queryText, values);
 
