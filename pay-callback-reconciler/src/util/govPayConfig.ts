@@ -3,7 +3,10 @@ import { ENV_KEYS } from '../constants/payment.constants.js';
 import { getAwsRegion } from './dbConfig.js';
 import log from './logger.js';
 
-/** SSM Parameter Store names for GOV.UK Pay REST API credentials */
+/**
+ * SSM Parameter Store paths for GOV.UK Pay REST API credentials.
+ * Same secrets as payment-service / backend (GOVPAY_API_KEY + GOVPAY_API_URL).
+ */
 const SSM_PARAMETER_NAMES = {
   API_KEY: ENV_KEYS.GOVPAY_API_KEY,
   API_URL: ENV_KEYS.GOVPAY_API_URL,
@@ -18,6 +21,15 @@ let cachedConfig: GovPayConfig | null = null;
 
 export function resetGovPayConfigCache(): void {
   cachedConfig = null;
+}
+
+/** Ensures GET /v1/payments/{id} base path — SSM may store host-only URL. */
+export function normalizePaymentsApiUrl(baseUrl: string): string {
+  const trimmed = baseUrl.replace(/\/$/, '');
+  if (trimmed.endsWith('/v1/payments')) {
+    return trimmed;
+  }
+  return `${trimmed}/v1/payments`;
 }
 
 async function fetchSsmParameter(parameterName: string): Promise<string> {
@@ -63,15 +75,17 @@ export async function resolveGovPayConfig(): Promise<GovPayConfig> {
     return cachedConfig;
   }
 
-  const [apiKey, apiUrl] = await Promise.all([
+  const [apiKey, apiUrlRaw] = await Promise.all([
     fetchSsmParameter(SSM_PARAMETER_NAMES.API_KEY),
     fetchSsmParameter(SSM_PARAMETER_NAMES.API_URL),
   ]);
 
-  cachedConfig = { apiKey, apiUrl: apiUrl.replace(/\/$/, '') };
+  const apiUrl = normalizePaymentsApiUrl(apiUrlRaw);
+  cachedConfig = { apiKey, apiUrl };
   log.info('[govPayConfig] GOV.UK Pay API configuration loaded from Parameter Store', {
     apiKeyParameter: SSM_PARAMETER_NAMES.API_KEY,
     apiUrlParameter: SSM_PARAMETER_NAMES.API_URL,
+    apiUrl,
   });
 
   return cachedConfig;

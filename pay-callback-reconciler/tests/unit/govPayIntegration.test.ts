@@ -54,11 +54,11 @@ describe('GOV.UK Pay API integration path', () => {
     delete process.env.GOVPAY_API_VALIDATION_ENABLED;
 
     mockSend.mockImplementation(async (input: { Name: string }) => {
-      if (input.Name === 'GOVPAY_API_KEY') {
+      if (input.Name === '/GOVPAY/API/KEY') {
         return { Parameter: { Value: 'integration-test-key' } };
       }
-      if (input.Name === 'GOVPAY_API_URL') {
-        return { Parameter: { Value: 'https://publicapi.payments.service.gov.uk/v1/payments' } };
+      if (input.Name === '/GOVPAY/EXTERNAL/API/BASE/URL') {
+        return { Parameter: { Value: 'https://publicapi.payments.service.gov.uk' } };
       }
       throw new Error(`Unknown parameter: ${input.Name}`);
     });
@@ -148,7 +148,7 @@ describe('GOV.UK Pay API integration path', () => {
     const result = await processPaymentFromSQS(record, mockContext);
 
     expect(mockSend).toHaveBeenCalledWith(
-      expect.objectContaining({ Name: 'GOVPAY_API_KEY', WithDecryption: true })
+      expect.objectContaining({ Name: '/GOVPAY/API/KEY', WithDecryption: true })
     );
     expect(global.fetch).toHaveBeenCalledWith(
       'https://publicapi.payments.service.gov.uk/v1/payments/ssci1bmuo1s8sbbmnoih34otg9',

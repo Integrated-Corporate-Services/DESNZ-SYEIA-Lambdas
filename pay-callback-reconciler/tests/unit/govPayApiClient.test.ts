@@ -25,11 +25,11 @@ describe('govPayApiClient', () => {
     jest.clearAllMocks();
     resetGovPayConfigCache();
     mockSend.mockImplementation(async (input: { Name: string }) => {
-      if (input.Name === 'GOVPAY_API_KEY') {
+      if (input.Name === '/GOVPAY/API/KEY') {
         return { Parameter: { Value: 'test-api-key' } };
       }
-      if (input.Name === 'GOVPAY_API_URL') {
-        return { Parameter: { Value: 'https://publicapi.payments.service.gov.uk/v1/payments' } };
+      if (input.Name === '/GOVPAY/EXTERNAL/API/BASE/URL') {
+        return { Parameter: { Value: 'https://publicapi.payments.service.gov.uk' } };
       }
       throw new Error(`Unknown parameter: ${input.Name}`);
     });
