@@ -1,5 +1,4 @@
 import {
-  hasGovPayApiCredentialsConfigured,
   isGovPayApiValidationEnabled,
   resetGovPayConfigCache,
   resolveGovPayConfig,
@@ -12,6 +11,16 @@ jest.mock('@aws-sdk/client-ssm', () => ({
   GetParameterCommand: jest.fn((input) => input),
 }));
 
+jest.mock('../../src/util/logger.js', () => ({
+  __esModule: true,
+  default: {
+    info: jest.fn(),
+    error: jest.fn(),
+    warn: jest.fn(),
+    debug: jest.fn(),
+  },
+}));
+
 describe('govPayConfig', () => {
   const originalEnv = process.env;
 
@@ -19,11 +28,6 @@ describe('govPayConfig', () => {
     process.env = { ...originalEnv };
     resetGovPayConfigCache();
     mockSend.mockReset();
-    delete process.env.GOVUK_API_KEY;
-    delete process.env.GOVPAY_API_KEY;
-    delete process.env.GOVPAY_API_KEY_PARAMETER;
-    delete process.env.EXTERNAL_API_BASE_URL_PARAMETER;
-    delete process.env.GOVPAY_API_URL;
     delete process.env.GOVPAY_API_VALIDATION_ENABLED;
   });
 
@@ -31,75 +35,69 @@ describe('govPayConfig', () => {
     process.env = originalEnv;
   });
 
-  test('hasGovPayApiCredentialsConfigured is true when GOVPAY_API_KEY is set', () => {
-    process.env.GOVPAY_API_KEY = 'test-key';
-    expect(hasGovPayApiCredentialsConfigured()).toBe(true);
-  });
-
-  test('hasGovPayApiCredentialsConfigured is true when GOVPAY_API_KEY_PARAMETER is set', () => {
-    process.env.GOVPAY_API_KEY_PARAMETER = '/dev/govpay/api-key';
-    expect(hasGovPayApiCredentialsConfigured()).toBe(true);
-  });
+  function mockSsmParameters(apiKey: string, apiUrl: string): void {
+    mockSend.mockImplementation(async (input: { Name: string }) => {
+      if (input.Name === 'GOVPAY_API_KEY') {
+        return { Parameter: { Value: apiKey } };
+      }
+      if (input.Name === 'GOVPAY_API_URL') {
+        return { Parameter: { Value: apiUrl } };
+      }
+      throw new Error(`Unknown parameter: ${input.Name}`);
+    });
+  }
 
   test('isGovPayApiValidationEnabled is false when explicitly disabled', () => {
-    process.env.GOVPAY_API_KEY = 'test-key';
     process.env.GOVPAY_API_VALIDATION_ENABLED = 'false';
     expect(isGovPayApiValidationEnabled()).toBe(false);
   });
 
-  test('isGovPayApiValidationEnabled is false without credentials', () => {
-    expect(isGovPayApiValidationEnabled()).toBe(false);
-  });
-
-  test('isGovPayApiValidationEnabled is true when credentials are configured', () => {
-    process.env.GOVPAY_API_KEY = 'test-key';
+  test('isGovPayApiValidationEnabled is true by default', () => {
     expect(isGovPayApiValidationEnabled()).toBe(true);
   });
 
-  test('resolveGovPayConfig reads direct env vars', async () => {
-    process.env.GOVPAY_API_KEY = 'direct-key';
-    process.env.GOVPAY_API_URL = 'https://example.test/v1/payments/';
-
-    const config = await resolveGovPayConfig();
-
-    expect(config.apiKey).toBe('direct-key');
-    expect(config.apiUrl).toBe('https://example.test/v1/payments');
-  });
-
-  test('resolveGovPayConfig throws when API key is missing', async () => {
-    await expect(resolveGovPayConfig()).rejects.toThrow('GOV.UK Pay API key not configured');
-  });
-
-  test('resolveGovPayConfig fetches API key from SSM when parameter path is set', async () => {
-    process.env.GOVPAY_API_KEY_PARAMETER = '/dev/govpay/api-key';
-    mockSend.mockResolvedValue({ Parameter: { Value: 'ssm-api-key' } });
+  test('resolveGovPayConfig fetches GOVPAY_API_KEY and GOVPAY_API_URL from SSM', async () => {
+    mockSsmParameters('ssm-api-key', 'https://example.test/v1/payments/');
 
     const config = await resolveGovPayConfig();
 
     expect(config.apiKey).toBe('ssm-api-key');
+    expect(config.apiUrl).toBe('https://example.test/v1/payments');
     expect(mockSend).toHaveBeenCalledWith(
-      expect.objectContaining({ Name: '/dev/govpay/api-key', WithDecryption: true })
+      expect.objectContaining({ Name: 'GOVPAY_API_KEY', WithDecryption: true })
+    );
+    expect(mockSend).toHaveBeenCalledWith(
+      expect.objectContaining({ Name: 'GOVPAY_API_URL', WithDecryption: true })
     );
   });
 
-  test('resolveGovPayConfig uses literal parameter value when not an SSM path', async () => {
-    process.env.GOVPAY_API_KEY_PARAMETER = 'inline-api-key-value';
+  test('resolveGovPayConfig returns cached config on subsequent calls', async () => {
+    mockSsmParameters('cached-key', 'https://cached.test/v1/payments');
 
-    const config = await resolveGovPayConfig();
+    await resolveGovPayConfig();
+    await resolveGovPayConfig();
 
-    expect(config.apiKey).toBe('inline-api-key-value');
-    expect(mockSend).not.toHaveBeenCalled();
+    expect(mockSend).toHaveBeenCalledTimes(2);
   });
 
-  test('resolveGovPayConfig fetches API URL from SSM EXTERNAL_API_BASE_URL_PARAMETER', async () => {
-    process.env.GOVPAY_API_KEY = 'direct-key';
-    process.env.EXTERNAL_API_BASE_URL_PARAMETER = '/dev/govpay/api-url';
-    mockSend.mockResolvedValue({
-      Parameter: { Value: 'https://custom.api.test/v1/payments/' },
+  test('resolveGovPayConfig throws when GOVPAY_API_KEY SSM fetch fails', async () => {
+    mockSend.mockRejectedValue(new Error('AccessDeniedException'));
+
+    await expect(resolveGovPayConfig()).rejects.toThrow(
+      "Failed to fetch SSM parameter 'GOVPAY_API_KEY'"
+    );
+  });
+
+  test('resolveGovPayConfig throws when GOVPAY_API_URL has no value', async () => {
+    mockSend.mockImplementation(async (input: { Name: string }) => {
+      if (input.Name === 'GOVPAY_API_KEY') {
+        return { Parameter: { Value: 'ssm-api-key' } };
+      }
+      return { Parameter: { Value: '' } };
     });
 
-    const config = await resolveGovPayConfig();
-
-    expect(config.apiUrl).toBe('https://custom.api.test/v1/payments');
+    await expect(resolveGovPayConfig()).rejects.toThrow(
+      "SSM parameter 'GOVPAY_API_URL' has no value"
+    );
   });
 });

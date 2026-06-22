@@ -1,13 +1,18 @@
 /**
- * Integration-style test: paymentProcessor → govPayApiValidator → govPayApiClient (mocked fetch)
- * Verifies the full GOV.UK REST validation path without mocking the validator layer.
+ * Integration-style test: paymentProcessor → govPayApiValidator → govPayApiClient (mocked fetch + SSM)
  */
 import { processPaymentFromSQS } from '../../src/services/paymentProcessor.js';
 import { resetGovPayConfigCache } from '../../src/util/govPayConfig.js';
 import type { Context, SQSRecord } from 'aws-lambda';
 
 const mockQuery = jest.fn();
+const mockSend = jest.fn();
 const originalFetch = global.fetch;
+
+jest.mock('@aws-sdk/client-ssm', () => ({
+  SSMClient: jest.fn(() => ({ send: mockSend })),
+  GetParameterCommand: jest.fn((input) => input),
+}));
 
 jest.mock('../../src/util/database.js', () => ({
   query: (...args: unknown[]) => mockQuery(...args),
@@ -46,9 +51,17 @@ describe('GOV.UK Pay API integration path', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     resetGovPayConfigCache();
-    process.env.GOVPAY_API_KEY = 'integration-test-key';
-    process.env.GOVPAY_API_URL = 'https://publicapi.payments.service.gov.uk/v1/payments';
     delete process.env.GOVPAY_API_VALIDATION_ENABLED;
+
+    mockSend.mockImplementation(async (input: { Name: string }) => {
+      if (input.Name === 'GOVPAY_API_KEY') {
+        return { Parameter: { Value: 'integration-test-key' } };
+      }
+      if (input.Name === 'GOVPAY_API_URL') {
+        return { Parameter: { Value: 'https://publicapi.payments.service.gov.uk/v1/payments' } };
+      }
+      throw new Error(`Unknown parameter: ${input.Name}`);
+    });
 
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
@@ -110,8 +123,6 @@ describe('GOV.UK Pay API integration path', () => {
 
   afterEach(() => {
     global.fetch = originalFetch;
-    delete process.env.GOVPAY_API_KEY;
-    delete process.env.GOVPAY_API_URL;
     resetGovPayConfigCache();
   });
 
@@ -136,6 +147,9 @@ describe('GOV.UK Pay API integration path', () => {
 
     const result = await processPaymentFromSQS(record, mockContext);
 
+    expect(mockSend).toHaveBeenCalledWith(
+      expect.objectContaining({ Name: 'GOVPAY_API_KEY', WithDecryption: true })
+    );
     expect(global.fetch).toHaveBeenCalledWith(
       'https://publicapi.payments.service.gov.uk/v1/payments/ssci1bmuo1s8sbbmnoih34otg9',
       expect.objectContaining({ method: 'GET' })

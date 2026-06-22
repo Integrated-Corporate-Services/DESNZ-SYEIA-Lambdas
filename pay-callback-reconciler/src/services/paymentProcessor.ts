@@ -144,7 +144,7 @@ export async function processPaymentFromSQS(
       log.info('[paymentProcessor] GOV.UK Pay API validation skipped', {
         requestId,
         eventId,
-        reason: 'GOVPAY_API_VALIDATION_ENABLED=false or API key not configured',
+        reason: 'GOVPAY_API_VALIDATION_ENABLED=false',
       });
     }
 

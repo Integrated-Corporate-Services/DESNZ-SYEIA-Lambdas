@@ -1,6 +1,13 @@
 import { getPaymentById } from '../../src/services/govPayApiClient.js';
 import { resetGovPayConfigCache } from '../../src/util/govPayConfig.js';
 
+const mockSend = jest.fn();
+
+jest.mock('@aws-sdk/client-ssm', () => ({
+  SSMClient: jest.fn(() => ({ send: mockSend })),
+  GetParameterCommand: jest.fn((input) => input),
+}));
+
 jest.mock('../../src/util/logger.js', () => ({
   __esModule: true,
   default: {
@@ -17,14 +24,19 @@ describe('govPayApiClient', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     resetGovPayConfigCache();
-    process.env.GOVPAY_API_KEY = 'test-api-key';
-    process.env.GOVPAY_API_URL = 'https://publicapi.payments.service.gov.uk/v1/payments';
+    mockSend.mockImplementation(async (input: { Name: string }) => {
+      if (input.Name === 'GOVPAY_API_KEY') {
+        return { Parameter: { Value: 'test-api-key' } };
+      }
+      if (input.Name === 'GOVPAY_API_URL') {
+        return { Parameter: { Value: 'https://publicapi.payments.service.gov.uk/v1/payments' } };
+      }
+      throw new Error(`Unknown parameter: ${input.Name}`);
+    });
   });
 
   afterEach(() => {
     global.fetch = originalFetch;
-    delete process.env.GOVPAY_API_KEY;
-    delete process.env.GOVPAY_API_URL;
     resetGovPayConfigCache();
   });
 

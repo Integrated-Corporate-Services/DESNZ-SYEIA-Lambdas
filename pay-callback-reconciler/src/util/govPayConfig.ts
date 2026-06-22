@@ -1,9 +1,13 @@
 import { GetParameterCommand, SSMClient } from '@aws-sdk/client-ssm';
+import { ENV_KEYS } from '../constants/payment.constants.js';
 import { getAwsRegion } from './dbConfig.js';
+import log from './logger.js';
 
-const DEFAULT_API_URL = 'https://publicapi.payments.service.gov.uk/v1/payments';
-const API_KEY_ENV_NAMES = ['GOVUK_API_KEY', 'GOVPAY_API_KEY'] as const;
-const API_URL_ENV_NAMES = ['GOVPAY_API_URL', 'GOVUK_API_URL'] as const;
+/** SSM Parameter Store names for GOV.UK Pay REST API credentials */
+const SSM_PARAMETER_NAMES = {
+  API_KEY: ENV_KEYS.GOVPAY_API_KEY,
+  API_URL: ENV_KEYS.GOVPAY_API_URL,
+} as const;
 
 interface GovPayConfig {
   apiKey: string;
@@ -16,74 +20,42 @@ export function resetGovPayConfigCache(): void {
   cachedConfig = null;
 }
 
-function readDirectEnv(names: readonly string[]): string | undefined {
-  for (const name of names) {
-    const value = process.env[name]?.trim();
-    if (value) {
-      return value;
-    }
-  }
-  return undefined;
-}
-
-function isSsmParameterRef(value: string): boolean {
-  return value.startsWith('arn:aws:ssm:') || value.startsWith('/');
-}
-
-async function fetchSsmParameter(nameOrArn: string): Promise<string> {
+async function fetchSsmParameter(parameterName: string): Promise<string> {
   const endpoint = process.env.AWS_ENDPOINT_URL;
   const client = new SSMClient({
     region: getAwsRegion(),
     ...(endpoint ? { endpoint } : {}),
   });
 
-  const response = await client.send(
-    new GetParameterCommand({ Name: nameOrArn, WithDecryption: true })
-  );
+  try {
+    const response = await client.send(
+      new GetParameterCommand({ Name: parameterName, WithDecryption: true })
+    );
 
-  const value = response.Parameter?.Value?.trim();
-  if (!value) {
-    throw new Error(`SSM parameter ${nameOrArn} has no value`);
+    const value = response.Parameter?.Value?.trim();
+    if (!value) {
+      log.error('[govPayConfig] SSM parameter has no value', { parameterName });
+      throw new Error(`SSM parameter '${parameterName}' has no value`);
+    }
+
+    log.info('[govPayConfig] Successfully fetched SSM parameter', { parameterName });
+    return value;
+  } catch (err) {
+    const error = err as Error;
+    if (error.message.includes('has no value')) {
+      throw error;
+    }
+
+    log.error('[govPayConfig] Failed to fetch SSM parameter', {
+      parameterName,
+      error: error.message,
+    });
+    throw new Error(`Failed to fetch SSM parameter '${parameterName}': ${error.message}`);
   }
-
-  return value;
-}
-
-async function resolveConfigValue(
-  directEnvNames: readonly string[],
-  parameterEnvName: string
-): Promise<string | undefined> {
-  const direct = readDirectEnv(directEnvNames);
-  if (direct) {
-    return direct;
-  }
-
-  const parameterRef = process.env[parameterEnvName]?.trim();
-  if (!parameterRef) {
-    return undefined;
-  }
-
-  if (isSsmParameterRef(parameterRef)) {
-    return fetchSsmParameter(parameterRef);
-  }
-
-  return parameterRef;
-}
-
-export function hasGovPayApiCredentialsConfigured(): boolean {
-  if (readDirectEnv(API_KEY_ENV_NAMES)) {
-    return true;
-  }
-
-  return Boolean(process.env.GOVPAY_API_KEY_PARAMETER?.trim());
 }
 
 export function isGovPayApiValidationEnabled(): boolean {
-  if (process.env.GOVPAY_API_VALIDATION_ENABLED === 'false') {
-    return false;
-  }
-
-  return hasGovPayApiCredentialsConfigured();
+  return process.env[ENV_KEYS.GOVPAY_API_VALIDATION_ENABLED] !== 'false';
 }
 
 export async function resolveGovPayConfig(): Promise<GovPayConfig> {
@@ -91,17 +63,16 @@ export async function resolveGovPayConfig(): Promise<GovPayConfig> {
     return cachedConfig;
   }
 
-  const apiKey = await resolveConfigValue(API_KEY_ENV_NAMES, 'GOVPAY_API_KEY_PARAMETER');
-  if (!apiKey) {
-    throw new Error(
-      'GOV.UK Pay API key not configured (GOVUK_API_KEY|GOVPAY_API_KEY|GOVPAY_API_KEY_PARAMETER)'
-    );
-  }
-
-  const apiUrl =
-    (await resolveConfigValue(API_URL_ENV_NAMES, 'EXTERNAL_API_BASE_URL_PARAMETER')) ??
-    DEFAULT_API_URL;
+  const [apiKey, apiUrl] = await Promise.all([
+    fetchSsmParameter(SSM_PARAMETER_NAMES.API_KEY),
+    fetchSsmParameter(SSM_PARAMETER_NAMES.API_URL),
+  ]);
 
   cachedConfig = { apiKey, apiUrl: apiUrl.replace(/\/$/, '') };
+  log.info('[govPayConfig] GOV.UK Pay API configuration loaded from Parameter Store', {
+    apiKeyParameter: SSM_PARAMETER_NAMES.API_KEY,
+    apiUrlParameter: SSM_PARAMETER_NAMES.API_URL,
+  });
+
   return cachedConfig;
 }
