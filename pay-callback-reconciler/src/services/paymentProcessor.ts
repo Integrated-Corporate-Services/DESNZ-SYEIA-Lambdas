@@ -18,6 +18,10 @@ import {
   createPaymentStatusNotification,
 } from '../database/applicationOutboxRepository.js';
 import { mapEventType } from '../mappers/paymentEventMapper.js';
+import {
+  isGovPayApiValidationEnabled,
+  validateWebhookWithGovPayApi,
+} from '../validators/govPayApiValidator.js';
 import type { SQSMessageBody, ProcessResult, GovUKPayWebhook, Payment } from '../types/index.js';
 
 async function completeWebhookReconciliation(params: {
@@ -116,6 +120,32 @@ export async function processPaymentFromSQS(
         recordMetric('payment.webhook.signature_invalid', 1);
         throw new Error('Invalid webhook signature');
       }
+    }
+
+    if (isGovPayApiValidationEnabled()) {
+      try {
+        await validateWebhookWithGovPayApi({
+          paymentId,
+          webhookEventType: eventType,
+          webhookAmount: webhook.resource?.amount,
+        });
+      } catch (govPayErr) {
+        const govPayError = govPayErr as Error;
+        log.error('[paymentProcessor] GOV.UK Pay API validation failed', {
+          requestId,
+          eventId,
+          paymentId,
+          error: govPayError.message,
+        });
+        recordMetric('payment.webhook.govpay_api_invalid', 1);
+        throw govPayErr;
+      }
+    } else {
+      log.info('[paymentProcessor] GOV.UK Pay API validation skipped', {
+        requestId,
+        eventId,
+        reason: 'GOVPAY_API_VALIDATION_ENABLED=false',
+      });
     }
 
     const eventTimestamp = resolveWebhookEventTimestamp(webhook, metadata);

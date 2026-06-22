@@ -1,5 +1,10 @@
 import { processPaymentFromSQS } from '../../src/services/paymentProcessor.js';
 import { validateSignature } from '../../src/validators/signatureValidator.js';
+import {
+  isGovPayApiValidationEnabled,
+  validateWebhookWithGovPayApi,
+} from '../../src/validators/govPayApiValidator.js';
+import { recordMetric } from '../../src/util/metrics.js';
 import type { Context, SQSRecord } from 'aws-lambda';
 
 const mockQuery = jest.fn();
@@ -14,11 +19,22 @@ jest.mock('../../src/util/database.js', () => ({
 
 jest.mock('../../src/validators/signatureValidator.js');
 jest.mock('../../src/util/metrics.js', () => ({ recordMetric: jest.fn() }));
+jest.mock('../../src/validators/govPayApiValidator.js', () => ({
+  isGovPayApiValidationEnabled: jest.fn(() => false),
+  validateWebhookWithGovPayApi: jest.fn(),
+}));
 jest.mock('../../src/util/webhookSecret.js', () => ({
   getGovukPayWebhookSecret: () => 'test-secret',
 }));
 
 const mockValidateSignature = validateSignature as jest.MockedFunction<typeof validateSignature>;
+const mockIsGovPayApiValidationEnabled = isGovPayApiValidationEnabled as jest.MockedFunction<
+  typeof isGovPayApiValidationEnabled
+>;
+const mockValidateWebhookWithGovPayApi = validateWebhookWithGovPayApi as jest.MockedFunction<
+  typeof validateWebhookWithGovPayApi
+>;
+const mockRecordMetric = recordMetric as jest.MockedFunction<typeof recordMetric>;
 
 const mockContext = {
   awsRequestId: 'req-1',
@@ -59,6 +75,7 @@ describe('paymentProcessor - webhook flow', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockValidateSignature.mockReturnValue(true);
+    mockIsGovPayApiValidationEnabled.mockReturnValue(false);
     mockQuery.mockImplementation(async (text: string) => {
       if (text === 'BEGIN' || text === 'COMMIT' || text === 'ROLLBACK') {
         return { rows: [], rowCount: 0, command: text, oid: 0, fields: [] };
@@ -239,5 +256,54 @@ describe('paymentProcessor - webhook flow', () => {
     await expect(processPaymentFromSQS(record, mockContext)).rejects.toThrow('Out-of-order webhook');
     expect(mockQuery).toHaveBeenCalledWith('ROLLBACK');
     expect(mockQuery).not.toHaveBeenCalledWith('COMMIT');
+  });
+
+  test('calls GOV.UK Pay API validation before DB transaction when enabled', async () => {
+    mockIsGovPayApiValidationEnabled.mockReturnValue(true);
+    mockValidateWebhookWithGovPayApi.mockResolvedValue({
+      payment_id: 'pay_flow_001',
+      amount: 10000,
+      state: { status: 'success' },
+    });
+
+    const record = buildSqsRecord({
+      metadata: {
+        webhookId: 'evt-govpay',
+        paymentId: 'pay_flow_001',
+        eventType: 'card_payment_succeeded',
+        source: 'inbound-event-receiver',
+      },
+      webhook: { ...baseWebhook, webhook_message_id: 'evt-govpay' },
+    });
+
+    await processPaymentFromSQS(record, mockContext);
+
+    expect(mockValidateWebhookWithGovPayApi).toHaveBeenCalledWith({
+      paymentId: 'pay_flow_001',
+      webhookEventType: 'card_payment_succeeded',
+      webhookAmount: 10000,
+    });
+    expect(mockQuery).toHaveBeenCalledWith('BEGIN');
+  });
+
+  test('records metric and aborts when GOV.UK Pay API validation fails', async () => {
+    mockIsGovPayApiValidationEnabled.mockReturnValue(true);
+    mockValidateWebhookWithGovPayApi.mockRejectedValue(
+      new Error("GOV.UK API status 'failed' does not match webhook 'card_payment_succeeded'")
+    );
+
+    const record = buildSqsRecord({
+      metadata: {
+        webhookId: 'evt-govpay-fail',
+        paymentId: 'pay_flow_001',
+        eventType: 'card_payment_succeeded',
+        source: 'inbound-event-receiver',
+      },
+      webhook: { ...baseWebhook, webhook_message_id: 'evt-govpay-fail' },
+    });
+
+    await expect(processPaymentFromSQS(record, mockContext)).rejects.toThrow('does not match webhook');
+    expect(mockRecordMetric).toHaveBeenCalledWith('payment.webhook.govpay_api_invalid', 1);
+    expect(mockQuery).not.toHaveBeenCalledWith('BEGIN');
   });
 });
