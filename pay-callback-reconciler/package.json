@@ -35,6 +35,7 @@
         "@aws-sdk/client-ecs": "^3.0.0",
         "@aws-sdk/client-secrets-manager": "^3.0.0",
         "@aws-sdk/client-sqs": "^3.0.0",
+        "@aws-sdk/client-ssm": "^3.0.0",
         "@types/aws-lambda": "^8.10.161",
         "@types/node": "^20.19.0",
         "@types/pg": "^8.10.0",
