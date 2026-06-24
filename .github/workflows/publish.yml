@@ -1,0 +1,662 @@
+﻿name: Deploy Lambdas
+run-name: Deploy ${{ github.ref_name }} by @${{ github.actor }}
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Deployment target'
+        required: true
+        type: choice
+        options:
+          - dev-and-uat
+          - feature-branch-to-dev-only
+        default: 'dev-and-uat'
+      branch:
+        description: 'Branch name (only for feature-branch-to-dev-only)'
+        required: false
+        type: string
+
+jobs:
+  # ============================================================================
+  # MAIN FLOW: Push to main → Dev → Staging (with approval)
+  # ============================================================================
+  deploy-to-dev:
+    name: Deploy Main to Dev 
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.target == 'dev-and-uat')
+    environment:
+      name: dev
+      url: https://eu-west-2.console.aws.amazon.com/codesuite/codepipeline/pipelines?region=eu-west-2
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-west-2
+
+      - name: Detect Changed Lambdas (Smart Deployment)
+        id: detect-changes
+        run: |
+          echo "Detecting which Lambda functions changed..."
+          
+          # Get changed files from the push
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            # Manual trigger - deploy all lambdas
+            echo "Manual trigger detected - will deploy ALL lambdas"
+            DEPLOY_ALL=true
+          else
+            # Check what changed in the push
+            CHANGED_FILES=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }})
+            echo "Changed files in push:"
+            echo "$CHANGED_FILES"
+            echo ""
+            
+            # Check if any non-lambda files changed (README, .github, etc.)
+            if echo "$CHANGED_FILES" | grep -qE '^(\.github/|README\.md|\.gitignore)'; then
+              echo "Infrastructure files changed - deploying ALL lambdas for safety"
+              DEPLOY_ALL=true
+            else
+              DEPLOY_ALL=false
+            fi
+          fi
+          
+          # Define lambda directories and their pipeline names
+          declare -A LAMBDA_MAP=(
+            ["pay-callback-relay"]="dev-pay-cb-rcvr-relay-EIP-dev-lambda-pipeline"
+            ["pay-callback-reconciler"]="dev-pay-cb-rcvr-worker-EIP-dev-lambda-pipeline"
+            ["bacs-webhook-relay"]="dev-bacs-wh-receiver-relay-EIP-dev-lambda-pipeline"
+            ["bacs-webhook-worker"]="dev-bacs-wh-receiver-worker-EIP-dev-lambda-pipeline"
+            ["rds-to-salesforce"]="dev-rds-to-salesforce-EIP-dev-lambda-pipeline"
+            ["approveUser"]="dev-approveUser-EIP-dev-lambda-pipeline"
+            ["listCognitoUsers"]="dev-listCognitoUsers-EIP-dev-lambda-pipeline"
+            ["login"]="dev-login-EIP-dev-lambda-pipeline"
+            ["trigger-appflow-lambda"]="dev-trigger-appflow-lambda-EIP-dev-lambda-pipeline"
+            ["register"]="dev-register-EIP-dev-lambda-pipeline"
+            ["addUserToEndUserGroup"]="dev-addUserToEndUserGroup-EIP-dev-lambda-pipeline"
+            ["rds-s3-trigger"]="dev-rds-s3-trigger-EIP-dev-lambda-pipeline"
+            ["addGroupToTokenGeneration"]="dev-addGroupToTokenGeneration-EIP-dev-lambda-pipeline"
+          )
+          
+          declare -a PIPELINES_TO_TRIGGER=()
+          
+          if [ "$DEPLOY_ALL" = true ]; then
+            # Deploy all lambdas
+            PIPELINES_TO_TRIGGER=("${LAMBDA_MAP[@]}")
+            echo "Deploying ALL ${#PIPELINES_TO_TRIGGER[@]} Lambda functions"
+          else
+            # Smart detection - only deploy changed lambdas
+            for LAMBDA_DIR in "${!LAMBDA_MAP[@]}"; do
+              if echo "$CHANGED_FILES" | grep -q "^${LAMBDA_DIR}/"; then
+                echo "Detected changes in: ${LAMBDA_DIR}"
+                PIPELINES_TO_TRIGGER+=("${LAMBDA_MAP[$LAMBDA_DIR]}")
+              fi
+            done
+            
+            if [ ${#PIPELINES_TO_TRIGGER[@]} -eq 0 ]; then
+              echo "No Lambda changes detected, but deploying all for safety"
+              PIPELINES_TO_TRIGGER=("${LAMBDA_MAP[@]}")
+            else
+              echo ""
+              echo "Smart deployment: Only ${#PIPELINES_TO_TRIGGER[@]} Lambda(s) changed"
+            fi
+          fi
+          
+          # Export pipelines for next step
+          {
+            echo "pipelines<<EOF"
+            printf '%s\n' "${PIPELINES_TO_TRIGGER[@]}"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+          
+          echo "pipeline_count=${#PIPELINES_TO_TRIGGER[@]}" >> $GITHUB_OUTPUT
+
+      - name: Trigger Dev Lambda Pipelines
+        id: trigger-dev
+        run: |
+          # Read pipelines from detection step
+          PIPELINES=()
+          while IFS= read -r line; do
+            PIPELINES+=("$line")
+          done <<< "${{ steps.detect-changes.outputs.pipelines }}"
+
+          echo "Deploying to Dev Environment"
+          echo "Branch: ${{ github.ref_name }}"
+          echo "Commit: ${{ github.sha }}"
+          echo "Triggered by: @${{ github.actor }}"
+          echo ""
+          echo "Triggering ${#PIPELINES[@]} Lambda Pipelines..."
+          echo ""
+
+          SUCCESS_COUNT=0
+          FAILED_COUNT=0
+          declare -a EXECUTION_IDS=()
+          declare -a FAILED_PIPELINES=()
+
+          # Trigger all pipelines
+          for PIPELINE in "${PIPELINES[@]}"; do
+            echo "Triggering: ${PIPELINE}"
+            
+            if EXECUTION_ID=$(aws codepipeline start-pipeline-execution \
+              --name "${PIPELINE}" \
+              --query 'pipelineExecutionId' \
+              --output text 2>&1); then
+              
+              echo "   Success - Execution ID: ${EXECUTION_ID}"
+              EXECUTION_IDS+=("${PIPELINE}:${EXECUTION_ID}")
+              ((SUCCESS_COUNT++))
+            else
+              echo "   Failed - ${EXECUTION_ID}"
+              FAILED_PIPELINES+=("${PIPELINE}")
+              ((FAILED_COUNT++))
+            fi
+            echo ""
+          done
+
+          echo "════════════════════════════════════════"
+          echo "Deployment Summary"
+          echo "════════════════════════════════════════"
+          echo "Successful: ${SUCCESS_COUNT}/${#PIPELINES[@]}"
+          echo "Failed: ${FAILED_COUNT}/${#PIPELINES[@]}"
+          echo ""
+
+          # Save outputs for summary
+          echo "success_count=${SUCCESS_COUNT}" >> $GITHUB_OUTPUT
+          echo "failed_count=${FAILED_COUNT}" >> $GITHUB_OUTPUT
+          echo "total_count=${#PIPELINES[@]}" >> $GITHUB_OUTPUT
+
+          # Export execution IDs for summary
+          {
+            echo "execution_ids<<EOF"
+            printf '%s\n' "${EXECUTION_IDS[@]}"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+
+          # Export failed pipelines
+          {
+            echo "failed_pipelines<<EOF"
+            printf '%s\n' "${FAILED_PIPELINES[@]}"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+
+          # Fail job if any pipeline failed
+          if [ ${FAILED_COUNT} -gt 0 ]; then
+            echo "Some pipelines failed to trigger. Check logs above."
+            exit 1
+          fi
+
+          echo "All Dev Lambda pipelines triggered successfully!"
+
+      - name: Create Dev Deployment Summary
+        if: always()
+        run: |
+          echo "## Dev Lambda Deployment Triggered" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** Dev" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Triggered by:** @${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          echo "### Pipeline Status" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Metric | Count |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Successful | ${{ steps.trigger-dev.outputs.success_count }} / ${{ steps.trigger-dev.outputs.total_count }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Failed | ${{ steps.trigger-dev.outputs.failed_count }} / ${{ steps.trigger-dev.outputs.total_count }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ -n "${{ steps.trigger-dev.outputs.execution_ids }}" ]; then
+            echo "### Triggered Pipelines" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            echo "${{ steps.trigger-dev.outputs.execution_ids }}" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ -n "${{ steps.trigger-dev.outputs.failed_pipelines }}" ]; then
+            echo "### Failed Pipelines" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            echo "${{ steps.trigger-dev.outputs.failed_pipelines }}" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "### Monitor in AWS Console" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "[View All Pipelines](https://eu-west-2.console.aws.amazon.com/codesuite/codepipeline/pipelines?region=eu-west-2)" >> $GITHUB_STEP_SUMMARY
+
+  deploy-to-uat:
+    name: Deploy to Staging (Main Branch - Requires Approval)
+    runs-on: ubuntu-latest
+    needs: deploy-to-dev
+    # Only run if deploy-to-dev ran (i.e., main branch flow)
+    if: success() && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.target == 'dev-and-uat'))
+    environment:
+      name: staging
+      url: https://eu-west-2.console.aws.amazon.com/codesuite/codepipeline/pipelines?region=eu-west-2
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-west-2
+
+      - name: Detect Changed Lambdas (Smart Deployment)
+        id: detect-changes
+        run: |
+          echo "Detecting which Lambda functions changed..."
+          
+          # Get changed files from the push
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            # Manual trigger - deploy all lambdas
+            echo "Manual trigger detected - will deploy ALL lambdas"
+            DEPLOY_ALL=true
+          else
+            # Check what changed in the push
+            CHANGED_FILES=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }})
+            echo "Changed files in push:"
+            echo "$CHANGED_FILES"
+            echo ""
+            
+            # Check if any non-lambda files changed (README, .github, etc.)
+            if echo "$CHANGED_FILES" | grep -qE '^(\.github/|README\.md|\.gitignore)'; then
+              echo "Infrastructure files changed - deploying ALL lambdas for safety"
+              DEPLOY_ALL=true
+            else
+              DEPLOY_ALL=false
+            fi
+          fi
+          
+          # Define lambda directories and their pipeline names
+          declare -A LAMBDA_MAP=(
+            ["pay-callback-relay"]="staging-pay-cb-rcvr-relay-EIP-staging-lambda-pipeline"
+            ["pay-callback-reconciler"]="staging-pay-cb-rcvr-worker-EIP-staging-lambda-pipeline"
+            ["bacs-webhook-relay"]="staging-bacs-wh-receiver-relay-EIP-staging-lambda-pipeline"
+            ["bacs-webhook-worker"]="staging-bacs-wh-receiver-worker-EIP-staging-lambda-pipeline"
+            ["rds-to-salesforce"]="staging-rds-to-salesforce-EIP-staging-lambda-pipeline"
+            ["approveUser"]="staging-approveUser-EIP-staging-lambda-pipeline"
+            ["listCognitoUsers"]="staging-listCognitoUsers-EIP-staging-lambda-pipeline"
+            ["login"]="staging-login-EIP-staging-lambda-pipeline"
+            ["trigger-appflow-lambda"]="staging-trigger-appflow-lambda-EIP-staging-lambda-pipeline"
+            ["register"]="staging-register-EIP-staging-lambda-pipeline"
+            ["addUserToEndUserGroup"]="staging-addUserToEndUserGroup-EIP-staging-lambda-pipeline"
+            ["rds-s3-trigger"]="staging-rds-s3-trigger-EIP-staging-lambda-pipeline"
+            ["addGroupToTokenGeneration"]="staging-addGroupToTokenGen-EIP-staging-lambda-pipeline"
+          )
+          
+          declare -a PIPELINES_TO_TRIGGER=()
+          
+          if [ "$DEPLOY_ALL" = true ]; then
+            # Deploy all lambdas
+            PIPELINES_TO_TRIGGER=("${LAMBDA_MAP[@]}")
+            echo "Deploying ALL ${#PIPELINES_TO_TRIGGER[@]} Lambda functions to Staging"
+          else
+            # Smart detection - only deploy changed lambdas
+            for LAMBDA_DIR in "${!LAMBDA_MAP[@]}"; do
+              if echo "$CHANGED_FILES" | grep -q "^${LAMBDA_DIR}/"; then
+                echo "Detected changes in: ${LAMBDA_DIR}"
+                PIPELINES_TO_TRIGGER+=("${LAMBDA_MAP[$LAMBDA_DIR]}")
+              fi
+            done
+            
+            if [ ${#PIPELINES_TO_TRIGGER[@]} -eq 0 ]; then
+              echo "No Lambda changes detected, but deploying all for safety"
+              PIPELINES_TO_TRIGGER=("${LAMBDA_MAP[@]}")
+            else
+              echo ""
+              echo "Smart deployment: Only ${#PIPELINES_TO_TRIGGER[@]} Lambda(s) changed"
+            fi
+          fi
+          
+          # Export pipelines for next step
+          {
+            echo "pipelines<<EOF"
+            printf '%s\n' "${PIPELINES_TO_TRIGGER[@]}"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+          
+          echo "pipeline_count=${#PIPELINES_TO_TRIGGER[@]}" >> $GITHUB_OUTPUT
+
+      - name: Trigger Staging Lambda Pipelines
+        id: trigger-uat
+        run: |
+          # Read pipelines from detection step
+          PIPELINES=()
+          while IFS= read -r line; do
+            PIPELINES+=("$line")
+          done <<< "${{ steps.detect-changes.outputs.pipelines }}"
+
+          echo "Deploying to Staging Environment (After Approval)"
+          echo "Branch: ${{ github.ref_name }}"
+          echo "Commit: ${{ github.sha }}"
+          echo "Triggered by: @${{ github.actor }}"
+          echo "Deploying to Staging Environment (After Approval)"
+          echo "Branch: ${{ github.ref_name }}"
+          echo "Commit: ${{ github.sha }}"
+          echo "Triggered by: @${{ github.actor }}"
+          echo ""
+          echo "Triggering ${#PIPELINES[@]} Lambda Pipelines..."
+          echo ""
+
+          SUCCESS_COUNT=0
+          FAILED_COUNT=0
+          declare -a EXECUTION_IDS=()
+          declare -a FAILED_PIPELINES=()
+
+          # Trigger all pipelines
+          for PIPELINE in "${PIPELINES[@]}"; do
+            echo "Triggering: ${PIPELINE}"
+            
+            if EXECUTION_ID=$(aws codepipeline start-pipeline-execution \
+              --name "${PIPELINE}" \
+              --query 'pipelineExecutionId' \
+              --output text 2>&1); then
+              
+              echo "   Success - Execution ID: ${EXECUTION_ID}"
+              EXECUTION_IDS+=("${PIPELINE}:${EXECUTION_ID}")
+              ((SUCCESS_COUNT++))
+            else
+              echo "   Failed - ${EXECUTION_ID}"
+              FAILED_PIPELINES+=("${PIPELINE}")
+              ((FAILED_COUNT++))
+            fi
+            echo ""
+          done
+
+          echo "════════════════════════════════════════"
+          echo "Deployment Summary"
+          echo "════════════════════════════════════════"
+          echo "Successful: ${SUCCESS_COUNT}/${#PIPELINES[@]}"
+          echo "Failed: ${FAILED_COUNT}/${#PIPELINES[@]}"
+          echo ""
+
+          # Save outputs for summary
+          echo "success_count=${SUCCESS_COUNT}" >> $GITHUB_OUTPUT
+          echo "failed_count=${FAILED_COUNT}" >> $GITHUB_OUTPUT
+          echo "total_count=${#PIPELINES[@]}" >> $GITHUB_OUTPUT
+
+          # Export execution IDs for summary
+          {
+            echo "execution_ids<<EOF"
+            printf '%s\n' "${EXECUTION_IDS[@]}"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+
+          # Export failed pipelines
+          {
+            echo "failed_pipelines<<EOF"
+            printf '%s\n' "${FAILED_PIPELINES[@]}"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+
+          # Fail job if any pipeline failed
+          if [ ${FAILED_COUNT} -gt 0 ]; then
+            echo "Some pipelines failed to trigger. Check logs above."
+            exit 1
+          fi
+
+          echo "All Staging Lambda pipelines triggered successfully!"
+
+      - name: Create Staging Deployment Summary
+        if: always()
+        run: |
+          echo "## Staging Lambda Deployment Triggered" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** Staging" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Triggered by:** @${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          echo "### Pipeline Status" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Metric | Count |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Successful | ${{ steps.trigger-uat.outputs.success_count }} / ${{ steps.trigger-uat.outputs.total_count }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Failed | ${{ steps.trigger-uat.outputs.failed_count }} / ${{ steps.trigger-uat.outputs.total_count }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ -n "${{ steps.trigger-uat.outputs.execution_ids }}" ]; then
+            echo "### Triggered Pipelines" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            echo "${{ steps.trigger-uat.outputs.execution_ids }}" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ -n "${{ steps.trigger-uat.outputs.failed_pipelines }}" ]; then
+            echo "### Failed Pipelines" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            echo "${{ steps.trigger-uat.outputs.failed_pipelines }}" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "### Monitor in AWS Console" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "[View All Pipelines](https://eu-west-2.console.aws.amazon.com/codesuite/codepipeline/pipelines?region=eu-west-2)" >> $GITHUB_STEP_SUMMARY
+
+  deploy-feature-to-dev:
+    name: Deploy Feature Branch to Dev (Testing Only)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && inputs.target == 'feature-branch-to-dev-only'
+    environment:
+      name: dev-testing
+      url: https://eu-west-2.console.aws.amazon.com/codesuite/codepipeline/pipelines?region=eu-west-2
+
+    steps:
+      - name: Validate branch input
+        run: |
+          if [ -z "${{ inputs.branch }}" ]; then
+            echo "Error: Branch name is required for feature-branch-to-dev-only deployment"
+            echo "Please specify the branch name in the workflow input"
+            exit 1
+          fi
+          echo "Branch specified: ${{ inputs.branch }}"
+
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch }}
+          fetch-depth: 0  # Need full history to compare with main
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-west-2
+
+      - name: Detect Changed Lambdas (vs main branch)
+        id: detect-changes
+        run: |
+          echo "Detecting Lambda changes in feature branch vs main"
+          echo "Feature branch: ${{ inputs.branch }}"
+          echo ""
+          
+          # Fetch main branch for comparison
+          git fetch origin main:main
+          
+          # Get changed files between this branch and main
+          CHANGED_FILES=$(git diff --name-only main...${{ inputs.branch }})
+          
+          echo "Changed files:"
+          echo "$CHANGED_FILES"
+          echo ""
+          
+          # Define lambda directories and their pipeline names
+          declare -A LAMBDA_MAP=(
+            ["pay-callback-relay"]="dev-pay-cb-rcvr-relay-EIP-dev-lambda-pipeline"
+            ["pay-callback-reconciler"]="dev-pay-cb-rcvr-worker-EIP-dev-lambda-pipeline"
+            ["bacs-webhook-relay"]="dev-bacs-wh-receiver-relay-EIP-dev-lambda-pipeline"
+            ["bacs-webhook-worker"]="dev-bacs-wh-receiver-worker-EIP-dev-lambda-pipeline"
+            ["rds-to-salesforce"]="dev-rds-to-salesforce-EIP-dev-lambda-pipeline"
+            ["approveUser"]="dev-approveUser-EIP-dev-lambda-pipeline"
+            ["listCognitoUsers"]="dev-listCognitoUsers-EIP-dev-lambda-pipeline"
+            ["login"]="dev-login-EIP-dev-lambda-pipeline"
+            ["trigger-appflow-lambda"]="dev-trigger-appflow-lambda-EIP-dev-lambda-pipeline"
+            ["register"]="dev-register-EIP-dev-lambda-pipeline"
+            ["addUserToEndUserGroup"]="dev-addUserToEndUserGroup-EIP-dev-lambda-pipeline"
+            ["rds-s3-trigger"]="dev-rds-s3-trigger-EIP-dev-lambda-pipeline"
+            ["addGroupToTokenGeneration"]="dev-addGroupToTokenGeneration-EIP-dev-lambda-pipeline"
+          )
+          
+          # Detect which lambdas changed
+          declare -a PIPELINES_TO_TRIGGER=()
+          
+          for LAMBDA_DIR in "${!LAMBDA_MAP[@]}"; do
+            if echo "$CHANGED_FILES" | grep -q "^${LAMBDA_DIR}/"; then
+              echo "Detected changes in: ${LAMBDA_DIR}"
+              PIPELINES_TO_TRIGGER+=("${LAMBDA_MAP[$LAMBDA_DIR]}")
+            fi
+          done
+          
+          if [ ${#PIPELINES_TO_TRIGGER[@]} -eq 0 ]; then
+            echo "No Lambda changes detected"
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          else
+            echo ""
+            echo "Will trigger ${#PIPELINES_TO_TRIGGER[@]} pipeline(s)"
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            
+            {
+              echo "pipelines<<EOF"
+              printf '%s\n' "${PIPELINES_TO_TRIGGER[@]}"
+              echo "EOF"
+            } >> $GITHUB_OUTPUT
+          fi
+
+      - name: Trigger Changed Lambda Pipelines (Dev Only)
+        if: steps.detect-changes.outputs.has_changes == 'true'
+        id: trigger
+        run: |
+          PIPELINES=()
+          while IFS= read -r line; do
+            PIPELINES+=("$line")
+          done <<< "${{ steps.detect-changes.outputs.pipelines }}"
+          
+          echo "Testing Feature Branch: ${{ inputs.branch }} in Dev"
+          echo "Commit: ${{ github.sha }}"
+          echo "Triggered by: @${{ github.actor }}"
+          echo ""
+          echo "NOTE: This is for TESTING only."
+          echo "      Staging deployment still uses main branch."
+          echo "      Main → Dev → Staging flow is unchanged."
+          echo ""
+          
+          SUCCESS_COUNT=0
+          FAILED_COUNT=0
+          declare -a EXECUTION_IDS=()
+          declare -a FAILED_PIPELINES=()
+
+          for PIPELINE in "${PIPELINES[@]}"; do
+            echo "Triggering: ${PIPELINE}"
+            
+            if EXECUTION_ID=$(aws codepipeline start-pipeline-execution \
+              --name "${PIPELINE}" \
+              --query 'pipelineExecutionId' \
+              --output text 2>&1); then
+              
+              echo "   Success - Execution ID: ${EXECUTION_ID}"
+              EXECUTION_IDS+=("${PIPELINE}:${EXECUTION_ID}")
+              ((SUCCESS_COUNT++))
+            else
+              echo "   Failed - ${EXECUTION_ID}"
+              FAILED_PIPELINES+=("${PIPELINE}")
+              ((FAILED_COUNT++))
+            fi
+            echo ""
+          done
+
+          echo "════════════════════════════════════════"
+          echo "Deployment Summary"
+          echo "════════════════════════════════════════"
+          echo "Successful: ${SUCCESS_COUNT}/${#PIPELINES[@]}"
+          echo "Failed: ${FAILED_COUNT}/${#PIPELINES[@]}"
+          echo ""
+
+          echo "success_count=${SUCCESS_COUNT}" >> $GITHUB_OUTPUT
+          echo "failed_count=${FAILED_COUNT}" >> $GITHUB_OUTPUT
+          echo "total_count=${#PIPELINES[@]}" >> $GITHUB_OUTPUT
+
+          {
+            echo "execution_ids<<EOF"
+            printf '%s\n' "${EXECUTION_IDS[@]}"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+
+          {
+            echo "failed_pipelines<<EOF"
+            printf '%s\n' "${FAILED_PIPELINES[@]}"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+
+          if [ ${FAILED_COUNT} -gt 0 ]; then
+            echo "Some pipelines failed to trigger."
+            exit 1
+          fi
+
+          echo "All changed Lambda pipelines triggered successfully!"
+
+      - name: No Changes Detected
+        if: steps.detect-changes.outputs.has_changes == 'false'
+        run: |
+          echo "No Lambda function changes detected in branch: ${{ inputs.branch }}"
+          echo "Compared: ${{ inputs.branch }} vs main"
+          echo ""
+          echo "If you expected changes, verify:"
+          echo "1. Your changes are committed to the branch"
+          echo "2. Changes are in a Lambda directory (e.g., pay-callback-relay/)"
+          exit 1
+
+      - name: Create Feature Branch Deployment Summary
+        if: always() && steps.detect-changes.outputs.has_changes == 'true'
+        run: |
+          echo "## Feature Branch Testing in Dev" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** \`${{ inputs.branch }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Triggered by:** @${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "> **Note:** This is for testing only." >> $GITHUB_STEP_SUMMARY
+          echo "> - Staging deployment still uses main branch" >> $GITHUB_STEP_SUMMARY
+          echo "> - Main → Dev → Staging flow remains unchanged" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          echo "### Pipeline Status" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Metric | Count |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Successful | ${{ steps.trigger.outputs.success_count }} / ${{ steps.trigger.outputs.total_count }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Failed | ${{ steps.trigger.outputs.failed_count }} / ${{ steps.trigger.outputs.total_count }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ -n "${{ steps.trigger.outputs.execution_ids }}" ]; then
+            echo "### Triggered Pipelines" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            echo "${{ steps.trigger.outputs.execution_ids }}" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Monitor in AWS Console" >> $GITHUB_STEP_SUMMARY
+          echo "[View All Pipelines](https://eu-west-2.console.aws.amazon.com/codesuite/codepipeline/pipelines?region=eu-west-2)" >> $GITHUB_STEP_SUMMARY
