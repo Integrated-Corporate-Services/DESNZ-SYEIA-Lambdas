@@ -1,0 +1,40 @@
+{
+  "name": "notify-callback-relay",
+  "version": "1.0.0",
+  "description": "EventBridge Lambda that polls notify_callback_event RECEIVED → SQS",
+  "main": "dist/index.js",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "clean": "rimraf dist",
+    "lint": "eslint . --ext .ts",
+    "lint:fix": "eslint . --ext .ts --fix",
+    "test": "jest --config jest.config.js",
+    "test:unit": "jest --config jest.config.unit.js",
+    "test:integration": "jest --config jest.config.integration.js",
+    "test:watch": "jest --watch",
+    "type-check": "tsc --noEmit",
+    "run-local": "ts-node run-local.ts"
+  },
+  "dependencies": {
+    "@aws-sdk/client-sqs": "^3.658.0",
+    "pg": "^8.20.0",
+    "winston": "^3.19.0"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.145",
+    "@types/jest": "^29.5.13",
+    "@types/node": "^22.0.0",
+    "@types/pg": "^8.11.10",
+    "@typescript-eslint/eslint-plugin": "^8.8.0",
+    "@typescript-eslint/parser": "^8.8.0",
+    "eslint": "^8.57.1",
+    "jest": "^29.7.0",
+    "rimraf": "^6.0.1",
+    "ts-jest": "^29.2.5",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  }
+}
