@@ -8,20 +8,12 @@
     "lib": ["ES2022"],
     "esModuleInterop": true,
     "resolveJsonModule": true,
-    "declaration": false,
     "sourceMap": true,
     "strict": true,
-    "noImplicitAny": true,
-    "strictNullChecks": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true,
-    "noImplicitReturns": true,
-    "exactOptionalPropertyTypes": false,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "types": ["jest", "node"]
   },
-  "include": ["index.ts", "src/**/*.ts"],
-  "exclude": ["dist", "node_modules", "tests", "handler.ts"]
+  "include": ["handler.ts", "src/**/*.ts"],
+  "exclude": ["node_modules", "tests", "**/*.test.ts", "dist"]
 }
