@@ -22,6 +22,6 @@
     "forceConsistentCasingInFileNames": true,
     "types": ["jest", "node"]
   },
-  "include": ["index.ts", "handler.ts", "src/**/*.ts"],
-  "exclude": ["dist", "node_modules", "tests"]
+  "include": ["index.ts", "src/**/*.ts"],
+  "exclude": ["dist", "node_modules", "tests", "handler.ts"]
 }
