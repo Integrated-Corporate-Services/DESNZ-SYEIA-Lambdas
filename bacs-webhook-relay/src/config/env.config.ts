@@ -11,14 +11,13 @@ const METHOD = {
 } as const;
 
 const REQUIRED = [
-  'AWS_REGION',
-  'DB_SECRET_ARN',
-  'DB_HOST',
+  'REGION',
+  'DB_CREDENTIALS',
+  'HOST_NAME',
   'DB_PORT',
   'DB_NAME',
-  'BACS_WEBHOOK_RELAY_BATCH_SIZE_PARAM',
-  'PARTNER_WEBHOOKS_QUEUE_URL',
-  'PARTNER_WEBHOOKS_DLQ_URL',
+  'BACS_WEBHOOK_RELAY_BATCH_SIZE',
+  'SQS_QUEUE_URL',
 ] as const;
 
 export interface Env {
@@ -35,7 +34,7 @@ export interface Env {
   SSM_CACHE_TTL_MS: number;
   BACS_WEBHOOK_RELAY_BATCH_SIZE_PARAM: string;
   PARTNER_WEBHOOKS_QUEUE_URL: string;
-  PARTNER_WEBHOOKS_DLQ_URL: string;
+  PARTNER_WEBHOOKS_DLQ_URL: string | undefined;
   AWS_ENDPOINT_URL: string | undefined;
 }
 
@@ -57,9 +56,9 @@ class EnvConfig {
     }
 
     const env: Env = {
-      AWS_REGION: process.env.AWS_REGION!,
-      DB_SECRET_ARN: process.env.DB_SECRET_ARN!,
-      DB_HOST: process.env.DB_HOST!,
+      AWS_REGION: process.env.REGION!,
+      DB_SECRET_ARN: process.env.DB_CREDENTIALS!,
+      DB_HOST: process.env.HOST_NAME!,
       DB_PORT: Number(process.env.DB_PORT),
       DB_NAME: process.env.DB_NAME!,
       DB_SSL: process.env.DB_SSL !== 'false',
@@ -68,9 +67,9 @@ class EnvConfig {
       DB_POOL_MAX: Number(process.env.DB_POOL_MAX || DB_DEFAULTS.POOL_MAX),
       SECRET_CACHE_TTL_MS: Number(process.env.SECRET_CACHE_TTL_MS || CACHE_TTL_DEFAULTS.SECRET_MS),
       SSM_CACHE_TTL_MS: Number(process.env.SSM_CACHE_TTL_MS || CACHE_TTL_DEFAULTS.SSM_MS),
-      BACS_WEBHOOK_RELAY_BATCH_SIZE_PARAM: process.env.BACS_WEBHOOK_RELAY_BATCH_SIZE_PARAM!,
-      PARTNER_WEBHOOKS_QUEUE_URL: process.env.PARTNER_WEBHOOKS_QUEUE_URL!,
-      PARTNER_WEBHOOKS_DLQ_URL: process.env.PARTNER_WEBHOOKS_DLQ_URL!,
+      BACS_WEBHOOK_RELAY_BATCH_SIZE_PARAM: process.env.BACS_WEBHOOK_RELAY_BATCH_SIZE!,
+      PARTNER_WEBHOOKS_QUEUE_URL: process.env.SQS_QUEUE_URL!,
+      PARTNER_WEBHOOKS_DLQ_URL: process.env.PARTNER_WEBHOOKS_DLQ_URL,
       AWS_ENDPOINT_URL: process.env.AWS_ENDPOINT_URL,
     };
 
