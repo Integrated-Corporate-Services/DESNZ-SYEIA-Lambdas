@@ -18,6 +18,7 @@ const REQUIRED = [
   'DB_NAME',
   'BACS_WEBHOOK_RELAY_BATCH_SIZE',
   'SQS_QUEUE_URL',
+  'PARTNER_WEBHOOKS_DLQ_URL',
 ] as const;
 
 export interface Env {
@@ -34,7 +35,7 @@ export interface Env {
   SSM_CACHE_TTL_MS: number;
   BACS_WEBHOOK_RELAY_BATCH_SIZE_PARAM: string;
   PARTNER_WEBHOOKS_QUEUE_URL: string;
-  PARTNER_WEBHOOKS_DLQ_URL: string | undefined;
+  PARTNER_WEBHOOKS_DLQ_URL: string;
   AWS_ENDPOINT_URL: string | undefined;
 }
 
@@ -69,7 +70,7 @@ class EnvConfig {
       SSM_CACHE_TTL_MS: Number(process.env.SSM_CACHE_TTL_MS || CACHE_TTL_DEFAULTS.SSM_MS),
       BACS_WEBHOOK_RELAY_BATCH_SIZE_PARAM: process.env.BACS_WEBHOOK_RELAY_BATCH_SIZE!,
       PARTNER_WEBHOOKS_QUEUE_URL: process.env.SQS_QUEUE_URL!,
-      PARTNER_WEBHOOKS_DLQ_URL: process.env.PARTNER_WEBHOOKS_DLQ_URL,
+      PARTNER_WEBHOOKS_DLQ_URL: process.env.PARTNER_WEBHOOKS_DLQ_URL!,
       AWS_ENDPOINT_URL: process.env.AWS_ENDPOINT_URL,
     };
 
