@@ -2,7 +2,7 @@
   "name": "bacs-webhook-relay",
   "version": "1.0.0",
   "description": "BACS relay lambda",
-  "main": "handler.js",
+  "main": "dist/index.js",
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "clean": "rimraf dist",
