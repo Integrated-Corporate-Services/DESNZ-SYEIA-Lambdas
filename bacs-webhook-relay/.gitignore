@@ -1,0 +1,11 @@
+node_modules/
+.env
+.env.local
+dist/
+lambda.zip
+*.log
+.DS_Store
+coverage/
+handler.js
+index.js
+src/**/*.js
