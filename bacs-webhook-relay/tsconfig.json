@@ -12,7 +12,7 @@
     "strict": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "types": ["jest", "node"]
+    "types": ["node"]
   },
   "include": ["index.ts", "handler.ts", "src/**/*.ts"],
   "exclude": ["node_modules", "tests", "**/*.test.ts", "dist"]
