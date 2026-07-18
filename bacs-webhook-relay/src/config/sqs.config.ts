@@ -90,12 +90,15 @@ class SqsConfig {
         )
       : undefined;
 
+    // Only include FIFO-specific parameters if this is a FIFO queue
+    const isFifoQueue = queueUrl.endsWith('.fifo');
+
     const cmd = new SendMessageCommand({
       QueueUrl: queueUrl,
       MessageBody: body,
       ...(messageAttributes ? { MessageAttributes: messageAttributes } : {}),
-      ...(input.deduplicationId ? { MessageDeduplicationId: input.deduplicationId } : {}),
-      ...(input.groupId ? { MessageGroupId: input.groupId } : {}),
+      ...(isFifoQueue && input.deduplicationId ? { MessageDeduplicationId: input.deduplicationId } : {}),
+      ...(isFifoQueue && input.groupId ? { MessageGroupId: input.groupId } : {}),
     });
 
     const out = await withRetry(() => this.getClient().send(cmd), {
