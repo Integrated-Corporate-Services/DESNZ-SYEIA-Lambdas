@@ -60,6 +60,19 @@ class RelayService {
   private async relayOne(row: PaymentWebhookRow): Promise<RelayResultItem> {
     log.start(METHOD.RELAY_ONE, { webhookId: row.webhook_id });
 
+    // Preserve the Lambda's correlation_id to restore after processing this webhook
+    const { setCorrelationId, getCorrelationId } = await import('../util/logger');
+    const lambdaCorrelationId = getCorrelationId();
+
+    // Use the database correlation_id for traceability across services
+    if (row.correlation_id) {
+      setCorrelationId(row.correlation_id);
+      log.info(METHOD.RELAY_ONE, LOG_MESSAGES.RELAY_CORRELATION_ID_ADOPTED, {
+        webhookId: row.webhook_id,
+        dbCorrelationId: row.correlation_id,
+      });
+    }
+
     try {
       const envelope = messageBuilderService.build(row);
       const out = await sqsConfig.sendToBacsWebhookRelayQueue({
@@ -128,6 +141,9 @@ class RelayService {
       };
       log.end(METHOD.RELAY_ONE, { webhookId: row.webhook_id, outcome: failedItem.outcome });
       return failedItem;
+    } finally {
+      // Restore the Lambda's correlation_id
+      setCorrelationId(lambdaCorrelationId);
     }
   }
 }

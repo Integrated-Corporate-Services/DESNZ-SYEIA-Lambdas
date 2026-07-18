@@ -17,11 +17,8 @@ export const SQL_SELECT_PENDING_FOR_RELAY = `
          enqueued_at, created_by, updated_by, correlation_id,
          created_at, updated_at
     FROM ${TABLES.PAYMENT_WEBHOOKS}
-   WHERE LOWER(status) = $1
-     AND (
-       enqueued_at IS NULL
-       OR (enqueued_at IS NOT NULL AND updated_by IS NULL AND updated_at < NOW() - INTERVAL '5 minutes')
-     )
+   WHERE enqueued_at IS NULL
+     AND LOWER(status) = $1
    ORDER BY created_at ASC
    LIMIT $2
    FOR UPDATE SKIP LOCKED
@@ -41,11 +38,11 @@ export async function selectPendingForRelay(limit: number): Promise<PaymentWebho
 
 export const SQL_UPDATE_AFTER_RELAY = `
   UPDATE ${TABLES.PAYMENT_WEBHOOKS}
-     SET enqueued_at = COALESCE(enqueued_at, NOW()),
+     SET enqueued_at = NOW(),
          updated_at  = NOW(),
          updated_by  = $1
    WHERE webhook_id  = $2
-     AND LOWER(status) = $3
+     AND enqueued_at IS NULL
 `;
 
 export async function updateAfterRelay(webhookId: string): Promise<number> {
@@ -53,7 +50,7 @@ export async function updateAfterRelay(webhookId: string): Promise<number> {
 
   const result = await databasePoolConfig.query(
     SQL_UPDATE_AFTER_RELAY,
-    [RELAY_UPDATED_BY, webhookId, WEBHOOK_STATUS.PENDING],
+    [RELAY_UPDATED_BY, webhookId],
   );
 
   log.end(METHOD.UPDATE_AFTER_RELAY, { webhookId, rowCount: result.rowCount ?? 0 });

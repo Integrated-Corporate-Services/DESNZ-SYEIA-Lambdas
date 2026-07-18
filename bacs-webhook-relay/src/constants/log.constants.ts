@@ -36,6 +36,7 @@ export const LOG_MESSAGES = {
   RELAY_NO_WEBHOOKS: 'no pending payment_webhooks rows — nothing to do',
   RELAY_WEBHOOKS_SELECTED: 'selected payment_webhooks rows to relay',
   RELAY_WEBHOOK_ENQUEUED: 'webhook enqueued to partner queue',
+  RELAY_CORRELATION_ID_ADOPTED: 'adopted database correlation_id for traceability',
   RELAY_BATCH_COMPLETE: 'batch complete',
   RELAY_POISON_DLQ_FAILED: 'failed to forward poison message to DLQ — leaving row for retry',
   RELAY_TRANSIENT_FAILURE: 'transient failure — leaving row for next invocation',
