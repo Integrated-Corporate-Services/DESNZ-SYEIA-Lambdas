@@ -1,7 +1,6 @@
 import { messageBuilderService } from '../../src/services/messageBuilder.service';
 import { PoisonMessageError } from '../../src/errors/AppError';
 import {
-  BACS_WEBHOOK_RELAY_SCHEMA_VERSION,
   SOURCE_BACS,
 } from '../../src/constants/status.constants';
 import type { PaymentWebhookRow } from '../../src/types';

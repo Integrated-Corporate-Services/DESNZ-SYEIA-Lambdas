@@ -1,20 +1,29 @@
-
-import { processDirect } from "../deliver/directToSF.js";
 import Ajv from "ajv";
 import fs from "fs";
 import path from "path";
-import getMockEnv from "./mockEnv.js";
-import getSampleJob from "./test-job.json";
+import { jest } from '@jest/globals';
+import { getMockEnv } from "./mockEnv.js";
+import { fileURLToPath } from 'url';
 
-jest.mock("node-fetch", () => jest.fn(async () => ({
-  ok: true,
-  status: 200,
-  json: async () => ({ id: "MOCK_ID_123" })
-})));
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+jest.unstable_mockModule("node-fetch", () => ({
+  default: jest.fn(async () => ({
+    ok: true,
+    status: 200,
+    json: async () => ({ id: "MOCK_ID_123" })
+  }))
+}));
 
 function getSchema() {
   const schemaPath = path.resolve(__dirname, "./s37-schema.json");
   return JSON.parse(fs.readFileSync(schemaPath, "utf8"));
+}
+
+function getSampleJob() {
+  const jobPath = path.resolve(__dirname, "./test-job.json");
+  return JSON.parse(fs.readFileSync(jobPath, "utf8"));
 }
 
 function validateAgainstSchema(data, schema) {
