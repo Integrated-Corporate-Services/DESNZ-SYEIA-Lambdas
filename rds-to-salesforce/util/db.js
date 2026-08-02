@@ -9,6 +9,7 @@ const DB_DEFAULTS = {
   idleTimeoutMillis: Number(process.env.DB_IDLE_MS || 10000),
   connectionTimeoutMillis: Number(process.env.DB_CONN_MS || 5000),
   queryTimeout: Number(process.env.DB_QUERY_MS || 15000),
+  idleInTransactionSessionTimeoutMillis: Number(process.env.DB_IDLE_TRANSACTION_MS || 15000),
 };
 
 let pool;
@@ -45,7 +46,7 @@ export async function initDbPool() {
     pool.on("connect", async (client) => {
       try {
         await client.query(`SET statement_timeout = ${DB_DEFAULTS.queryTimeout}`);
-        await client.query(`SET idle_in_transaction_session_timeout = 15000`);
+        await client.query(`SET idle_in_transaction_session_timeout = ${DB_DEFAULTS.idleInTransactionSessionTimeoutMillis}`);
       } catch (e) {
         log.warn("Failed to set session timeouts:", e);
       }
@@ -84,7 +85,7 @@ export async function initDbPool() {
   pool.on("connect", async (client) => {
     try {
       await client.query(`SET statement_timeout = ${DB_DEFAULTS.queryTimeout}`);
-      await client.query(`SET idle_in_transaction_session_timeout = 15000`);
+      await client.query(`SET idle_in_transaction_session_timeout = ${DB_DEFAULTS.idleInTransactionSessionTimeoutMillis}`);
     } catch (e) {
       log.warn("Failed to set session timeouts:", e);
     }
