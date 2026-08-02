@@ -13,7 +13,7 @@
     "test:integration": "jest --config jest.config.integration.cjs"
   },
   "overrides": {
-    "brace-expansion": ">=2.1.3"
+    "brace-expansion": "^5.0.9"
   },
   "dependencies": {
     "@aws-sdk/client-secrets-manager": "^3.500.0",
