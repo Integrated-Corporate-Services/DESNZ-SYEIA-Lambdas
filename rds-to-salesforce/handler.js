@@ -14,7 +14,7 @@ export const handler = async (event) => {
     log.info("[handler.js : handler] Executing job via SNS trigger");
     for (const r of event.Records) {
       const msg = JSON.parse(r.Sns.Message ?? "{}");
-      const { outbox_id, applicationId, idempotencyKey } = msg || {};
+      const { outbox_id } = msg || {};
       if (!outbox_id) {
         log.error("[handler.js : handler] Missing outbox_id in SNS message", { msg });
         throw new Error("Missing outbox_id");

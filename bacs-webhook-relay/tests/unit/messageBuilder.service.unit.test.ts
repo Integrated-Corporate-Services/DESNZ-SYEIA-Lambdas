@@ -28,7 +28,7 @@ describe('MessageBuilderService.build', () => {
   it('builds an envelope with the BACS shape', () => {
     const env = messageBuilderService.build(row());
     expect(env).toEqual({
-      schemaVersion: BACS_RELAY_SCHEMA_VERSION,
+      schemaVersion: BACS_WEBHOOK_RELAY_SCHEMA_VERSION,
       source: SOURCE_BACS,
       webhookId: 'wh_123',
       paymentId: 'pay_abc',
