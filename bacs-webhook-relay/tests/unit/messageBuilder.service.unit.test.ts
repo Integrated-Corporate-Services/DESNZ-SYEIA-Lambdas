@@ -1,6 +1,7 @@
 import { messageBuilderService } from '../../src/services/messageBuilder.service';
 import { PoisonMessageError } from '../../src/errors/AppError';
 import {
+  BACS_WEBHOOK_RELAY_SCHEMA_VERSION,
   SOURCE_BACS,
 } from '../../src/constants/status.constants';
 import type { PaymentWebhookRow } from '../../src/types';
@@ -27,7 +28,7 @@ describe('MessageBuilderService.build', () => {
   it('builds an envelope with the BACS shape', () => {
     const env = messageBuilderService.build(row());
     expect(env).toEqual({
-      schemaVersion: BACS_RELAY_SCHEMA_VERSION,
+      schemaVersion: BACS_WEBHOOK_RELAY_SCHEMA_VERSION,
       source: SOURCE_BACS,
       webhookId: 'wh_123',
       paymentId: 'pay_abc',
