@@ -2,8 +2,8 @@
     "name": "lambda-aws-sdk-layer",
     "version": "1.0.0",
     "overrides": {
-        "jws": ">=3.2.3",
-        "uuid": ">=11.1.1"
+        "jws": "4.0.1",
+        "uuid": "14.0.1"
     },
     "dependencies": {
         "aws-sdk": "^2.1692.0",
