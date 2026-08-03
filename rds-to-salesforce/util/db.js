@@ -24,6 +24,10 @@ function buildSslConfig() {
     };
 }
 
+function needRefreshSecret() {
+  return false;
+}
+
 export async function initDbPool() {
   if (pool && !needRefreshSecret()) return pool;
 

@@ -30,7 +30,6 @@ export const handler = async (event) => {
 
   console.log('host:', HOST_NAME);
   console.log('db user:', DB_USER);
-  console.log('password:', DB_PASSWORD);
   console.log('dbname:', DB_NAME);
   
   // 1. Connect to RDS
