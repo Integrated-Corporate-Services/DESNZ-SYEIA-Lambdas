@@ -25,7 +25,7 @@ function buildSslConfig() {
 }
 
 export async function initDbPool() {
-  if (pool && !needRefreshSecret()) return pool;
+  if (pool) return pool;
 
   if (process.env.NODE_ENV === "local") {
     const cfg = getDbConfig();
