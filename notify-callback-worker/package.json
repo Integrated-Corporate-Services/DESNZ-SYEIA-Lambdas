@@ -2,7 +2,7 @@
   "name": "notify-callback-worker",
   "version": "1.0.0",
   "description": "SQS Lambda that processes notify delivery status events",
-  "main": "dist/index.js",
+  "main": "handler.js",
   "engines": {
     "node": ">=20.0.0"
   },
@@ -19,6 +19,7 @@
     "run-local": "ts-node run-local.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-secrets-manager": "^3.1102.0",
     "@aws-sdk/client-sqs": "^3.658.0",
     "pg": "^8.20.0",
     "winston": "^3.19.0"

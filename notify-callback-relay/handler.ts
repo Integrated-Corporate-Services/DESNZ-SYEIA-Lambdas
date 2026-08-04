@@ -2,15 +2,13 @@ import type { ScheduledHandler } from 'aws-lambda';
 import { Pool } from 'pg';
 import { relayService } from './src/services/relay.service';
 import { createLogger } from './src/util/logger';
-import { DATABASE_CONFIG, validateEnvironment } from './src/config/env.config';
+import {
+  resolveConnectionString,
+  shouldUseDbSsl,
+  validateEnvironment,
+} from './src/config/env.config';
 
 const logger = createLogger('handler');
-
-// Create PostgreSQL pool
-const pool = new Pool(DATABASE_CONFIG);
-
-// Validate environment on cold start
-validateEnvironment();
 
 /**
  * EventBridge scheduled Lambda handler
@@ -18,6 +16,16 @@ validateEnvironment();
  * Polls notify_callback_event for RECEIVED events and publishes to SQS
  */
 export const handler: ScheduledHandler = async (event, context) => {
+  validateEnvironment();
+
+  const pool = new Pool({
+    connectionString: await resolveConnectionString(),
+    max: parseInt(process.env.DB_POOL_MAX || '5', 10),
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 5000,
+    ssl: shouldUseDbSsl() ? { rejectUnauthorized: false } : undefined,
+  });
+
   logger.info('Relay Lambda invoked', {
     awsRequestId: context.awsRequestId,
     eventTime: event.time,
@@ -41,7 +49,6 @@ export const handler: ScheduledHandler = async (event, context) => {
 
     throw error;
   } finally {
-    // Drain connection pool so Lambda container exits cleanly
     await pool.end();
   }
 };

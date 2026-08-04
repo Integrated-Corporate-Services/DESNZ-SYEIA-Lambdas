@@ -39,6 +39,13 @@ class SqsRepository {
    * Publish fatal message to DLQ
    */
   async publishFatalMessage(msg: FatalSqsMessage): Promise<void> {
+    if (!FATAL_QUEUE_URL) {
+      logger.warn('FATAL_QUEUE_URL not set; skipping fatal SQS publish', {
+        eventId: msg.eventId,
+      });
+      return;
+    }
+
     const client = getSqsClient();
 
     await client.send(

@@ -3,16 +3,14 @@ import { Pool } from 'pg';
 import { workerService } from './src/services/worker.service';
 import { createLogger } from './src/util/logger';
 import { RetryableProcessingError } from './src/errors';
-import { DATABASE_CONFIG, validateEnvironment } from './src/config/env.config';
+import {
+  resolveConnectionString,
+  shouldUseDbSsl,
+  validateEnvironment,
+} from './src/config/env.config';
 import type { NotifySqsMessage } from './src/types';
 
 const logger = createLogger('handler');
-
-// Create PostgreSQL pool
-const pool = new Pool(DATABASE_CONFIG);
-
-// Validate environment on cold start
-validateEnvironment();
 
 /**
  * SQS Lambda handler with ReportBatchItemFailures
@@ -20,6 +18,16 @@ validateEnvironment();
  * Batch size: 10 messages
  */
 export const handler: SQSHandler = async (event, context) => {
+  validateEnvironment();
+
+  const pool = new Pool({
+    connectionString: await resolveConnectionString(),
+    max: parseInt(process.env.DB_POOL_MAX || '5', 10),
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 5000,
+    ssl: shouldUseDbSsl() ? { rejectUnauthorized: false } : undefined,
+  });
+
   logger.info('Worker Lambda invoked', {
     awsRequestId: context.awsRequestId,
     recordCount: event.Records.length,
@@ -29,58 +37,55 @@ export const handler: SQSHandler = async (event, context) => {
 
   const batchItemFailures: { itemIdentifier: string }[] = [];
 
-  for (const record of event.Records) {
-    const messageId = record.messageId;
+  try {
+    for (const record of event.Records) {
+      const messageId = record.messageId;
 
-    try {
-      // Parse SQS message
-      const message: NotifySqsMessage = JSON.parse(record.body);
+      try {
+        const message: NotifySqsMessage = JSON.parse(record.body);
 
-      logger.info('Worker: processing SQS message', {
-        messageId,
-        eventId: message.eventId,
-        notifyNotificationId: message.notifyNotificationId,
-        status: message.status,
-      });
-
-      // Process the event
-      const result = await workerService.processEvent(
-        message.eventId,
-        message.correlationId,
-        pool,
-      );
-
-      logger.info('Worker: message processed', {
-        messageId,
-        eventId: message.eventId,
-        outcome: result.outcome,
-      });
-    } catch (error) {
-      // If retryable, add to batch failures so SQS redelivers
-      if (error instanceof RetryableProcessingError) {
-        logger.warn('Worker: message will be retried', {
+        logger.info('Worker: processing SQS message', {
           messageId,
-          error: error.message,
+          eventId: message.eventId,
+          notifyNotificationId: message.notifyNotificationId,
+          status: message.status,
         });
 
-        batchItemFailures.push({ itemIdentifier: messageId });
-      } else {
-        // Non-retryable error - already marked as fatal in processEvent
-        logger.error('Worker: message failed (non-retryable)', {
+        const result = await workerService.processEvent(
+          message.eventId,
+          message.correlationId,
+          pool,
+        );
+
+        logger.info('Worker: message processed', {
           messageId,
-          error: error instanceof Error ? error.message : String(error),
+          eventId: message.eventId,
+          outcome: result.outcome,
         });
+      } catch (error) {
+        if (error instanceof RetryableProcessingError) {
+          logger.warn('Worker: message will be retried', {
+            messageId,
+            error: error.message,
+          });
+
+          batchItemFailures.push({ itemIdentifier: messageId });
+        } else {
+          logger.error('Worker: message failed (non-retryable)', {
+            messageId,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
       }
     }
-  }
-
-  // Drain pool at end of Lambda execution
-  try {
-    await pool.end();
-  } catch (error) {
-    logger.warn('Worker: error draining pool', {
-      error: error instanceof Error ? error.message : String(error),
-    });
+  } finally {
+    try {
+      await pool.end();
+    } catch (error) {
+      logger.warn('Worker: error draining pool', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
 
   logger.info('Worker Lambda complete', {
@@ -89,7 +94,6 @@ export const handler: SQSHandler = async (event, context) => {
     failedRecords: batchItemFailures.length,
   });
 
-  // Return batch item failures for SQS partial batch response
   const response: SQSBatchResponse = {
     batchItemFailures,
   };
