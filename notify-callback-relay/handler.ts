@@ -1,12 +1,7 @@
 import type { ScheduledHandler } from 'aws-lambda';
-import { Pool } from 'pg';
 import { relayService } from './src/services/relay.service';
 import { createLogger } from './src/util/logger';
-import {
-  resolveConnectionString,
-  shouldUseDbSsl,
-  validateEnvironment,
-} from './src/config/env.config';
+import { getPool, validateEnvironment } from './src/config/env.config';
 
 const logger = createLogger('handler');
 
@@ -16,15 +11,10 @@ const logger = createLogger('handler');
  * Polls notify_callback_event for RECEIVED events and publishes to SQS
  */
 export const handler: ScheduledHandler = async (event, context) => {
+  context.callbackWaitsForEmptyEventLoop = false;
   validateEnvironment();
 
-  const pool = new Pool({
-    connectionString: await resolveConnectionString(),
-    max: parseInt(process.env.DB_POOL_MAX || '5', 10),
-    idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 5000,
-    ssl: shouldUseDbSsl() ? { rejectUnauthorized: false } : undefined,
-  });
+  const pool = await getPool();
 
   logger.info('Relay Lambda invoked', {
     awsRequestId: context.awsRequestId,
@@ -48,7 +38,5 @@ export const handler: ScheduledHandler = async (event, context) => {
     });
 
     throw error;
-  } finally {
-    await pool.end();
   }
 };

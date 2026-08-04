@@ -3,6 +3,7 @@
  * Centralizes all environment variable access
  */
 
+import { Pool } from 'pg';
 import {
   GetSecretValueCommand,
   SecretsManagerClient,
@@ -54,7 +55,16 @@ export function validateEnvironment(): void {
   }
 }
 
+let cachedCredentials: { username: string; password: string } | null = null;
+let cachedConnectionString: string | null = null;
+let cachedPool: Pool | null = null;
+let poolInitPromise: Promise<Pool> | null = null;
+
 async function resolveDbCredentials(): Promise<{ username: string; password: string }> {
+  if (cachedCredentials) {
+    return cachedCredentials;
+  }
+
   const raw = process.env.DB_CREDENTIALS?.trim();
   if (!raw) {
     throw new Error('Missing DB_CREDENTIALS');
@@ -67,28 +77,39 @@ async function resolveDbCredentials(): Promise<{ username: string; password: str
     const response = await client.send(
       new GetSecretValueCommand({ SecretId: raw }),
     );
-    const payload = response.SecretString;
+    const payload =
+      response.SecretString ??
+      (response.SecretBinary
+        ? Buffer.from(response.SecretBinary as Uint8Array).toString('utf8')
+        : undefined);
     if (!payload) {
-      throw new Error('Secrets Manager secret has no SecretString');
+      throw new Error('Secrets Manager secret has no SecretString or SecretBinary');
     }
     const parsed = JSON.parse(payload) as { username?: string; password?: string };
     if (!parsed.username || !parsed.password) {
       throw new Error("Secret JSON must contain 'username' and 'password'");
     }
-    return { username: parsed.username, password: parsed.password };
+    cachedCredentials = { username: parsed.username, password: parsed.password };
+    return cachedCredentials;
   }
 
   const parsed = JSON.parse(raw) as { username?: string; password?: string };
   if (!parsed.username || !parsed.password) {
     throw new Error("DB_CREDENTIALS JSON must contain 'username' and 'password'");
   }
-  return { username: parsed.username, password: parsed.password };
+  cachedCredentials = { username: parsed.username, password: parsed.password };
+  return cachedCredentials;
 }
 
 /** Build a Postgres connection string for Pool (supports AWS Dev HOST_NAME + secret ARN). */
 export async function resolveConnectionString(): Promise<string> {
+  if (cachedConnectionString) {
+    return cachedConnectionString;
+  }
+
   if (process.env.DATABASE_URL) {
-    return process.env.DATABASE_URL;
+    cachedConnectionString = process.env.DATABASE_URL;
+    return cachedConnectionString;
   }
 
   const host = process.env.HOST_NAME || process.env.DB_HOST;
@@ -99,9 +120,44 @@ export async function resolveConnectionString(): Promise<string> {
   }
 
   const { username, password } = await resolveDbCredentials();
-  return `postgresql://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${host}:${port}/${database}`;
+  cachedConnectionString = `postgresql://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${host}:${port}/${database}`;
+  return cachedConnectionString;
 }
 
 export function shouldUseDbSsl(): boolean {
-  return Boolean(process.env.HOST_NAME) && process.env.PGSSLMODE !== 'disable';
+  if (process.env.PGSSLMODE === 'disable') {
+    return false;
+  }
+  if (process.env.PGSSLMODE === 'require') {
+    return true;
+  }
+  return Boolean(process.env.HOST_NAME);
+}
+
+/** Reuse one Pool across warm Lambda invocations. */
+export async function getPool(): Promise<Pool> {
+  if (cachedPool) {
+    return cachedPool;
+  }
+
+  if (!poolInitPromise) {
+    poolInitPromise = (async () => {
+      const connectionString = await resolveConnectionString();
+      cachedPool = new Pool({
+        connectionString,
+        max: parseInt(process.env.DB_POOL_MAX || '5', 10),
+        idleTimeoutMillis: 30000,
+        connectionTimeoutMillis: 5000,
+        ssl: shouldUseDbSsl() ? { rejectUnauthorized: false } : undefined,
+      });
+      return cachedPool;
+    })();
+  }
+
+  try {
+    return await poolInitPromise;
+  } catch (error) {
+    poolInitPromise = null;
+    throw error;
+  }
 }

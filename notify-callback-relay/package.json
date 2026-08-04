@@ -8,7 +8,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "clean": "rimraf dist",
+    "clean": "rimraf dist handler.js handler.js.map index.js index.js.map \"src/**/*.js\" \"src/**/*.js.map\"",
     "lint": "eslint . --ext .ts",
     "lint:fix": "eslint . --ext .ts --fix",
     "test": "jest --config jest.config.js",
