@@ -1,6 +1,6 @@
 import { SQSClient, SendMessageCommand } from '@aws-sdk/client-sqs';
 import type { FatalSqsMessage } from '../types';
-import { AWS_CONFIG, FATAL_QUEUE_URL } from '../config/env.config';
+import { AWS_CONFIG, getFatalQueueUrl } from '../config/env.config';
 import { createLogger } from '../util/logger';
 
 const logger = createLogger('sqs.repository');
@@ -39,11 +39,18 @@ class SqsRepository {
    * Publish fatal message to DLQ
    */
   async publishFatalMessage(msg: FatalSqsMessage): Promise<void> {
+    const fatalQueueUrl = getFatalQueueUrl();
+    if (!fatalQueueUrl) {
+      throw new Error(
+        'FATAL_QUEUE_URL not configured (NOTIFY_FATAL_QUEUE_URL or SQS_DLQ_URL)',
+      );
+    }
+
     const client = getSqsClient();
 
     await client.send(
       new SendMessageCommand({
-        QueueUrl: FATAL_QUEUE_URL,
+        QueueUrl: fatalQueueUrl,
         MessageBody: JSON.stringify(msg),
         MessageAttributes: {
           eventId: {
