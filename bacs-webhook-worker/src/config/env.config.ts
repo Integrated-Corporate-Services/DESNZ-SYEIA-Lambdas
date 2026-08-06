@@ -1,4 +1,3 @@
-import { SSMClient, GetParameterCommand } from '@aws-sdk/client-ssm';
 
 interface Config {
   dbHost: string;
