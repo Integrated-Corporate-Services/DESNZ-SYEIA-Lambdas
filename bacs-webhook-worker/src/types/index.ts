@@ -1,4 +1,3 @@
-import type { SQSRecord } from 'aws-lambda';
 
 export interface WorkerSummary {
   processed: number;
