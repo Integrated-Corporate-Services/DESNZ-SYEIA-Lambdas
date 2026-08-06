@@ -55,10 +55,17 @@ export function getCorrelationId(): string {
 }
 
 function shouldLog(level: string): boolean {
-  const config = envConfig.get();
   const levels = ['debug', 'info', 'warn', 'error'];
-  const configLevelIndex = levels.indexOf(config.logLevel);
+
+  let configuredLevel = 'info';
+  try {
+    configuredLevel = envConfig.get().logLevel;
+  } catch {
+    configuredLevel = process.env.LOG_LEVEL || 'info';
+  }
+
+  const configLevelIndex = levels.indexOf(configuredLevel);
   const messageLevelIndex = levels.indexOf(level);
 
-  return messageLevelIndex >= configLevelIndex;
+  return messageLevelIndex >= (configLevelIndex === -1 ? levels.indexOf('info') : configLevelIndex);
 }
