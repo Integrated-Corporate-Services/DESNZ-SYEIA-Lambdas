@@ -1,9 +1,15 @@
 import { handler } from '../../../handler';
 import type { SQSEvent, Context } from 'aws-lambda';
 
+beforeAll(() => {
+  process.env.NODE_ENV = 'dev';
+  process.env.DB_PASSWORD = process.env.DB_PASSWORD || 'test';
+  process.env.SQS_QUEUE_URL = process.env.SQS_QUEUE_URL || 'https://example.com/queue';
+  process.env.LOG_LEVEL = 'error';
+});
+
 describe('handler integration tests', () => {
   it('should handle SQS event', async () => {
-    const event: SQSEvent = {
       Records: [
         {
           messageId: 'msg-1',
