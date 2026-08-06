@@ -1,4 +1,4 @@
-import { handler } from '../../../handler';
+import { handler } from '../../handler';
 import type { SQSEvent, Context } from 'aws-lambda';
 
 beforeAll(() => {
