@@ -17,16 +17,16 @@ export const envConfig = {
   load: (): Config => {
     if (config) return config;
 
-    const env = process.env.NODE_ENV || 'dev';
-    const dbPort = parseInt(process.env.DB_PORT || '5432', 10);
+    const env = process.env.NODE_ENV;
+    const dbPort = parseInt(process.env.DB_PORT, 10);
 
     config = {
-      dbHost: process.env.DB_HOST || 'localhost',
+      dbHost: process.env.DB_HOST,
       dbPort,
-      dbUser: process.env.DB_USER || 'postgres',
-      dbPassword: process.env.DB_PASSWORD || '',
-      dbName: process.env.DB_NAME || 'syeia',
-      sqsQueueUrl: process.env.SQS_QUEUE_URL || '',
+      dbUser: process.env.DB_USER,
+      dbPassword: process.env.DB_PASSWORD,
+      dbName: process.env.DB_NAME,
+      sqsQueueUrl: process.env.SQS_QUEUE_URL,
       environment: (env as 'dev' | 'uat' | 'prod') || 'dev',
       logLevel: (process.env.LOG_LEVEL as 'debug' | 'info' | 'warn' | 'error') || 'info',
     };
