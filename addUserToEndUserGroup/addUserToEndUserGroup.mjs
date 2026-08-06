@@ -1,7 +1,9 @@
 import { CognitoIdentityProviderClient, AdminAddUserToGroupCommand } from "@aws-sdk/client-cognito-identity-provider";
 
 // Initialize the Cognito Identity Provider client
-const client = new CognitoIdentityProviderClient({});
+const client = new CognitoIdentityProviderClient({
+  region: process.env.REGION || process.env.AWS_REGION || 'eu-west-2',
+});
 
 export const handler = async (event) => {
   // Input for adding the user to the "EndUsers" group
