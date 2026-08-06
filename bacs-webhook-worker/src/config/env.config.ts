@@ -16,18 +16,19 @@ export const envConfig = {
   load: (): Config => {
     if (config) return config;
 
-    const env = process.env.NODE_ENV;
-    const dbPort = parseInt(process.env.DB_PORT, 10);
+    const env = (process.env.NODE_ENV as Config['environment'] | undefined) ?? 'dev';
+    const dbPortRaw = process.env.DB_PORT;
+    const dbPort = dbPortRaw ? Number.parseInt(dbPortRaw, 10) : NaN;
 
     config = {
-      dbHost: process.env.DB_HOST,
+      dbHost: process.env.DB_HOST ?? '',
       dbPort,
-      dbUser: process.env.DB_USER,
-      dbPassword: process.env.DB_PASSWORD,
-      dbName: process.env.DB_NAME,
-      sqsQueueUrl: process.env.SQS_QUEUE_URL,
-      environment: (env as 'dev' | 'uat' | 'prod') || 'dev',
-      logLevel: (process.env.LOG_LEVEL as 'debug' | 'info' | 'warn' | 'error') || 'info',
+      dbUser: process.env.DB_USER ?? '',
+      dbPassword: process.env.DB_PASSWORD ?? '',
+      dbName: process.env.DB_NAME ?? '',
+      sqsQueueUrl: process.env.SQS_QUEUE_URL ?? '',
+      environment: env,
+      logLevel: (process.env.LOG_LEVEL as Config['logLevel'] | undefined) ?? 'info',
     };
 
     validate(config);
