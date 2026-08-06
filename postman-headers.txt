@@ -1,0 +1,9 @@
+﻿# Generated: 2026-07-20 13:38:36
+
+X-Request-Timestamp: 2026-07-20T12:38:00Z
+X-Webhook-Signature: e92992abcf9a20f7d3bd85feeffdca56825cb0f8d2df83f1d97316366a146d62
+X-Webhook-Signature-Version: v1
+X-Correlation-Id: test-20260720133836
+
+Body (compressed JSON):
+{"event":{"eventId":"56ce9777-c67c-4a2e-885f-34c92aae29b1","eventType":"PAYMENT_STATUS_UPDATE","eventVersion":"1.0","occurredAt":"2026-06-24T09:28:00Z","source":"PARTNER-SYSTEM"},"callback":{"deliveryId":"9039f155-9c1a-4a21-81e0-032a07945977","attemptNumber":1},"payment":{"paymentReference":"PAY-20260716-12346"},"detail":{"status":"PENDING","amount":15000,"currency":"GBP","paymentDate":"2026-07-16","bacsReference":"TRF-67790"}}

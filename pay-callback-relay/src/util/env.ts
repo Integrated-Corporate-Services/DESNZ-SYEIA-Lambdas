@@ -5,35 +5,31 @@ function hasEnv(name: string): boolean {
   return Boolean(process.env[name]);
 }
 
-function hasSqsQueueUrl(): boolean {
-  return hasEnv('SQS_QUEUE_URL') || hasEnv('WEBHOOK_SQS_QUEUE_URL');
-}
-
 export function validateEnvVars(): void {
   const missing: string[] = [];
 
   if (!getDbHost()) {
-    missing.push('DB host (DB_HOST|HOST_NAME|PGHOST)');
+    missing.push('HOST_NAME');
   }
 
   if (!getDbName()) {
-    missing.push('DB name (DB_NAME|PGDATABASE)');
+    missing.push('DB_NAME');
   }
 
   if (!hasDbCredentialsConfigured()) {
-    missing.push('DB credentials (DB_CREDENTIALS|DB_USER+DB_PASSWORD|PGUSER+PGPASSWORD)');
+    missing.push('DB_CREDENTIALS');
   }
 
-  if (!hasEnv('DB_PORT') && !hasEnv('PGPORT')) {
-    missing.push('DB port (DB_PORT|PGPORT)');
+  if (!hasEnv('DB_PORT')) {
+    missing.push('DB_PORT');
   }
 
-  if (!hasEnv('AWS_REGION') && !hasEnv('REGION')) {
-    missing.push('AWS region (AWS_REGION|REGION)');
+  if (!hasEnv('REGION')) {
+    missing.push('REGION');
   }
 
-  if (!hasSqsQueueUrl()) {
-    missing.push('SQS queue URL (SQS_QUEUE_URL|WEBHOOK_SQS_QUEUE_URL)');
+  if (!hasEnv('SQS_QUEUE_URL')) {
+    missing.push('SQS_QUEUE_URL');
   }
 
   if (missing.length > 0) {

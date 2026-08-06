@@ -18,7 +18,12 @@ export async function getUnenqueuedWebhooks(limit = 10): Promise<WebhookRow[]> {
 export async function markWebhookEnqueued(webhookId: string): Promise<void> {
   const pool = getPool();
   await pool.query(
-    `UPDATE ${TABLE_PAYMENT_WEBHOOKS} SET enqueued_at = NOW() WHERE webhook_id = $1`,
+    `UPDATE ${TABLE_PAYMENT_WEBHOOKS} 
+     SET enqueued_at = NOW(), 
+         updated_at = NOW(), 
+         updated_by = 'pay-callback-relay'
+     WHERE webhook_id = $1 
+       AND enqueued_at IS NULL`,
     [webhookId]
   );
 }

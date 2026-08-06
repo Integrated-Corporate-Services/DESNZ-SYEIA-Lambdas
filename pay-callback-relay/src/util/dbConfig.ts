@@ -14,53 +14,38 @@ export function resetDbConfigCache(): void {
 }
 
 export function getDbHost(): string {
-  return process.env.DB_HOST || process.env.HOST_NAME || process.env.PGHOST || '';
+  return process.env.HOST_NAME || '';
 }
 
 export function getDbPort(): number {
-  const port = Number(process.env.DB_PORT || process.env.PGPORT || 5432);
+  const port = Number(process.env.DB_PORT || 5432);
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
-    throw new Error(`Invalid database port: ${process.env.DB_PORT || process.env.PGPORT}`);
+    throw new Error(`Invalid database port: ${process.env.DB_PORT}`);
   }
 
   return port;
 }
 
 export function getDbName(): string {
-  return process.env.DB_NAME || process.env.PGDATABASE || '';
+  return process.env.DB_NAME || '';
 }
 
 export function getAwsRegion(): string {
-  return process.env.AWS_REGION || process.env.REGION || 'eu-west-2';
+  return process.env.REGION || 'eu-west-2';
 }
 
 export function hasDbCredentialsConfigured(): boolean {
-  if (process.env.DB_CREDENTIALS?.trim()) {
-    return true;
-  }
-
-  const username = process.env.DB_USER || process.env.PGUSER;
-  const password = process.env.DB_PASSWORD || process.env.PGPASSWORD;
-  return Boolean(username && password);
+  return Boolean(process.env.DB_CREDENTIALS?.trim());
 }
 
 export function shouldUseDbSsl(): boolean {
-  if (process.env.PGSSLMODE === 'disable') {
-    return false;
-  }
-
-  if (process.env.PGSSLMODE === 'require') {
-    return true;
-  }
-
+  // Always use SSL for RDS connections (HOST_NAME indicates RDS)
   return Boolean(process.env.HOST_NAME);
 }
 
 async function fetchSecretFromArn(secretArn: string): Promise<DbCredentials> {
-  const endpoint = process.env.AWS_ENDPOINT_URL;
   const client = new SecretsManagerClient({
     region: getAwsRegion(),
-    ...(endpoint ? { endpoint } : {}),
   });
   const response = await client.send(new GetSecretValueCommand({ SecretId: secretArn }));
 
@@ -84,37 +69,14 @@ export async function resolveDbCredentials(): Promise<DbCredentials> {
   }
 
   const dbCredentials = process.env.DB_CREDENTIALS?.trim();
-  if (dbCredentials) {
-    if (dbCredentials.startsWith('arn:aws:secretsmanager:')) {
-      cachedCredentials = await fetchSecretFromArn(dbCredentials);
-      return cachedCredentials;
-    }
-
-    try {
-      const parsed = JSON.parse(dbCredentials) as DbCredentials;
-      if (parsed.username && parsed.password) {
-        cachedCredentials = parsed;
-        return parsed;
-      }
-
-      throw new Error("DB_CREDENTIALS JSON must contain 'username' and 'password'.");
-    } catch (err) {
-      if (err instanceof SyntaxError) {
-        throw new Error(
-          'DB_CREDENTIALS must be a Secrets Manager ARN or valid JSON with username and password.'
-        );
-      }
-
-      throw err;
-    }
+  if (!dbCredentials) {
+    throw new Error('DB_CREDENTIALS environment variable is required.');
   }
 
-  const username = process.env.DB_USER || process.env.PGUSER;
-  const password = process.env.DB_PASSWORD || process.env.PGPASSWORD;
-  if (!username || !password) {
-    throw new Error('DB credentials not found. Provide DB_CREDENTIALS or DB_USER/DB_PASSWORD.');
+  if (dbCredentials.startsWith('arn:aws:secretsmanager:')) {
+    cachedCredentials = await fetchSecretFromArn(dbCredentials);
+    return cachedCredentials;
   }
 
-  cachedCredentials = { username, password };
-  return cachedCredentials;
+  throw new Error('DB_CREDENTIALS must be a valid Secrets Manager ARN (e.g., arn:aws:secretsmanager:...).');
 }

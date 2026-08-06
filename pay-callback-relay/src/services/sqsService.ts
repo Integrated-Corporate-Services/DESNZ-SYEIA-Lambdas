@@ -6,10 +6,8 @@ let sqsClient: SQSClient | null = null;
 
 function getSqsClient(): SQSClient {
   if (!sqsClient) {
-    const endpoint = process.env.AWS_ENDPOINT_URL;
     sqsClient = new SQSClient({
       region: getAwsRegion(),
-      ...(endpoint ? { endpoint } : {}),
     });
   }
 
@@ -17,11 +15,9 @@ function getSqsClient(): SQSClient {
 }
 
 function getQueueUrl(): string {
-  const queueUrl = process.env.SQS_QUEUE_URL || process.env.WEBHOOK_SQS_QUEUE_URL;
+  const queueUrl = process.env.SQS_QUEUE_URL;
   if (!queueUrl) {
-    throw new Error(
-      'SQS queue URL not configured (SQS_QUEUE_URL|WEBHOOK_SQS_QUEUE_URL)'
-    );
+    throw new Error('SQS_QUEUE_URL environment variable is required.');
   }
 
   return queueUrl;
