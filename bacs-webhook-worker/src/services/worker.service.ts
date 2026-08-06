@@ -10,7 +10,6 @@ export const workerService = {
   processRecords: async (records: SQSRecord[]): Promise<WorkerSummary> => {
     log.debug('Processing SQS records', { count: records.length });
 
-    const results: ProcessResult[] = [];
     let processed = 0;
     let failed = 0;
     const errors: Array<{ message: string; recordId: string }> = [];
@@ -28,10 +27,6 @@ export const workerService = {
 
         log.end('processRecord', { recordId: record.messageId });
         processed++;
-        results.push({
-          recordId: record.messageId || '',
-          success: true,
-        });
       } catch (error) {
         failed++;
         const message = error instanceof Error ? error.message : 'Unknown error';
