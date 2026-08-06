@@ -6,7 +6,7 @@
         "uuid": "14.0.1"
     },
     "dependencies": {
-        "aws-sdk": "^2.1692.0",
+        "@aws-sdk/client-cognito-identity-provider": "^3.0.0",
         "jsonwebtoken": "^9.0.2"
     },
     "main": "index.js",

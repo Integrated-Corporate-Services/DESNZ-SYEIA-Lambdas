@@ -1,7 +1,7 @@
-import AWS from 'aws-sdk';  // Using import instead of require
+import { CognitoIdentityProviderClient, AdminConfirmSignUpCommand, AdminUpdateUserAttributesCommand, AdminAddUserToGroupCommand } from '@aws-sdk/client-cognito-identity-provider';
 import jwt from 'jsonwebtoken';  // Import the jsonwebtoken library to decode the token
 
-const cognito = new AWS.CognitoIdentityServiceProvider();
+const cognito = new CognitoIdentityProviderClient({ region: process.env.AWS_REGION || 'eu-west-1' });
 
 // CORS headers function to include in the response
 const corsHeaders = () => ({
@@ -74,7 +74,7 @@ export const handler = async (event) => {
     };
 
     // Step 1: Confirm the user
-    const confirmResult = await cognito.adminConfirmSignUp(params).promise();
+    const confirmResult = await cognito.send(new AdminConfirmSignUpCommand(params));
     console.log('Cognito response for confirming user:', confirmResult);
 
     // Step 2: Mark the user's email as verified
@@ -89,7 +89,7 @@ export const handler = async (event) => {
       ]
     };
 
-    const updateEmailVerifiedResult = await cognito.adminUpdateUserAttributes(updateParams).promise();
+    const updateEmailVerifiedResult = await cognito.send(new AdminUpdateUserAttributesCommand(updateParams));
     console.log('Cognito response for updating email as verified:', updateEmailVerifiedResult);
 
     // Step 3: Add user to the "enduser" group
@@ -99,7 +99,7 @@ export const handler = async (event) => {
       Username: username  // The confirmed username
     };
 
-    const addToGroupResult = await cognito.adminAddUserToGroup(groupParams).promise();
+    const addToGroupResult = await cognito.send(new AdminAddUserToGroupCommand(groupParams));
     console.log('Cognito response for adding user to group:', addToGroupResult);
 
     return {

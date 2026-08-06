@@ -1,6 +1,6 @@
-import AWS from 'aws-sdk';
+import { CognitoIdentityProviderClient, ListUsersCommand } from '@aws-sdk/client-cognito-identity-provider';
 
-const cognito = new AWS.CognitoIdentityServiceProvider();
+const cognito = new CognitoIdentityProviderClient({ region: process.env.AWS_REGION || 'eu-west-1' });
 const USER_POOL_ID = process.env.USER_POOL_ID;
 
 const corsHeaders = () => ({
@@ -11,11 +11,11 @@ const corsHeaders = () => ({
 
 export const handler = async (event) => {
     try {
-        const response = await cognito.listUsers({
+        const response = await cognito.send(new ListUsersCommand({
             UserPoolId: USER_POOL_ID,
             // Optionally you can filter by email like this:
             // Filter: 'email ^= "@"'
-        }).promise();
+        }));
 
         const filteredUsers = response.Users
             .filter(user => user.UserStatus === 'UNCONFIRMED') // ✅ Filter in code
