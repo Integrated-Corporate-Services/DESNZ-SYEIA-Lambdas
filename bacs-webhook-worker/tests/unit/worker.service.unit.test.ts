@@ -1,5 +1,4 @@
-import { workerService } from '../../../src/services/worker.service';
-import type { ProcessResult } from '../../../src/types';
+import { workerService } from '../../src/services/worker.service';
 
 describe('workerService', () => {
   describe('processRecords', () => {
