@@ -10,6 +10,7 @@ beforeAll(() => {
 
 describe('handler integration tests', () => {
   it('should handle SQS event', async () => {
+    const event: SQSEvent = {
       Records: [
         {
           messageId: 'msg-1',
@@ -29,7 +30,6 @@ describe('handler integration tests', () => {
         },
       ],
     };
-
     const context = {
       awsRequestId: 'request-123',
       functionName: 'bacs-webhook-worker',
