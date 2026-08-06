@@ -14,9 +14,6 @@ function applyEnvAliases(): void {
   if (!process.env.AWS_REGION && process.env.REGION) {
     process.env.AWS_REGION = process.env.REGION;
   }
-  if (!process.env.NOTIFY_QUEUE_URL && process.env.SQS_QUEUE_URL) {
-    process.env.NOTIFY_QUEUE_URL = process.env.SQS_QUEUE_URL;
-  }
 }
 
 applyEnvAliases();
@@ -31,26 +28,25 @@ export const AWS_CONFIG = {
   endpoint: process.env.AWS_ENDPOINT,
 };
 
-export const QUEUE_URL = process.env.NOTIFY_QUEUE_URL ?? '';
+export const QUEUE_URL = process.env.SQS_QUEUE_URL ?? '';
 
 export function validateEnvironment(): void {
   applyEnvAliases();
 
-  const hasDatabaseUrl = Boolean(process.env.DATABASE_URL);
   const hasHostDb =
-    Boolean(process.env.HOST_NAME || process.env.DB_HOST) &&
+    Boolean(process.env.HOST_NAME) &&
     Boolean(process.env.DB_NAME) &&
     Boolean(process.env.DB_CREDENTIALS);
 
-  if (!hasDatabaseUrl && !hasHostDb) {
+  if (!hasHostDb) {
     throw new Error(
-      'Missing database config: set DATABASE_URL or HOST_NAME + DB_NAME + DB_CREDENTIALS',
+      'Missing database config: set HOST_NAME + DB_NAME + DB_CREDENTIALS',
     );
   }
 
-  if (!process.env.NOTIFY_QUEUE_URL) {
+  if (!process.env.SQS_QUEUE_URL) {
     throw new Error(
-      'Missing required environment variables: NOTIFY_QUEUE_URL (or SQS_QUEUE_URL)',
+      'Missing required environment variables: SQS_QUEUE_URL',
     );
   }
 }
@@ -107,16 +103,11 @@ export async function resolveConnectionString(): Promise<string> {
     return cachedConnectionString;
   }
 
-  if (process.env.DATABASE_URL) {
-    cachedConnectionString = process.env.DATABASE_URL;
-    return cachedConnectionString;
-  }
-
-  const host = process.env.HOST_NAME || process.env.DB_HOST;
+  const host = process.env.HOST_NAME;
   const database = process.env.DB_NAME;
   const port = process.env.DB_PORT || '5432';
   if (!host || !database) {
-    throw new Error('HOST_NAME/DB_HOST and DB_NAME are required when DATABASE_URL is not set');
+    throw new Error('HOST_NAME and DB_NAME are required');
   }
 
   const { username, password } = await resolveDbCredentials();
@@ -125,12 +116,6 @@ export async function resolveConnectionString(): Promise<string> {
 }
 
 export function shouldUseDbSsl(): boolean {
-  if (process.env.PGSSLMODE === 'disable') {
-    return false;
-  }
-  if (process.env.PGSSLMODE === 'require') {
-    return true;
-  }
   return Boolean(process.env.HOST_NAME);
 }
 
