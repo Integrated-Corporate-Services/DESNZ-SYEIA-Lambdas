@@ -9,13 +9,13 @@ const MockedClient = SecretsManagerClient as jest.MockedClass<typeof SecretsMana
 beforeEach(() => {
   secretsManagerConfig.resetForTest();
   envConfig.resetForTest();
-  process.env.AWS_REGION = 'eu-west-2';
-  process.env.DB_SECRET_ARN = 'arn:aws:secretsmanager:eu-west-2:111:secret:rds';
-  process.env.DB_HOST = 'localhost';
+  process.env.REGION = 'eu-west-2';
+  process.env.DB_CREDENTIALS = 'arn:aws:secretsmanager:eu-west-2:111:secret:rds';
+  process.env.HOST_NAME = 'localhost';
   process.env.DB_PORT = '5432';
   process.env.DB_NAME = 'appdb';
-  process.env.BACS_WEBHOOK_RELAY_BATCH_SIZE_PARAM = '/bacs-webhook-relay/batch-size';
-  process.env.PARTNER_WEBHOOKS_QUEUE_URL = 'http://main';
+  process.env.BACS_WEBHOOK_RELAY_BATCH_SIZE = '/bacs-webhook-relay/batch-size';
+  process.env.SQS_QUEUE_URL = 'http://main';
   process.env.PARTNER_WEBHOOKS_DLQ_URL = 'http://dlq';
   process.env.SECRET_CACHE_TTL_MS = '60000';
 });
