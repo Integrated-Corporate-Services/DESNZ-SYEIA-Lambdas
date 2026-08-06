@@ -42,7 +42,7 @@ class SqsRepository {
     const fatalQueueUrl = getFatalQueueUrl();
     if (!fatalQueueUrl) {
       throw new Error(
-        'FATAL_QUEUE_URL not configured (NOTIFY_FATAL_QUEUE_URL or SQS_DLQ_URL)',
+        'FATAL_QUEUE_URL not configured (SQS_QUEUE_URL)',
       );
     }
 
