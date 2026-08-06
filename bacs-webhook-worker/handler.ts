@@ -1,4 +1,4 @@
-import type { Context, SQSEvent, SQSRecord } from 'aws-lambda';
+import type { Context, SQSEvent } from 'aws-lambda';
 
 import { envConfig } from './src/config/env.config';
 import { workerService } from './src/services/worker.service';
