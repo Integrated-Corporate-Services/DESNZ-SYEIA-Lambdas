@@ -19,6 +19,41 @@ export function getCorrelationId(): string | undefined {
 
 export type LogMeta = object;
 
+const REDACTED_META_KEYS = new Set([
+  'request',
+  'response',
+  'payload',
+  'body',
+  'headers',
+  'rawPayload',
+  'raw_payload',
+  'requestBody',
+  'responseBody',
+  'requestHeaders',
+  'responseHeaders',
+]);
+
+function sanitizeMeta(input: unknown, depth = 0): unknown {
+  if (depth > 4) return '[MAX_DEPTH]';
+  if (input === null || input === undefined) return input;
+  if (typeof input !== 'object') return input;
+  if (Array.isArray(input)) {
+    return input.map((item) => sanitizeMeta(item, depth + 1));
+  }
+
+  const source = input as Record<string, unknown>;
+  const sanitized: Record<string, unknown> = {};
+
+  for (const [key, value] of Object.entries(source)) {
+    if (REDACTED_META_KEYS.has(key)) {
+      continue;
+    }
+    sanitized[key] = sanitizeMeta(value, depth + 1);
+  }
+
+  return sanitized;
+}
+
 function emit(
   level: LogLevel,
   file: string,
@@ -29,6 +64,7 @@ function emit(
   if (LEVELS[level] > THRESHOLD) return;
 
   const formattedMsg = `[${file}] [${method}] ${message}`;
+  const sanitizedMeta = sanitizeMeta(meta) as Record<string, unknown>;
 
   const entry = {
     timestamp: new Date().toISOString(),
@@ -38,7 +74,7 @@ function emit(
     method,
     msg: formattedMsg,
     ...(correlationId ? { correlationId } : {}),
-    ...(meta as Record<string, unknown>),
+    ...sanitizedMeta,
   };
 
   const line = JSON.stringify(entry);

@@ -4,10 +4,9 @@ export const handler = async (event) => {
   let body;
 
   try {
-    console.log(event);
     body = JSON.parse(event.body);
   } catch (err) {
-    console.log(err);
+    console.error('Failed to parse request body');
     return {
       statusCode: 400,
       headers: corsHeaders(),

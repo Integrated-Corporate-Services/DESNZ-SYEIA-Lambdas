@@ -11,8 +11,6 @@ const corsHeaders = () => ({
 });
 
 export const handler = async (event) => {
-  console.log('Received event:', JSON.stringify(event, null, 2));
-
   // Handle OPTIONS requests (CORS preflight request)
   if (event.httpMethod === 'OPTIONS') {
     return {
@@ -35,12 +33,10 @@ export const handler = async (event) => {
 
   // Extract the token from the Authorization header
   const accessToken = authorizationHeader.split(' ')[1];
-  console.log('Extracted access token:', accessToken);
 
   try {
     // Decode the JWT token to get the groups claim
     const decodedToken = jwt.decode(accessToken);
-    console.log('Decoded token:', decodedToken);
 
     // Check if the user belongs to the "super" group
     if (!decodedToken || !decodedToken['cognito:groups'] || !decodedToken['cognito:groups'].includes('super')) {
@@ -65,7 +61,6 @@ export const handler = async (event) => {
     }
 
     const username = body.username;
-    console.log('username:', username);
 
     // Replace with your user pool ID
     const params = {
@@ -74,8 +69,7 @@ export const handler = async (event) => {
     };
 
     // Step 1: Confirm the user
-    const confirmResult = await cognito.send(new AdminConfirmSignUpCommand(params));
-    console.log('Cognito response for confirming user:', confirmResult);
+    await cognito.send(new AdminConfirmSignUpCommand(params));
 
     // Step 2: Mark the user's email as verified
     const updateParams = {
@@ -89,8 +83,7 @@ export const handler = async (event) => {
       ]
     };
 
-    const updateEmailVerifiedResult = await cognito.send(new AdminUpdateUserAttributesCommand(updateParams));
-    console.log('Cognito response for updating email as verified:', updateEmailVerifiedResult);
+    await cognito.send(new AdminUpdateUserAttributesCommand(updateParams));
 
     // Step 3: Add user to the "enduser" group
     const groupParams = {
@@ -100,7 +93,6 @@ export const handler = async (event) => {
     };
 
     const addToGroupResult = await cognito.send(new AdminAddUserToGroupCommand(groupParams));
-    console.log('Cognito response for adding user to group:', addToGroupResult);
 
     return {
       statusCode: 200,

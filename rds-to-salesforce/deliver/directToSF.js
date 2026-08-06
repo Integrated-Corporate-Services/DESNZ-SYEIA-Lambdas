@@ -29,7 +29,7 @@ async function sendPayload(payload, env) {
     throw new PermanentError(`Unsupported SALESFORCE_AUTH_MODE: ${salesforceAuthMode}`);
   }
   const url = `${sfConfig.baseUrl}${sfConfig.objectApi}`;
-  log.info(`[directToSF.js : sendPayload] Sending payload to Salesforce URL:`, url);
+  log.info("[directToSF.js : sendPayload] Sending payload to Salesforce");
   try {
     const response = await axios.post(url, {
       External_System__c: 'AWS',
@@ -42,9 +42,6 @@ async function sendPayload(payload, env) {
       },
       timeout: Number(env.HTTP_TIMEOUT_MS)
     });
-    log.info(`[directToSF.js : sendPayload] Salesforce response:`, response.data);
-    log.info(`[directToSF.js : sendPayload] Salesforce response status:`, response.status);
-    log.info(`[directToSF.js : sendPayload] Salesforce response headers:`, response.headers);
     // Salesforce returns { id, success, errors }
     if (response.data && response.data.success === true && response.data.id) {
       return response.data.id;
@@ -79,7 +76,6 @@ export async function processDirect(job) {
   const snapshot = safeJsonParse(job.payload_snapshot_json);
   if (!snapshot) throw new PermanentError("Invalid snapshot JSON");
   const reordered = reorderPayload(snapshot);
-  log.info(`[directToSF.js/processDirect] Salesforce payload:`, JSON.stringify(reordered));
   try {
     const id = await sendPayload(JSON.stringify(reordered), env);
     return id || null;

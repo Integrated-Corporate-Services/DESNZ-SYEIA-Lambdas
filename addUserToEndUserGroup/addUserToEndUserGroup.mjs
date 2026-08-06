@@ -17,7 +17,6 @@ export const handler = async (event) => {
     // Command to add the user to the group
     const command = new AdminAddUserToGroupCommand(input);
     await client.send(command);
-    console.log(`User ${event.userName} added to EndUsers group.`);
   } catch (err) {
     console.error('Error adding user to group:', err);
   }

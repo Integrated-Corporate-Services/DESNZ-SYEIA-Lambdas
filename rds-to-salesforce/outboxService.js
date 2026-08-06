@@ -37,9 +37,7 @@ export async function processJob(job) {
 }
 
 async function handleDirectJob(job, payload, jobId) {
-  log.debug(`[outboxService.js:handleDirectJob][job:${jobId}] Parsed snapshot:`, payload);
   const salesforcePayload = buildSFPayload(payload, process.env);
-  log.debug(`[outboxService.js:handleDirectJob][job:${jobId}] Salesforce payload:`, salesforcePayload);
   const salesforceId = await processDirect(job);
   await markDirectSuccess({
     jobId: job.outbox_id,
@@ -50,9 +48,7 @@ async function handleDirectJob(job, payload, jobId) {
 }
 
 async function handleAppflowJob(job, payload, jobId) {
-  log.debug(`[outboxService.js:handleAppflowJob][job:${jobId}] Parsed snapshot:`, payload);
   const appflowPayload = flattenForAppflow(payload);
-  log.debug(`[outboxService.js:handleAppflowJob][job:${jobId}] Flattened AppFlow payload:`, appflowPayload);
   const s3Key = await processAppflow(job);
   await markAppflowHandoff({ jobId: job.outbox_id, s3Key });
   log.debug(`[outboxService.js:handleAppflowJob] Job ${job.outbox_id} → HANDOFF (S3: ${s3Key})`);
@@ -69,35 +65,22 @@ export async function getClaimedJobs(limit, maxRetries) {
 }
 
 function extractPayload(job) {
-  log.debug(`[outboxService.js:extractPayload][job:${job && job.outbox_id}] Extracting payload.`);
   let payload;
   if (typeof job.payload_snapshot_json === 'string') {
-    log.debug(`[outboxService.js:extractPayload][job:${job && job.outbox_id}] Parsing payload from string.`);
     payload = safeJsonParse(job.payload_snapshot_json);
   } else if (typeof job.payload_snapshot_json === 'object' && job.payload_snapshot_json !== null) {
-    log.debug(`[outboxService.js:extractPayload][job:${job && job.outbox_id}] Using payload as object.`);
     payload = job.payload_snapshot_json;
   } else {
     log.warn(`[outboxService.js:extractPayload][job:${job && job.outbox_id}] Payload is null or invalid type.`);
     payload = null;
   }
-  log.debug(`[outboxService.js:extractPayload][job:${job && job.outbox_id}] Extracted payload:`, payload);
   return { payload, jobId: job.outbox_id };
 }
 
 function logRawPayload(job, payload, jobId) {
-  try {
-    if (payload) {
-  log.debug(`[outboxService.js : logRawPayload][job:${jobId}] Raw DB payload:`, JSON.stringify(payload, null, 2));
-    } else if (job && job.payload_snapshot_json) {
-      const rawPayload = typeof job.payload_snapshot_json === 'string'
-        ? JSON.stringify(JSON.parse(job.payload_snapshot_json), null, 2)
-        : JSON.stringify(job.payload_snapshot_json, null, 2);
-  log.debug(`[outboxService.js : logRawPayload][job:${jobId}] Raw DB payload:`, rawPayload);
-    }
-  } catch (e) {
-  log.debug(`[outboxService.js : logRawPayload][job:${jobId}] Raw DB payload:`, String(job && job.payload_snapshot_json));
-  }
+  void job;
+  void payload;
+  void jobId;
 }
 
 async function handleJobError(job, err) {

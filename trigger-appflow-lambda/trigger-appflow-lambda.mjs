@@ -7,8 +7,8 @@ export const handler = async (event) => {
 
   try {
     const command = new StartFlowCommand({ flowName });
-    const result = await client.send(command);
-    console.log("Flow started:", result);
+    await client.send(command);
+    console.log('Flow started successfully');
   } catch (error) {
     console.error("Failed to start AppFlow:", error);
   }

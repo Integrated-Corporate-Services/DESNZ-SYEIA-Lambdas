@@ -27,10 +27,6 @@ export const handler = async (event) => {
   const DB_USER = await getSSMParam('/dev/rds/icseip/username');
   const DB_PASSWORD = await getSSMParam('/dev/rds/icseip/password');
   const DB_NAME = await getSSMParam('/rds/eip/name');
-
-  console.log('host:', HOST_NAME);
-  console.log('db user:', DB_USER);
-  console.log('dbname:', DB_NAME);
   
   // 1. Connect to RDS
   const client = new Client({
@@ -56,7 +52,7 @@ export const handler = async (event) => {
     );
 
     if (res.rows.length === 0) {
-      console.log('No unexported submitted application found for ID:', applicationId);
+      console.log('No submitted unexported application found');
       return;
     }
 
@@ -76,15 +72,14 @@ export const handler = async (event) => {
 
     const command = new PutObjectCommand(s3Params);
     await s3.send(command);
-    console.log('Uploaded CSV to S3.');
+    console.log('Uploaded CSV to S3');
 
     // 5. Mark as exported
     await client.query(
       `UPDATE application_details SET is_exported = true WHERE id = $1`,
       [applicationId]
     );
-
-    console.log(`Marked application ${applicationId} as exported.`);
+    console.log('Marked application as exported');
   } catch (err) {
     console.error('Error processing export:', err);
   } finally {

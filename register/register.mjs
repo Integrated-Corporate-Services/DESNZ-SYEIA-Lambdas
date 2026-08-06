@@ -21,7 +21,6 @@ export const handler = async (event) => {
   const clientId = process.env.COGNITO_CLIENT_ID;
 
   try {
-    console.log(event);
     body = JSON.parse(event.body);
   } catch (err) {
     return {

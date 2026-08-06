@@ -16,7 +16,7 @@ export const handler = async (event) => {
       const msg = JSON.parse(r.Sns.Message ?? "{}");
       const { outbox_id } = msg || {};
       if (!outbox_id) {
-        log.error("[handler.js : handler] Missing outbox_id in SNS message", { msg });
+        log.error("[handler.js : handler] Missing outbox_id in SNS message");
         throw new Error("Missing outbox_id");
       }
       const job = await getJobById(outbox_id);
@@ -61,7 +61,7 @@ export const handler = async (event) => {
   }
 
   // Unhandled event shape
-  log.warn("[handler.js : handler] Unhandled event shape", { event });
+  log.warn("[handler.js : handler] Unhandled event shape");
   return;
 };
 

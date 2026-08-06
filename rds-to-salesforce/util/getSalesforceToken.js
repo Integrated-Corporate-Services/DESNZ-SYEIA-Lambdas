@@ -11,7 +11,6 @@ export async function getAccessToken({ clientId, clientSecret, tokenUrl }) {
         client_secret: clientSecret
       }
     });
-    log.info('[getSalesforceToken.js : getAccessToken] Token response received');
     return response.data.access_token;
   } catch (error) {
     log.error('[getSalesforceToken.js : getAccessToken] Error fetching access token:', error.response?.data || error.message);
