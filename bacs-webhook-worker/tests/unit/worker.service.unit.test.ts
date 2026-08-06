@@ -1,5 +1,4 @@
 import { workerService } from '../../../src/services/worker.service';
-import { ValidationError, PaymentProcessingError } from '../../../src/errors/worker.errors';
 import type { ProcessResult } from '../../../src/types';
 
 describe('workerService', () => {
