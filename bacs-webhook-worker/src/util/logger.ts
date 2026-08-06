@@ -57,7 +57,7 @@ export function getCorrelationId(): string {
 function shouldLog(level: string): boolean {
   const levels = ['debug', 'info', 'warn', 'error'];
 
-  let configuredLevel = 'info';
+  let configuredLevel: string;
   try {
     configuredLevel = envConfig.get().logLevel;
   } catch {
