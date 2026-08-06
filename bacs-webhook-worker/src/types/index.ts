@@ -15,7 +15,7 @@ export interface PaymentPayload {
   transactionId: string;
   amount: number;
   status: string;
-  timestamp: string;
+  timestamp?: string;
   [key: string]: unknown;
 }
 
