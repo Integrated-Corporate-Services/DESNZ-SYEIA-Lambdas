@@ -48,9 +48,9 @@ describe('handler integration tests', () => {
 
     const result = await handler(event, context);
 
-    expect(result).toBeDefined();
-    expect(result.errors).toBeDefined();
-  });
+    expect(result.processed).toBe(1);
+    expect(result.failed).toBe(0);
+    expect(result.errors).toHaveLength(0);
 
   it('should handle empty records gracefully', async () => {
     const event: SQSEvent = { Records: [] };
