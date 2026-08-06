@@ -1,7 +1,7 @@
 import { CognitoIdentityProviderClient, AdminConfirmSignUpCommand, AdminUpdateUserAttributesCommand, AdminAddUserToGroupCommand } from '@aws-sdk/client-cognito-identity-provider';
 import jwt from 'jsonwebtoken';  // Import the jsonwebtoken library to decode the token
 
-const cognito = new CognitoIdentityProviderClient({ region: process.env.AWS_REGION || 'eu-west-1' });
+const cognito = new CognitoIdentityProviderClient({ region: process.env.REGION || process.env.AWS_REGION || 'eu-west-2' });
 
 // CORS headers function to include in the response
 const corsHeaders = () => ({
