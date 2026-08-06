@@ -1,7 +1,7 @@
 import type { SQSRecord } from 'aws-lambda';
 import { createLogger } from '../util/logger';
 import { LOG_MESSAGES } from '../constants/log.constants';
-import type { WorkerSummary, ProcessResult } from '../types';
+import type { WorkerSummary } from '../types';
 import { ValidationError, PaymentProcessingError } from '../errors/worker.errors';
 
 const log = createLogger('worker.service');
