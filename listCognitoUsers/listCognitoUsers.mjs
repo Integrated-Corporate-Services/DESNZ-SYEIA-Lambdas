@@ -1,6 +1,6 @@
 import { CognitoIdentityProviderClient, ListUsersCommand } from '@aws-sdk/client-cognito-identity-provider';
 
-const cognito = new CognitoIdentityProviderClient({ region: process.env.AWS_REGION || 'eu-west-1' });
+const cognito = new CognitoIdentityProviderClient({ region: process.env.REGION || process.env.AWS_REGION || 'eu-west-2' });
 const USER_POOL_ID = process.env.USER_POOL_ID;
 
 const corsHeaders = () => ({
