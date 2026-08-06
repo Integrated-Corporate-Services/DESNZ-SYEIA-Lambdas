@@ -15,12 +15,10 @@ const METHOD = {
 
 let envValidated = false;
 function ensureEnv(): void {
-  log.start(METHOD.ENSURE_ENV);
   if (!envValidated) {
     envConfig.load();
     envValidated = true;
   }
-  log.end(METHOD.ENSURE_ENV);
 }
 
 export const handler = async (
