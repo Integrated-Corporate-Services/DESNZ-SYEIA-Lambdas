@@ -19,16 +19,11 @@ describe('Environment Validation', () => {
   const originalEnv = process.env;
 
   const dbEnvKeys = [
-    'PGHOST',
     'DB_HOST',
     'HOST_NAME',
-    'PGUSER',
     'DB_USER',
-    'PGPASSWORD',
     'DB_PASSWORD',
-    'PGDATABASE',
     'DB_NAME',
-    'PGPORT',
     'DB_PORT',
     'DB_CREDENTIALS',
     'AWS_REGION',
@@ -57,11 +52,11 @@ describe('Environment Validation', () => {
 
   describe('validateEnvVars', () => {
     test('should pass when all required env vars are present', () => {
-      process.env.PGHOST = 'localhost';
-      process.env.PGUSER = 'postgres';
-      process.env.PGPASSWORD = 'password';
-      process.env.PGDATABASE = 'testdb';
-      process.env.PGPORT = '5432';
+      process.env.DB_HOST = 'localhost';
+      process.env.DB_USER = 'postgres';
+      process.env.DB_PASSWORD = 'password';
+      process.env.DB_NAME = 'testdb';
+      process.env.DB_PORT = '5432';
       process.env.AWS_REGION = 'eu-west-2';
       process.env.AWS_ENDPOINT_URL = 'http://localhost:4566';
       process.env.WEBHOOK_SQS_QUEUE_URL = 'https://sqs.region.amazonaws.com/queue';
@@ -98,8 +93,8 @@ describe('Environment Validation', () => {
 
       expect(error).toBeDefined();
       expect(error?.message).toContain('Missing required environment variables');
-      expect(error?.message).toContain('DB host (PGHOST|DB_HOST|HOST_NAME)');
-      expect(error?.message).toContain('DB credentials (DB_CREDENTIALS|PGUSER+PGPASSWORD|DB_USER+DB_PASSWORD)');
+      expect(error?.message).toContain('DB host (DB_HOST|HOST_NAME)');
+      expect(error?.message).toContain('DB credentials (DB_CREDENTIALS|DB_USER+DB_PASSWORD)');
     });
 
     test('should pass with GOVPAY_WEBHOOK_SIGNING_KEY instead of GOVUK_PAY_WEBHOOK_SECRET', () => {
@@ -130,11 +125,11 @@ describe('Environment Validation', () => {
     });
 
     test('should pass LocalStack environment without webhook signing secret', () => {
-      process.env.PGHOST = 'localhost';
-      process.env.PGUSER = 'postgres';
-      process.env.PGPASSWORD = 'password';
-      process.env.PGDATABASE = 'testdb';
-      process.env.PGPORT = '5432';
+      process.env.DB_HOST = 'localhost';
+      process.env.DB_USER = 'postgres';
+      process.env.DB_PASSWORD = 'password';
+      process.env.DB_NAME = 'testdb';
+      process.env.DB_PORT = '5432';
       process.env.AWS_REGION = 'eu-west-2';
       process.env.AWS_ENDPOINT_URL = 'http://localhost:4566';
       process.env.WEBHOOK_SQS_QUEUE_URL = 'https://sqs.region.amazonaws.com/queue';

@@ -20,19 +20,19 @@ export function validateEnvVars(): boolean {
   const missing: string[] = [];
 
   if (!getDbHost()) {
-    missing.push('DB host (PGHOST|DB_HOST|HOST_NAME)');
+    missing.push('DB host (DB_HOST|HOST_NAME)');
   }
 
   if (!getDbName()) {
-    missing.push('DB name (PGDATABASE|DB_NAME)');
+    missing.push('DB name (DB_NAME)');
   }
 
   if (!hasDbCredentialsConfigured()) {
-    missing.push('DB credentials (DB_CREDENTIALS|PGUSER+PGPASSWORD|DB_USER+DB_PASSWORD)');
+    missing.push('DB credentials (DB_CREDENTIALS|DB_USER+DB_PASSWORD)');
   }
 
-  if (!hasEnv('PGPORT') && !hasEnv('DB_PORT')) {
-    missing.push('DB port (PGPORT|DB_PORT)');
+  if (!hasEnv('DB_PORT')) {
+    missing.push('DB port (DB_PORT)');
   }
 
   if (!process.env.AWS_REGION && !process.env.REGION) {

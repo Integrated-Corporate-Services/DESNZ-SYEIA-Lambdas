@@ -14,20 +14,20 @@ export function resetDbConfigCache(): void {
 }
 
 export function getDbHost(): string {
-  return process.env.PGHOST || process.env.DB_HOST || process.env.HOST_NAME || '';
+  return process.env.DB_HOST || process.env.HOST_NAME || '';
 }
 
 export function getDbPort(): number {
-  const port = Number(process.env.PGPORT || process.env.DB_PORT || 5432);
+  const port = Number(process.env.DB_PORT || 5432);
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
-    throw new Error(`Invalid database port: ${process.env.PGPORT || process.env.DB_PORT}`);
+    throw new Error(`Invalid database port: ${process.env.DB_PORT}`);
   }
 
   return port;
 }
 
 export function getDbName(): string {
-  return process.env.PGDATABASE || process.env.DB_NAME || '';
+  return process.env.DB_NAME || '';
 }
 
 export function getAwsRegion(): string {
@@ -39,20 +39,12 @@ export function hasDbCredentialsConfigured(): boolean {
     return true;
   }
 
-  const username = process.env.PGUSER || process.env.DB_USER;
-  const password = process.env.PGPASSWORD || process.env.DB_PASSWORD;
+  const username = process.env.DB_USER;
+  const password = process.env.DB_PASSWORD;
   return Boolean(username && password);
 }
 
 export function shouldUseDbSsl(): boolean {
-  if (process.env.PGSSLMODE === 'disable') {
-    return false;
-  }
-
-  if (process.env.PGSSLMODE === 'require') {
-    return true;
-  }
-
   return Boolean(process.env.HOST_NAME);
 }
 
@@ -109,10 +101,10 @@ export async function resolveDbCredentials(): Promise<DbCredentials> {
     }
   }
 
-  const username = process.env.PGUSER || process.env.DB_USER;
-  const password = process.env.PGPASSWORD || process.env.DB_PASSWORD;
+  const username = process.env.DB_USER;
+  const password = process.env.DB_PASSWORD;
   if (!username || !password) {
-    throw new Error('DB credentials not found. Provide DB_CREDENTIALS or PGUSER/PGPASSWORD.');
+    throw new Error('DB credentials not found. Provide DB_CREDENTIALS or DB_USER/DB_PASSWORD.');
   }
 
   cachedCredentials = { username, password };

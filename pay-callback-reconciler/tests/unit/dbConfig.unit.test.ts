@@ -12,17 +12,12 @@ describe('dbConfig', () => {
   const originalEnv = process.env;
 
   const dbEnvKeys = [
-    'PGHOST',
     'DB_HOST',
     'HOST_NAME',
-    'PGUSER',
     'DB_USER',
-    'PGPASSWORD',
     'DB_PASSWORD',
-    'PGDATABASE',
     'DB_NAME',
     'DB_PORT',
-    'PGPORT',
     'DB_CREDENTIALS',
   ] as const;
 
@@ -47,22 +42,22 @@ describe('dbConfig', () => {
     expect(getDbHost()).toBe('rds.example.com');
 
     delete process.env.HOST_NAME;
-    process.env.PGHOST = 'localhost';
+    process.env.DB_HOST = 'localhost';
     expect(getDbHost()).toBe('localhost');
   });
 
   test('validates database port range', () => {
-    process.env.PGPORT = '5434';
+    process.env.DB_PORT = '5434';
     expect(getDbPort()).toBe(5434);
 
-    process.env.PGPORT = '70000';
+    process.env.DB_PORT = '70000';
     expect(() => getDbPort()).toThrow('Invalid database port');
   });
 
   test('detects configured credentials', () => {
     delete process.env.DB_CREDENTIALS;
-    delete process.env.PGUSER;
-    delete process.env.PGPASSWORD;
+    delete process.env.DB_USER;
+    delete process.env.DB_PASSWORD;
     expect(hasDbCredentialsConfigured()).toBe(false);
 
     process.env.DB_CREDENTIALS = '   ';
@@ -89,20 +84,16 @@ describe('dbConfig', () => {
     );
   });
 
-  test('derives SSL from HOST_NAME and PGSSLMODE', () => {
-    delete process.env.PGSSLMODE;
+  test('derives SSL from HOST_NAME', () => {
     delete process.env.HOST_NAME;
     expect(shouldUseDbSsl()).toBe(false);
 
     process.env.HOST_NAME = 'rds.example.com';
     expect(shouldUseDbSsl()).toBe(true);
-
-    process.env.PGSSLMODE = 'disable';
-    expect(shouldUseDbSsl()).toBe(false);
   });
 
-  test('resolves database name from PGDATABASE or DB_NAME', () => {
-    process.env.PGDATABASE = 'appdb';
+  test('resolves database name from DB_NAME', () => {
+    process.env.DB_NAME = 'appdb';
     expect(getDbName()).toBe('appdb');
   });
 });
