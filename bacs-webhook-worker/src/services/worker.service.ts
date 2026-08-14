@@ -74,7 +74,6 @@ async function processPayment(payload: Record<string, unknown>): Promise<void> {
   log.debug('Processing payment', { transactionId: payload.transactionId });
 
   // Add your business logic here
-  // This is a placeholder implementation
 
   if (!payload.transactionId) {
     throw new PaymentProcessingError('Invalid transaction ID');
