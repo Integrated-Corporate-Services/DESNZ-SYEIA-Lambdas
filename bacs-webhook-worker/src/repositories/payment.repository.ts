@@ -7,7 +7,7 @@ import { DatabaseError } from '../errors/worker.errors';
 const log = createLogger('payment.repository');
 
 let pool: Pool | null = null;
-
+// function for the get pool
 function getPool(): Pool {
   if (!pool) {
     const config = envConfig.get();
