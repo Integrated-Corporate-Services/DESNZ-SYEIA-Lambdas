@@ -20,11 +20,28 @@ export const envConfig = {
     const dbPortRaw = process.env.DB_PORT;
     const dbPort = dbPortRaw ? Number.parseInt(dbPortRaw, 10) : NaN;
 
+    // Try to get credentials from DB_CREDENTIALS first (JSON format), fallback to individual vars
+    let dbUser = process.env.DB_USER ?? '';
+    let dbPassword = process.env.DB_PASSWORD ?? '';
+
+    if (!dbUser || !dbPassword) {
+      const dbCredentials = process.env.DB_CREDENTIALS;
+      if (dbCredentials) {
+        try {
+          const creds = JSON.parse(dbCredentials);
+          dbUser = creds.username || creds.user || dbUser;
+          dbPassword = creds.password || dbPassword;
+        } catch (error) {
+          // If DB_CREDENTIALS is not valid JSON, ignore and use individual vars
+        }
+      }
+    }
+
     config = {
       dbHost: process.env.HOST_NAME ?? '',
       dbPort,
-      dbUser: process.env.DB_USER ?? '',
-      dbPassword: process.env.DB_PASSWORD ?? '',
+      dbUser,
+      dbPassword,
       dbName: process.env.DB_NAME ?? '',
       sqsQueueUrl: process.env.SQS_QUEUE_URL ?? '',
       environment: env,
