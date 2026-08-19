@@ -5,7 +5,6 @@ interface Config {
   dbUser: string;
   dbPassword: string;
   dbName: string;
-  sqsQueueUrl: string;
   environment: 'dev' | 'uat' | 'prod';
   logLevel: 'debug' | 'info' | 'warn' | 'error';
 }
@@ -26,7 +25,6 @@ export const envConfig = {
       dbUser: process.env.DB_USER ?? '',
       dbPassword: process.env.DB_PASSWORD ?? '',
       dbName: process.env.DB_NAME ?? '',
-      sqsQueueUrl: process.env.SQS_QUEUE_URL ?? '',
       environment: env,
       logLevel: (process.env.LOG_LEVEL as Config['logLevel'] | undefined) ?? 'info',
     };
@@ -44,10 +42,14 @@ export const envConfig = {
 };
 
 function validate(cfg: Config): void {
-  const required = ['dbHost', 'dbUser', 'dbPassword', 'dbName', 'sqsQueueUrl'];
+  const required = ['dbHost', 'dbUser', 'dbPassword', 'dbName'];
   const missing = required.filter((key) => !cfg[key as keyof Config]);
 
   if (missing.length > 0) {
     throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
+  }
+
+  if (isNaN(cfg.dbPort)) {
+    throw new Error('DB_PORT must be a valid number');
   }
 }

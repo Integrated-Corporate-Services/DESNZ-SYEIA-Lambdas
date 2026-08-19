@@ -1,10 +1,9 @@
-import type { Context, SQSEvent } from 'aws-lambda';
+import type { SQSHandler, SQSBatchResponse } from 'aws-lambda';
 
 import { envConfig } from './src/config/env.config';
 import { workerService } from './src/services/worker.service';
 import { createLogger, setCorrelationId } from './src/util/logger';
 import { LOG_MESSAGES } from './src/constants/log.constants';
-import type { WorkerSummary } from './src/types';
 
 const log = createLogger('handler.ts');
 
@@ -21,39 +20,46 @@ function ensureEnv(): void {
   }
 }
 
-export const handler = async (
-  event: SQSEvent,
-  context: Context
-): Promise<WorkerSummary> => {
+/**
+ * SQS Lambda handler with ReportBatchItemFailures
+ * Triggered by BACS webhook queue
+ * Processes BACS payment notifications
+ */
+export const handler: SQSHandler = async (event, context): Promise<SQSBatchResponse> => {
+  context.callbackWaitsForEmptyEventLoop = false;
   setCorrelationId(context.awsRequestId);
-  log.start(METHOD.HANDLER, { recordCount: event.Records?.length || 0 });
+
+  log.info('BACS Worker Lambda invoked', {
+    awsRequestId: context.awsRequestId,
+    recordCount: event.Records.length,
+    functionName: context.functionName,
+    functionVersion: context.functionVersion,
+  });
 
   try {
     ensureEnv();
 
     if (!event.Records || event.Records.length === 0) {
       log.info(LOG_MESSAGES.NO_RECORDS);
-      return { processed: 0, failed: 0, errors: [] };
+      return { batchItemFailures: [] };
     }
 
-    log.debug('Processing records', { count: event.Records.length });
-    const summary = await workerService.processRecords(event.Records);
+    const batchItemFailures = await workerService.processRecords(event.Records);
 
-    log.end(METHOD.HANDLER, {
-      processed: summary.processed,
-      failed: summary.failed,
-      errors: summary.errors.length,
+    log.info('BACS Worker Lambda complete', {
+      awsRequestId: context.awsRequestId,
+      totalRecords: event.Records.length,
+      failedRecords: batchItemFailures.length,
     });
 
-    return summary;
+    return { batchItemFailures };
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
     log.error(LOG_MESSAGES.HANDLER_ERROR, { error: errorMsg });
 
+    // Critical handler error - fail all messages for retry
     return {
-      processed: 0,
-      failed: event.Records?.length || 0,
-      errors: [{ message: errorMsg, recordId: 'handler-error' }],
+      batchItemFailures: event.Records.map((r) => ({ itemIdentifier: r.messageId })),
     };
   }
 };
