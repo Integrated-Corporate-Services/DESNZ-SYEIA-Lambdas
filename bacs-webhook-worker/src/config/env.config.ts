@@ -21,7 +21,7 @@ export const envConfig = {
     const dbPort = dbPortRaw ? Number.parseInt(dbPortRaw, 10) : NaN;
 
     config = {
-      dbHost: process.env.DB_HOST ?? '',
+      dbHost: process.env.HOST_NAME ?? '',
       dbPort,
       dbUser: process.env.DB_USER ?? '',
       dbPassword: process.env.DB_PASSWORD ?? '',
