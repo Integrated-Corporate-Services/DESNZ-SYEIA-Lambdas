@@ -6,7 +6,6 @@ npm-debug.log
 dist
 *.js
 *.js.map
-!jest.config.js
 
 # Tests
 tests

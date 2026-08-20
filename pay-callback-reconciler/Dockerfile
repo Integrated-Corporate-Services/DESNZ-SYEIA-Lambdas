@@ -42,4 +42,4 @@ COPY --from=builder /build/src ./src
 COPY migrations ./migrations
 
 # Set the Lambda handler
-CMD [ "index.handler" ]
+CMD [ "handler.handler" ]

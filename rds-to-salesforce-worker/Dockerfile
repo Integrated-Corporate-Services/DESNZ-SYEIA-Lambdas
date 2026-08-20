@@ -33,9 +33,8 @@ COPY package*.json ./
 # Copy production dependencies from builder
 COPY --from=builder /build/node_modules ./node_modules
 
-# Copy built JavaScript files
-COPY --from=builder /build/*.js ./
-COPY --from=builder /build/src ./src
+# Copy built JavaScript files from dist folder
+COPY --from=builder /build/dist ./
 
 # Set the Lambda handler
 CMD [ "index.handler" ]
