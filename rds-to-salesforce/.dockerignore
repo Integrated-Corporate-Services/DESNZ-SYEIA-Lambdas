@@ -1,0 +1,39 @@
+# Node modules
+node_modules
+npm-debug.log
+
+# Tests
+tests
+**/*.test.js
+coverage
+*.json
+!package.json
+!package-lock.json
+
+# Development files
+.git
+.gitignore
+.npmignore
+
+# Documentation
+*.md
+README.md
+
+# IDE and editor files
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment files
+.env
+.env.*
+
+# Logs
+logs
+*.log
