@@ -33,7 +33,7 @@ COPY package*.json ./
 # Copy production dependencies from builder
 COPY --from=builder /build/node_modules ./node_modules
 
-# Copy built JavaScript files
+# Copy built JavaScript files (tsconfig has no outDir, so .js files are alongside sources)
 COPY --from=builder /build/*.js ./
 COPY --from=builder /build/src ./src
 
