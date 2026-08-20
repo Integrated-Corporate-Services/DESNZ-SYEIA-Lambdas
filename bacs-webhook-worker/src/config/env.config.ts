@@ -76,27 +76,30 @@ export const envConfig = {
     }
 
     configLoadPromise = (async () => {
-      const env = (process.env.NODE_ENV as Config['environment'] | undefined) ?? 'dev';
-      const dbPortRaw = process.env.DB_PORT;
-      const dbPort = dbPortRaw ? Number.parseInt(dbPortRaw, 10) : 5432;
+      try {
+        const env = (process.env.NODE_ENV as Config['environment'] | undefined) ?? 'dev';
+        const dbPortRaw = process.env.DB_PORT;
+        const dbPort = dbPortRaw ? Number.parseInt(dbPortRaw, 10) : 5432;
 
-      const credentials = await resolveDbCredentials();
+        const credentials = await resolveDbCredentials();
 
-      const loadedConfig: Config = {
-        dbHost: process.env.HOST_NAME || process.env.DB_HOST || '',
-        dbPort,
-        dbUser: credentials.username,
-        dbPassword: credentials.password,
-        dbName: process.env.DB_NAME ?? '',
-        sqsQueueUrl: process.env.SQS_QUEUE_URL ?? '',
-        environment: env,
-        logLevel: (process.env.LOG_LEVEL as Config['logLevel'] | undefined) ?? 'info',
-      };
+        const loadedConfig: Config = {
+          dbHost: process.env.HOST_NAME || process.env.DB_HOST || '',
+          dbPort,
+          dbUser: credentials.username,
+          dbPassword: credentials.password,
+          dbName: process.env.DB_NAME ?? '',
+          sqsQueueUrl: process.env.SQS_QUEUE_URL ?? '',
+          environment: env,
+          logLevel: (process.env.LOG_LEVEL as Config['logLevel'] | undefined) ?? 'info',
+        };
 
-      validate(loadedConfig);
-      config = loadedConfig;
-      configLoadPromise = null;
-      return loadedConfig;
+        validate(loadedConfig);
+        config = loadedConfig;
+        return loadedConfig;
+      } finally {
+        configLoadPromise = null;
+      }
     })();
 
     return configLoadPromise;
