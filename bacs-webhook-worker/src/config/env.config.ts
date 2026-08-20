@@ -1,3 +1,4 @@
+import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 
 interface Config {
   dbHost: string;
@@ -11,57 +12,109 @@ interface Config {
 }
 
 let config: Config | null = null;
+let cachedCredentials: { username: string; password: string } | null = null;
+let configLoadPromise: Promise<Config> | null = null;
+
+async function resolveDbCredentials(): Promise<{ username: string; password: string }> {
+  if (cachedCredentials) {
+    return cachedCredentials;
+  }
+
+  const raw = process.env.DB_CREDENTIALS?.trim();
+  if (!raw) {
+    // Fall back to individual env vars if DB_CREDENTIALS is not set
+    const user = process.env.DB_USER ?? '';
+    const password = process.env.DB_PASSWORD ?? '';
+    if (!user || !password) {
+      throw new Error('Missing DB_CREDENTIALS or DB_USER/DB_PASSWORD');
+    }
+    cachedCredentials = { username: user, password };
+    return cachedCredentials;
+  }
+
+  // Check if DB_CREDENTIALS is a Secrets Manager ARN
+  if (raw.startsWith('arn:aws:secretsmanager:')) {
+    const client = new SecretsManagerClient({
+      region: process.env.AWS_REGION || process.env.REGION || 'eu-west-2',
+      ...(process.env.AWS_ENDPOINT_URL ? { endpoint: process.env.AWS_ENDPOINT_URL } : {}),
+    });
+    const response = await client.send(
+      new GetSecretValueCommand({ SecretId: raw }),
+    );
+    const payload =
+      response.SecretString ??
+      (response.SecretBinary
+        ? Buffer.from(response.SecretBinary as Uint8Array).toString('utf8')
+        : undefined);
+    if (!payload) {
+      throw new Error('Secrets Manager secret has no SecretString or SecretBinary');
+    }
+    const parsed = JSON.parse(payload) as { username?: string; password?: string };
+    if (!parsed.username || !parsed.password) {
+      throw new Error("Secret JSON must contain 'username' and 'password'");
+    }
+    cachedCredentials = { username: parsed.username, password: parsed.password };
+    return cachedCredentials;
+  }
+
+  // Otherwise, treat it as JSON credentials directly
+  const parsed = JSON.parse(raw) as { username?: string; password?: string };
+  if (!parsed.username || !parsed.password) {
+    throw new Error("DB_CREDENTIALS JSON must contain 'username' and 'password'");
+  }
+  cachedCredentials = { username: parsed.username, password: parsed.password };
+  return cachedCredentials;
+}
 
 export const envConfig = {
-  load: (): Config => {
+  load: async (): Promise<Config> => {
     if (config) return config;
 
-    const env = (process.env.NODE_ENV as Config['environment'] | undefined) ?? 'dev';
-    const dbPortRaw = process.env.DB_PORT;
-    const dbPort = dbPortRaw ? Number.parseInt(dbPortRaw, 10) : NaN;
-
-    // Try to get credentials from DB_CREDENTIALS first (JSON format), fallback to individual vars
-    let dbUser = process.env.DB_USER ?? '';
-    let dbPassword = process.env.DB_PASSWORD ?? '';
-
-    if (!dbUser || !dbPassword) {
-      const dbCredentials = process.env.DB_CREDENTIALS;
-      if (dbCredentials) {
-        try {
-          const creds = JSON.parse(dbCredentials);
-          dbUser = creds.username || creds.user || dbUser;
-          dbPassword = creds.password || dbPassword;
-        } catch (error) {
-          // If DB_CREDENTIALS is not valid JSON, ignore and use individual vars
-        }
-      }
+    // Coalesce concurrent loads into a single promise
+    if (configLoadPromise) {
+      return configLoadPromise;
     }
 
-    config = {
-      dbHost: process.env.HOST_NAME ?? '',
-      dbPort,
-      dbUser,
-      dbPassword,
-      dbName: process.env.DB_NAME ?? '',
-      sqsQueueUrl: process.env.SQS_QUEUE_URL ?? '',
-      environment: env,
-      logLevel: (process.env.LOG_LEVEL as Config['logLevel'] | undefined) ?? 'info',
-    };
+    configLoadPromise = (async () => {
+      try {
+        const env = (process.env.NODE_ENV as Config['environment'] | undefined) ?? 'dev';
+        const dbPortRaw = process.env.DB_PORT;
+        const dbPort = dbPortRaw ? Number.parseInt(dbPortRaw, 10) : 5432;
 
-    validate(config);
-    return config;
+        const credentials = await resolveDbCredentials();
+
+        const loadedConfig: Config = {
+          dbHost: process.env.HOST_NAME || process.env.DB_HOST || '',
+          dbPort,
+          dbUser: credentials.username,
+          dbPassword: credentials.password,
+          dbName: process.env.DB_NAME ?? '',
+          sqsQueueUrl: process.env.SQS_QUEUE_URL ?? '',
+          environment: env,
+          logLevel: (process.env.LOG_LEVEL as Config['logLevel'] | undefined) ?? 'info',
+        };
+
+        validate(loadedConfig);
+        config = loadedConfig;
+        return loadedConfig;
+      } finally {
+        configLoadPromise = null;
+      }
+    })();
+
+    return configLoadPromise;
   },
 
   get: (): Config => {
     if (!config) {
-      throw new Error('Config not loaded. Call envConfig.load() first.');
+      throw new Error('Config not loaded. Call envConfig.load() first and await the result.');
     }
     return config;
   },
 };
 
 function validate(cfg: Config): void {
-  const required = ['dbHost', 'dbUser', 'dbPassword', 'dbName', 'sqsQueueUrl'];
+  const required = ['dbHost', 'dbUser', 'dbPassword', 'dbName'];
   const missing = required.filter((key) => !cfg[key as keyof Config]);
 
   if (missing.length > 0) {
