@@ -14,9 +14,9 @@ const METHOD = {
 } as const;
 
 let envValidated = false;
-function ensureEnv(): void {
+async function ensureEnv(): Promise<void> {
   if (!envValidated) {
-    envConfig.load();
+    await envConfig.load();
     envValidated = true;
   }
 }
@@ -29,7 +29,7 @@ export const handler = async (
   log.start(METHOD.HANDLER, { recordCount: event.Records?.length || 0 });
 
   try {
-    ensureEnv();
+    await ensureEnv();
 
     if (!event.Records || event.Records.length === 0) {
       log.info(LOG_MESSAGES.NO_RECORDS);
