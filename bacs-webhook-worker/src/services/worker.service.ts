@@ -2,7 +2,7 @@ import type { SQSRecord } from 'aws-lambda';
 import { createLogger } from '../util/logger';
 import { LOG_MESSAGES } from '../constants/log.constants';
 import type { WorkerSummary, BacsWebhookRelayEnvelope, UkSbsWebhookPayload, ProcessablePayment } from '../types';
-import { ValidationError, PaymentProcessingError } from '../errors/worker.errors';
+import { ValidationError } from '../errors/worker.errors';
 import { paymentRepository } from '../repositories/payment.repository';
 
 const log = createLogger('worker.service');
