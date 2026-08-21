@@ -19,7 +19,3 @@ Thumbs.db
 
 # PowerShell scripts
 *.ps1
-
-# Ignore Dockerfile and README.md
-pay-callback-relay/Dockerfile
-pay-callback-relay/README.md
