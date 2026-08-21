@@ -57,18 +57,24 @@ function parsePayload(body: string | null): BacsWebhookRelayEnvelope {
   }
 
   try {
-    const envelope = JSON.parse(body);
-    
+    const envelope: unknown = JSON.parse(body);
+
+    if (typeof envelope !== 'object' || envelope === null) {
+      throw new ValidationError('Invalid message envelope');
+    }
+
+    const env = envelope as Record<string, unknown>;
+
     // Validate envelope structure
-    if (!envelope.schemaVersion || envelope.schemaVersion !== '1') {
+    if (env.schemaVersion !== '1') {
       throw new ValidationError('Invalid or missing schemaVersion');
     }
-    
-    if (!envelope.source || envelope.source !== 'BACS') {
+
+    if (env.source !== 'BACS') {
       throw new ValidationError('Invalid or missing source');
     }
 
-    return envelope as BacsWebhookRelayEnvelope;
+    return env as BacsWebhookRelayEnvelope;
   } catch (error) {
     if (error instanceof ValidationError) {
       throw error;
