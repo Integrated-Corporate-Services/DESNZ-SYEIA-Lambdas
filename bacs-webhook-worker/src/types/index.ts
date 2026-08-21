@@ -43,7 +43,7 @@ export interface UkSbsWebhookPayload {
   detail: {
     status: string;
     amount: number;
-    currency: string;
+    currency?: string;
     paymentDate: string;
     bacsReference?: string;
   };
