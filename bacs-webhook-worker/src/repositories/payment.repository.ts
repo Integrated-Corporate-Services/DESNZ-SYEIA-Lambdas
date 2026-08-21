@@ -101,4 +101,38 @@ export const paymentRepository = {
       }
     }
   },
+
+  markWebhookProcessed: async (webhookId: string, processedBy: string): Promise<void> => {
+    let client: PoolClient | null = null;
+    try {
+      log.start('markWebhookProcessed', { webhookId });
+
+      client = await getPool().connect();
+      const query = `
+        UPDATE payment_webhooks
+        SET 
+          status = 'processed',
+          updated_at = NOW(),
+          updated_by = $2
+        WHERE webhook_id = $1
+          AND status != 'processed'
+      `;
+
+      const result = await client.query(query, [webhookId, processedBy]);
+      
+      if (result.rowCount === 0) {
+        log.warn('Webhook not found or already processed', { webhookId });
+      }
+      
+      log.end('markWebhookProcessed', { webhookId, rowsUpdated: result.rowCount });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      log.error('Failed to mark webhook as processed', { error: message, webhookId });
+      throw new DatabaseError(`Failed to mark webhook as processed: ${message}`);
+    } finally {
+      if (client) {
+        client.release();
+      }
+    }
+  },
 };

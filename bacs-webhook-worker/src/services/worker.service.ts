@@ -1,8 +1,9 @@
 import type { SQSRecord } from 'aws-lambda';
 import { createLogger } from '../util/logger';
 import { LOG_MESSAGES } from '../constants/log.constants';
-import type { WorkerSummary } from '../types';
-import { ValidationError, PaymentProcessingError } from '../errors/worker.errors';
+import type { WorkerSummary, BacsWebhookRelayEnvelope, UkSbsWebhookPayload, ProcessablePayment } from '../types';
+import { ValidationError } from '../errors/worker.errors';
+import { paymentRepository } from '../repositories/payment.repository';
 
 const log = createLogger('worker.service');
 
@@ -18,12 +19,14 @@ export const workerService = {
       try {
         log.start('processRecord', { recordId: record.messageId });
 
-        // Parse and validate the message
-        const payload = parsePayload(record.body);
-        validatePayload(payload);
+        // Parse envelope from relay
+        const envelope = parsePayload(record.body);
+        
+        // Validate and transform to internal format
+        const payment = validateAndTransform(envelope);
 
         // Process the payment
-        await processPayment(payload);
+        await processPayment(payment);
 
         log.end('processRecord', { recordId: record.messageId });
         processed++;
@@ -48,36 +51,104 @@ export const workerService = {
   },
 };
 
-function parsePayload(body: string | null): Record<string, unknown> {
+function parsePayload(body: string | null): BacsWebhookRelayEnvelope {
   if (!body) {
     throw new ValidationError('Empty message body');
   }
 
   try {
-    const payload = JSON.parse(body);
-    return payload;
+    const envelope: unknown = JSON.parse(body);
+
+    if (typeof envelope !== 'object' || envelope === null) {
+      throw new ValidationError('Invalid message envelope');
+    }
+
+    const env = envelope as Record<string, unknown>;
+
+    // Validate envelope structure
+    if (env.schemaVersion !== '1') {
+      throw new ValidationError('Invalid or missing schemaVersion');
+    }
+
+    if (env.source !== 'BACS') {
+      throw new ValidationError('Invalid or missing source');
+    }
+
+    return env as BacsWebhookRelayEnvelope;
   } catch (error) {
+    if (error instanceof ValidationError) {
+      throw error;
+    }
     throw new ValidationError('Invalid JSON in message body');
   }
 }
 
-function validatePayload(payload: Record<string, unknown>): void {
-  const required = ['transactionId', 'amount', 'status'];
-  const missing = required.filter((key) => !payload[key]);
-
-  if (missing.length > 0) {
-    throw new ValidationError(`Missing required fields: ${missing.join(', ')}`);
+function validateAndTransform(envelope: BacsWebhookRelayEnvelope): ProcessablePayment {
+  const { payload } = envelope;
+  
+  // Validate envelope metadata
+  const requiredEnvFields = ['webhookId', 'paymentId', 'eventType', 'receivedAt'];
+  const missingEnv = requiredEnvFields.filter((key) => !envelope[key as keyof BacsWebhookRelayEnvelope]);
+  
+  if (missingEnv.length > 0) {
+    throw new ValidationError(`Missing envelope fields: ${missingEnv.join(', ')}`);
   }
+
+  // Cast to UKSBS payload structure
+  const uksbsPayload = payload as unknown as UkSbsWebhookPayload;
+  
+  // Validate UKSBS payment reference
+  if (!uksbsPayload.payment?.paymentReference) {
+    throw new ValidationError('Missing payment.paymentReference in UKSBS webhook');
+  }
+  
+  // Validate UKSBS amount
+  if (uksbsPayload.detail?.amount == null || typeof uksbsPayload.detail.amount !== 'number' || Number.isNaN(uksbsPayload.detail.amount)) {
+    throw new ValidationError('Missing or invalid detail.amount in UKSBS webhook');
+  }
+  
+  // Validate UKSBS status
+  if (!uksbsPayload.detail?.status) {
+    throw new ValidationError('Missing detail.status in UKSBS webhook');
+  }
+
+  // Transform to internal format
+  return {
+    webhookId: envelope.webhookId,
+    paymentId: envelope.paymentId,
+    transactionId: uksbsPayload.payment.paymentReference,
+    amount: uksbsPayload.detail.amount,
+    status: uksbsPayload.detail.status.toUpperCase(),
+    currency: uksbsPayload.detail.currency || 'GBP',
+    bacsReference: uksbsPayload.detail.bacsReference,
+    eventType: envelope.eventType,
+    correlationId: envelope.correlationId,
+    receivedAt: envelope.receivedAt,
+  };
 }
 
-async function processPayment(payload: Record<string, unknown>): Promise<void> {
-  log.debug('Processing payment', { transactionId: payload.transactionId });
+async function processPayment(payment: ProcessablePayment): Promise<void> {
+  log.debug('Processing payment', { 
+    transactionId: payment.transactionId,
+    webhookId: payment.webhookId,
+    paymentId: payment.paymentId,
+  });
 
-  // Add your business logic here
+  // Record payment in payments table
+  await paymentRepository.recordPayment(
+    payment.transactionId,
+    payment.amount,
+    payment.status
+  );
 
-  if (!payload.transactionId) {
-    throw new PaymentProcessingError('Invalid transaction ID');
-  }
+  // Mark webhook as processed in payment_webhooks table
+  await paymentRepository.markWebhookProcessed(
+    payment.webhookId,
+    'bacs-webhook-worker'
+  );
 
-  log.info(LOG_MESSAGES.PROCESSING_SUCCESS, { transactionId: payload.transactionId });
+  log.info(LOG_MESSAGES.PROCESSING_SUCCESS, { 
+    transactionId: payment.transactionId,
+    webhookId: payment.webhookId,
+  });
 }
