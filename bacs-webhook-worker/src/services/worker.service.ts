@@ -97,7 +97,7 @@ function validateAndTransform(envelope: BacsWebhookRelayEnvelope): ProcessablePa
   }
   
   // Validate UKSBS amount
-  if (!uksbsPayload.detail?.amount || typeof uksbsPayload.detail.amount !== 'number') {
+  if (uksbsPayload.detail?.amount == null || typeof uksbsPayload.detail.amount !== 'number' || Number.isNaN(uksbsPayload.detail.amount)) {
     throw new ValidationError('Missing or invalid detail.amount in UKSBS webhook');
   }
   
