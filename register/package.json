@@ -1,8 +1,0 @@
-{
-  "name": "lambda-login",
-  "version": "1.0.0",
-  "type": "module",
-  "dependencies": {
-    "@aws-sdk/client-ssm": "^3.500.0"
-  }
-}
