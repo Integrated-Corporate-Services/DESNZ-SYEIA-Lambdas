@@ -9,13 +9,13 @@ This repository contains a collection of AWS Lambda functions that support vario
 
 ```
 /
-|--addGroupToTokenGeneration
-|--addUserToEndUserGroup
-|--approveUser
-|--listCognitoUsers
-|--login
-|--rds-s3-trigger
-|--register
-|--trigger-appflow-lambda
+|--bacs-webhook-relay
+|--bacs-webhook-worker
+|--notify-callback-relay
+|--notify-callback-worker
+|--pay-callback-reconciler
+|--pay-callback-relay
+|--rds-to-salesforce
+|--rds-to-salesforce-worker
 |--README.md
 ```
