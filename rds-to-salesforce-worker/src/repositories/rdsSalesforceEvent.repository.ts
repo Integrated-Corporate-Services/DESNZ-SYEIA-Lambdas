@@ -42,7 +42,7 @@ export function rdsSalesforceEventRepository(pool: Pool): RdsSalesforceEventRepo
         [id],
       );
 
-      logger.debug('Marked event as PROCESSING', { eventId: id });
+      logger.info('Marked event as PROCESSING', { eventId: id });
     },
 
     /**
@@ -59,7 +59,7 @@ export function rdsSalesforceEventRepository(pool: Pool): RdsSalesforceEventRepo
         [id, salesforceId],
       );
 
-      logger.debug('Marked event as PROCESSED', { eventId: id, salesforceId });
+      logger.info('Marked event as PROCESSED', { eventId: id, salesforceId });
     },
 
     /**
@@ -74,7 +74,7 @@ export function rdsSalesforceEventRepository(pool: Pool): RdsSalesforceEventRepo
          WHERE id = $1`,
         [id, reason],
       );
-      logger.debug('Marked event as FAILED_RETRYABLE', { eventId: id, reason });
+      logger.info('Marked event as FAILED_RETRYABLE', { eventId: id, reason });
     },
 
     /**
@@ -91,7 +91,7 @@ export function rdsSalesforceEventRepository(pool: Pool): RdsSalesforceEventRepo
         [id, reason],
       );
 
-      logger.debug('Marked event as FATAL', { eventId: id, reason });
+      logger.info('Marked event as FATAL', { eventId: id, reason });
     },
   };
 }

@@ -28,7 +28,7 @@ async function getSalesforceCredentials(): Promise<SalesforceCredentials> {
 
   // Return cached credentials if still valid
   if (credentialsCache && (now - credentialsCache.fetchedAt) < SALESFORCE_CONFIG.secretTtlMs) {
-    logger.debug('Using cached Salesforce credentials');
+    logger.info('Using cached Salesforce credentials');
     return credentialsCache.credentials;
   }
 
