@@ -121,8 +121,11 @@ function parsePayload(body: string | null): BacsWebhookRelayEnvelope {
       throw new ValidationError('Missing or invalid status');
     }
 
-    if (env.correlationId !== null && typeof env.correlationId !== 'string') {
-      throw new ValidationError('Invalid correlationId');
+    if (
+      env.correlationId === undefined ||
+      (env.correlationId !== null && typeof env.correlationId !== 'string')
+    ) {
+      throw new ValidationError('Missing or invalid correlationId');
     }
 
     if (typeof env.receivedAt !== 'string' || !env.receivedAt) {
