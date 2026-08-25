@@ -9,7 +9,7 @@ const log = createLogger('worker.service');
 
 export const workerService = {
   processRecords: async (records: SQSRecord[]): Promise<WorkerSummary> => {
-    log.debug('Processing SQS records', { count: records.length });
+    log.info('[SQS] Starting to process SQS records', { count: records.length });
 
     let processed = 0;
     let failed = 0;
@@ -17,18 +17,49 @@ export const workerService = {
 
     for (const record of records) {
       try {
-        log.start('processRecord', { recordId: record.messageId });
+        log.info('[SQS] Processing individual SQS message', { 
+          recordId: record.messageId,
+          messageBody: record.body,
+        });
 
         // Parse envelope from relay
         const envelope = parsePayload(record.body);
         
+        log.info('[PAYLOAD] Parsed envelope from SQS message', {
+          recordId: record.messageId,
+          webhookId: envelope.webhookId,
+          paymentId: envelope.paymentId,
+          eventType: envelope.eventType,
+          source: envelope.source,
+          schemaVersion: envelope.schemaVersion,
+          receivedAt: envelope.receivedAt,
+          correlationId: envelope.correlationId,
+          payloadKeys: Object.keys(envelope.payload || {}),
+        });
+        
         // Validate and transform to internal format
         const payment = validateAndTransform(envelope);
+        
+        log.info('[PAYLOAD] Transformed payment data ready for processing', {
+          recordId: record.messageId,
+          webhookId: payment.webhookId,
+          paymentId: payment.paymentId,
+          transactionId: payment.transactionId,
+          amount: payment.amount,
+          currency: payment.currency,
+          status: payment.status,
+          eventType: payment.eventType,
+          bacsReference: payment.bacsReference,
+        });
 
         // Process the payment
         await processPayment(payment);
 
-        log.end('processRecord', { recordId: record.messageId });
+        log.info('[PROCESSING] Successfully completed processing for record', { 
+          recordId: record.messageId,
+          webhookId: payment.webhookId,
+          transactionId: payment.transactionId,
+        });
         processed++;
       } catch (error) {
         failed++;
@@ -86,6 +117,13 @@ function parsePayload(body: string | null): BacsWebhookRelayEnvelope {
 function validateAndTransform(envelope: BacsWebhookRelayEnvelope): ProcessablePayment {
   const { payload } = envelope;
   
+  log.info('[VALIDATION] Validating envelope structure', {
+    webhookId: envelope.webhookId,
+    paymentId: envelope.paymentId,
+    source: envelope.source,
+    schemaVersion: envelope.schemaVersion,
+  });
+  
   // Validate envelope metadata
   const requiredEnvFields = ['webhookId', 'paymentId', 'eventType', 'receivedAt'];
   const missingEnv = requiredEnvFields.filter((key) => !envelope[key as keyof BacsWebhookRelayEnvelope]);
@@ -96,6 +134,16 @@ function validateAndTransform(envelope: BacsWebhookRelayEnvelope): ProcessablePa
 
   // Cast to UKSBS payload structure
   const uksbsPayload = payload as unknown as UkSbsWebhookPayload;
+  
+  log.info('[VALIDATION] Extracted UKSBS payload from envelope', {
+    paymentReference: uksbsPayload.payment?.paymentReference,
+    amount: uksbsPayload.detail?.amount,
+    currency: uksbsPayload.detail?.currency,
+    status: uksbsPayload.detail?.status,
+    paymentDate: uksbsPayload.detail?.paymentDate,
+    bacsReference: uksbsPayload.detail?.bacsReference,
+    eventType: uksbsPayload.event?.eventType,
+  });
   
   // Validate UKSBS payment reference
   if (!uksbsPayload.payment?.paymentReference) {
@@ -128,13 +176,21 @@ function validateAndTransform(envelope: BacsWebhookRelayEnvelope): ProcessablePa
 }
 
 async function processPayment(payment: ProcessablePayment): Promise<void> {
-  log.debug('Processing payment', { 
+  log.info('[PROCESSING] Starting payment processing', { 
     transactionId: payment.transactionId,
     webhookId: payment.webhookId,
     paymentId: payment.paymentId,
+    amount: payment.amount,
+    status: payment.status,
   });
 
   // Record payment in payments table
+  log.info('[DB] Recording payment in payments table', {
+    transactionId: payment.transactionId,
+    amount: payment.amount,
+    status: payment.status,
+  });
+  
   await paymentRepository.recordPayment(
     payment.transactionId,
     payment.amount,
@@ -142,13 +198,19 @@ async function processPayment(payment: ProcessablePayment): Promise<void> {
   );
 
   // Mark webhook as processed in payment_webhooks table
+  log.info('[DB] Marking webhook as processed', {
+    webhookId: payment.webhookId,
+    processor: 'bacs-webhook-worker',
+  });
+  
   await paymentRepository.markWebhookProcessed(
     payment.webhookId,
     'bacs-webhook-worker'
   );
 
-  log.info(LOG_MESSAGES.PROCESSING_SUCCESS, { 
+  log.info('[PROCESSING] Payment processing completed successfully', { 
     transactionId: payment.transactionId,
     webhookId: payment.webhookId,
+    paymentId: payment.paymentId,
   });
 }
