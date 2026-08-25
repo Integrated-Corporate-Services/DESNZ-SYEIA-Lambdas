@@ -45,6 +45,7 @@ export const workerService = {
           webhookId: payment.webhookId,
           paymentId: payment.paymentId,
           transactionId: payment.transactionId,
+          
           amount: payment.amount,
           currency: payment.currency,
           status: payment.status,
