@@ -36,7 +36,11 @@ export const handler = async (
       return { processed: 0, failed: 0, errors: [] };
     }
 
-    log.debug('Processing records', { count: event.Records.length });
+    log.info('[SQS] Received SQS messages', { 
+      totalRecords: event.Records.length,
+      messageIds: event.Records.map(r => r.messageId),
+    });
+
     const summary = await workerService.processRecords(event.Records);
 
     log.end(METHOD.HANDLER, {
