@@ -96,7 +96,7 @@ function parsePayload(body: string | null): BacsWebhookRelayEnvelope {
 
     const env = envelope as Record<string, unknown>;
 
-    // Validate envelope structure
+    // Validate envelope structure - all required fields
     if (env.schemaVersion !== '1') {
       throw new ValidationError('Invalid or missing schemaVersion');
     }
@@ -105,7 +105,39 @@ function parsePayload(body: string | null): BacsWebhookRelayEnvelope {
       throw new ValidationError('Invalid or missing source');
     }
 
-    return env as BacsWebhookRelayEnvelope;
+    if (typeof env.webhookId !== 'string' || !env.webhookId) {
+      throw new ValidationError('Missing or invalid webhookId');
+    }
+
+    if (typeof env.paymentId !== 'string' || !env.paymentId) {
+      throw new ValidationError('Missing or invalid paymentId');
+    }
+
+    if (typeof env.eventType !== 'string' || !env.eventType) {
+      throw new ValidationError('Missing or invalid eventType');
+    }
+
+    if (typeof env.status !== 'string' || !env.status) {
+      throw new ValidationError('Missing or invalid status');
+    }
+
+    if (
+      env.correlationId === undefined ||
+      (env.correlationId !== null && typeof env.correlationId !== 'string')
+    ) {
+      throw new ValidationError('Missing or invalid correlationId');
+    }
+
+    if (typeof env.receivedAt !== 'string' || !env.receivedAt) {
+      throw new ValidationError('Missing or invalid receivedAt');
+    }
+
+    if (typeof env.payload !== 'object' || env.payload === null || Array.isArray(env.payload)) {
+      throw new ValidationError('Missing or invalid payload');
+    }
+
+    // Safe cast after validation
+    return env as unknown as BacsWebhookRelayEnvelope;
   } catch (error) {
     if (error instanceof ValidationError) {
       throw error;
