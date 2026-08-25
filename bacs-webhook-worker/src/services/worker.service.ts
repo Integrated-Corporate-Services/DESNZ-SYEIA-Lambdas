@@ -129,7 +129,7 @@ function parsePayload(body: string | null): BacsWebhookRelayEnvelope {
       throw new ValidationError('Missing or invalid receivedAt');
     }
 
-    if (typeof env.payload !== 'object' || env.payload === null) {
+    if (typeof env.payload !== 'object' || env.payload === null || Array.isArray(env.payload)) {
       throw new ValidationError('Missing or invalid payload');
     }
 
