@@ -1,7 +1,8 @@
 import { getConfigValue } from '../../util/config.js';
 
 let cachedFlag: { value: boolean; fetchedAt: number } | undefined;
-const FLAG_TTL_MS = Number(process.env.SQS_DELIVERY_FLAG_TTL_MS || 60000);
+const parsedTtl = Number(process.env.SQS_DELIVERY_FLAG_TTL_MS);
+const FLAG_TTL_MS = Number.isFinite(parsedTtl) ? parsedTtl : 60000;
 
 export async function isSqsDeliveryEnabled(): Promise<boolean> {
   if (cachedFlag && Date.now() - cachedFlag.fetchedAt < FLAG_TTL_MS) {

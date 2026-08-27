@@ -20,7 +20,9 @@ class PgOutboxQueuedRepository implements OutboxQueuedRepository {
       }
       await client.query('COMMIT');
     } catch (error) {
-      await client.query('ROLLBACK');
+      try {
+        await client.query('ROLLBACK');
+      } catch {}
       throw error;
     } finally {
       client.release();

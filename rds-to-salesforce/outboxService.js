@@ -37,7 +37,8 @@ export async function processJob(job) {
         const { isSqsDeliveryEnabled } = await loadSqsDeliveryModule();
         routeToSqs = await isSqsDeliveryEnabled();
       } catch (err) {
-        log.warn(`[outboxService.js:processJob][job:${jobId}] SQS delivery module unavailable, continuing with existing logic:`, err.message);
+        const reason = err instanceof Error ? err.message : String(err);
+        log.warn(`[outboxService.js:processJob][job:${jobId}] SQS delivery module unavailable, continuing with existing logic:`, reason);
       }
     }
     if (routeToSqs) {
