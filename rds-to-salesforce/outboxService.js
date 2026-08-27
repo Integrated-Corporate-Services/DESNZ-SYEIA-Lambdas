@@ -7,7 +7,14 @@ import { sleep, safeJsonParse } from "./util/helpers.js";
 import log from "./util/logger.js";
 import { buildSFPayload } from "./transform/buildSFPayload.js";
 import { flattenForAppflow } from "./transform/flattenForAppflow.js";
-import { isSqsDeliveryEnabled, deliverToSqs } from "./dist/src/index.js";
+
+let _sqsDeliveryModulePromise;
+function loadSqsDeliveryModule() {
+  if (!_sqsDeliveryModulePromise) {
+    _sqsDeliveryModulePromise = import("./dist/src/index.js");
+  }
+  return _sqsDeliveryModulePromise;
+}
 
 /**
  * Processes a single outbox job and handles delivery to Salesforce or AppFlow.
@@ -24,8 +31,18 @@ export async function processJob(job) {
   const integrationMode = await getIntegrationMode();
   const mode = String(integrationMode).toUpperCase();
   try {
-    if (mode === "SQS" || (await isSqsDeliveryEnabled())) {
+    let routeToSqs = mode === "SQS";
+    if (!routeToSqs) {
+      try {
+        const { isSqsDeliveryEnabled } = await loadSqsDeliveryModule();
+        routeToSqs = await isSqsDeliveryEnabled();
+      } catch (err) {
+        log.warn(`[outboxService.js:processJob][job:${jobId}] SQS delivery module unavailable, continuing with existing logic:`, err.message);
+      }
+    }
+    if (routeToSqs) {
       log.debug(`[outboxService.js:processJob][job:${jobId}] Routing to SQS delivery (mode=${mode})`);
+      const { deliverToSqs } = await loadSqsDeliveryModule();
       await deliverToSqs(job);
       return;
     }
