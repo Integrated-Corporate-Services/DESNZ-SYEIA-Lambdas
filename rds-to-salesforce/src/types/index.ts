@@ -1,19 +1,21 @@
 export interface OutboxJob {
-  outbox_id: number;
+  outbox_id: string;
   application_id: string;
-  event_type: string | null;
+  event_type: string;
+  idempotency_key: string;
   payload_snapshot_json: string | Record<string, unknown>;
 }
 
 export interface OutboxSqsMessage {
-  outboxId: number;
+  outboxId: string;
   applicationId: string;
-  eventType: string | null;
+  eventType: string;
+  idempotencyKey: string;
   enqueuedAt: string;
 }
 
 export interface OutboxQueuedRepository {
-  markQueued(outboxId: number): Promise<void>;
+  markQueued(outboxId: string): Promise<void>;
 }
 
 export interface SqsPublisher {

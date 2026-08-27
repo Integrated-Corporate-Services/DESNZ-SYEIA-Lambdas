@@ -1,87 +1,53 @@
-/**
- * Type definitions for RDS to Salesforce worker
- */
-
-/**
- * SQS message payload structure from RDS trigger/relay
- */
-export interface RdsSalesforceMessage {
-  eventId: string;
-  recordId: string;
-  tableName: string;
-  operation: 'INSERT' | 'UPDATE' | 'DELETE';
-  data: Record<string, unknown>;
-  timestamp: string;
-  correlationId: string | null;
+export interface OutboxSqsMessage {
+  outboxId: string;
+  applicationId: string;
+  eventType: string;
+  idempotencyKey: string;
+  enqueuedAt: string;
 }
 
-/**
- * Fatal message payload structure for DLQ
- */
-export interface FatalSqsMessage {
-  eventId: string;
-  recordId: string;
-  tableName: string;
-  reason: string;
-  originalPayload: Record<string, unknown>;
-  timestamp: string;
-}
-
-/**
- * Worker result outcome types
- */
-export interface WorkerResult {
-  eventId: string;
-  outcome: 'PROCESSED' | 'SKIPPED_TERMINAL' | 'FATAL' | 'RETRY';
-}
-
-/**
- * Salesforce API credentials structure
- */
-export interface SalesforceCredentials {
-  instanceUrl: string;
-  accessToken: string;
-  tokenType?: string;
-}
-
-/**
- * Salesforce API response structure
- */
-export interface SalesforceApiResponse {
-  success: boolean;
-  id?: string;
-  errors?: Array<{
-    statusCode: string;
-    message: string;
-    fields: string[];
-  }>;
-}
-
-/**
- * Database event row structure
- */
-export interface RdsSalesforceEventRow {
-  id: string;
-  record_id: string;
-  table_name: string;
-  operation: string;
-  data_payload: Record<string, unknown>;
-  processing_status: string;
-  salesforce_id: string | null;
-  failure_reason: string | null;
-  correlation_id: string | null;
+export interface ApplicationOutboxRow {
+  outbox_id: string;
+  application_id: string;
+  event_type: string;
+  payload_snapshot_json: Record<string, unknown>;
+  idempotency_key: string;
+  salesforce_record_id: string | null;
+  status: string;
+  attempt_count: number;
+  last_error_code: string | null;
+  last_error_message: string | null;
+  last_response_payload: Record<string, unknown> | null;
+  next_attempt_at: Date;
   created_at: Date;
   updated_at: Date;
-  processed_at: Date | null;
 }
 
-/**
- * Repository interface for RDS Salesforce events
- */
-export interface RdsSalesforceEventRepository {
-  findById(id: string): Promise<RdsSalesforceEventRow | null>;
-  markProcessing(id: string): Promise<void>;
-  markProcessed(id: string, salesforceId: string): Promise<void>;
-  markRetryableFailure(id: string, reason: string): Promise<void>;
-  markFatal(id: string, reason: string): Promise<void>;
+export interface WorkerResult {
+  outboxId: string;
+  outcome: 'SENT' | 'SKIPPED_TERMINAL' | 'RETRY' | 'FATAL';
+}
+
+export interface FailedAttemptResult {
+  attemptCount: number;
+  status: string;
+}
+
+export interface ApplicationOutboxRepository {
+  findByOutboxId(outboxId: string): Promise<ApplicationOutboxRow | null>;
+  markSent(outboxId: string, salesforceRecordId: string, responsePayload: Record<string, unknown>): Promise<void>;
+  recordFailedAttempt(
+    outboxId: string,
+    params: { errorCode: string; errorMessage: string; responsePayload: Record<string, unknown> | null; maxRetries: number },
+  ): Promise<FailedAttemptResult>;
+  markFatal(
+    outboxId: string,
+    params: { errorCode: string; errorMessage: string; responsePayload: Record<string, unknown> | null },
+  ): Promise<void>;
+}
+
+export interface SalesforceIngestResponse {
+  success?: boolean;
+  id?: string;
+  errors?: unknown[];
 }
