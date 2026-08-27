@@ -6,7 +6,13 @@ WORKDIR /build
 # Copy package files
 COPY package*.json ./
 
-# Install only production dependencies
+RUN npm ci
+
+COPY tsconfig.json ./
+COPY util ./util
+COPY src ./src
+RUN npm run build
+
 RUN npm ci --omit=dev
 
 # Stage 2: Runtime - Create final lightweight image
@@ -26,6 +32,8 @@ COPY *.js ./
 COPY deliver ./deliver
 COPY transform ./transform
 COPY util ./util
+
+COPY --from=builder /build/dist ./dist
 
 # Set the Lambda handler
 CMD [ "handler.handler" ]
