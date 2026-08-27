@@ -1,6 +1,8 @@
 import { getClaimedJobs, processJob, getJobById } from "./outboxService.js";
 import log from "./util/logger.js";
 import { getIntegrationMode } from "./util/config.js";
+// NEW: Import SQS validation
+import { validateSQSConfiguration } from "./sqsOutboxService.js";
 
 /**
  * Lambda handler for processing outbox jobs and sending to Salesforce.
@@ -9,6 +11,12 @@ import { getIntegrationMode } from "./util/config.js";
 export const handler = async (event) => {
   const integrationMode = await getIntegrationMode();
   log.info(`[handler.js : handler] Start mode=${integrationMode}`);
+  
+  // NEW: Validate SQS configuration if in SQS mode
+  if (integrationMode?.toUpperCase() === 'SQS') {
+    validateSQSConfiguration();
+  }
+  
   // SNS path (single job)
   if (Array.isArray(event?.Records) && event.Records[0]?.Sns) {
     log.info("[handler.js : handler] Executing job via SNS trigger");

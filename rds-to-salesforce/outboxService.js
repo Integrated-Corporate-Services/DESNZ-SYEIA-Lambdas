@@ -7,6 +7,8 @@ import { sleep, safeJsonParse } from "./util/helpers.js";
 import log from "./util/logger.js";
 import { buildSFPayload } from "./transform/buildSFPayload.js";
 import { flattenForAppflow } from "./transform/flattenForAppflow.js";
+// NEW: Import SQS service (separate file, does not affect old code)
+import { processSQSJob } from "./sqsOutboxService.js";
 
 /**
  * Processes a single outbox job and handles delivery to Salesforce or AppFlow.
@@ -28,11 +30,15 @@ export async function processJob(job) {
       await handleDirectJob(job, payload, jobId);
     } else if (mode === "APPFLOW") {
       await handleAppflowJob(job, payload, jobId);
+    } else if (mode === "SQS") {
+      // NEW: SQS mode - pass job for proper error handling
+      await processSQSJob(job, jobId);
     } else {
       throw new PermanentError(`Unsupported mode: ${mode}`);
     }
   } catch (err) {
     await handleJobError(job, err);
+    throw err; // Re-throw for handler metrics
   }
 }
 

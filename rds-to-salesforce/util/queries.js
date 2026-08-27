@@ -3,9 +3,14 @@ export const SQL_CLAIM_BATCH = `
   WITH c AS (
     SELECT outbox_id
     FROM application_outbox
-    WHERE status IN ($1, $2)
+    WHERE (
+      -- Normal pending/error jobs ready for retry
+      (status IN ($1, $2) AND next_attempt_at <= NOW())
+      OR
+      -- CRITICAL FIX: Recover stuck jobs (Lambda timeout scenario)
+      (status = 'SENDING' AND updated_at < NOW() - INTERVAL '5 minutes')
+    )
       AND attempt_count < $3
-      AND next_attempt_at <= NOW()
     ORDER BY created_at
     LIMIT $4
     FOR UPDATE SKIP LOCKED
@@ -33,6 +38,13 @@ export const SQL_MARK_DIRECT_SUCCESS_APP = `
 export const SQL_MARK_APPFLOW_HANDOFF = `
   UPDATE application_outbox
      SET status = $2, handoff_s3_key = $3, last_error_message = NULL
+   WHERE outbox_id = $1
+`;
+
+// NEW: SQS mode query
+export const SQL_MARK_PUBLISHED = `
+  UPDATE application_outbox
+     SET status = $2, updated_at = NOW(), last_error_message = NULL, sqs_message_id = $3
    WHERE outbox_id = $1
 `;
 
