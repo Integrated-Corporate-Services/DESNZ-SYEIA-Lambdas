@@ -9,7 +9,6 @@
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "build": "tsc -p tsconfig.json",
     "clean": "rimraf dist",
-    "prepare": "npm run build",
     "type-check": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {

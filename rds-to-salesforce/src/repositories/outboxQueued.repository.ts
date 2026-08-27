@@ -14,7 +14,10 @@ class PgOutboxQueuedRepository implements OutboxQueuedRepository {
     const client: PoolClient = await pool.connect();
     try {
       await client.query('BEGIN');
-      await client.query(SQL_MARK_SQS_QUEUED, [outboxId, 'QUEUED']);
+      const result = await client.query(SQL_MARK_SQS_QUEUED, [outboxId, 'QUEUED']);
+      if (result.rowCount !== 1) {
+        throw new Error(`Expected to update 1 row for outbox_id=${outboxId}, updated ${result.rowCount ?? 0}`);
+      }
       await client.query('COMMIT');
     } catch (error) {
       await client.query('ROLLBACK');

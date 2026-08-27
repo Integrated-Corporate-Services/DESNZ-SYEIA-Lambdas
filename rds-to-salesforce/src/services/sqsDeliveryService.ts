@@ -42,7 +42,13 @@ class SqsDeliveryService {
       throw new TransientError(`Failed to publish to SQS: ${reason}`);
     }
 
-    await outboxQueuedRepository.markQueued(job.outbox_id);
+    try {
+      await outboxQueuedRepository.markQueued(job.outbox_id);
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      log.error(`[sqs-delivery] Failed to mark job as QUEUED`, { outboxId: job.outbox_id, error: reason });
+      throw new TransientError(`Failed to mark job as QUEUED: ${reason}`);
+    }
     log.info(`[sqs-delivery] Job queued`, { outboxId: job.outbox_id, messageId });
   }
 }

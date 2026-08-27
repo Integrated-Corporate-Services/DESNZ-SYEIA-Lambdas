@@ -1,8 +1,16 @@
 import { getConfigValue } from '../../util/config.js';
 
+let cachedFlag: { value: boolean; fetchedAt: number } | undefined;
+const FLAG_TTL_MS = Number(process.env.SQS_DELIVERY_FLAG_TTL_MS || 60000);
+
 export async function isSqsDeliveryEnabled(): Promise<boolean> {
+  if (cachedFlag && Date.now() - cachedFlag.fetchedAt < FLAG_TTL_MS) {
+    return cachedFlag.value;
+  }
   const raw: string = await getConfigValue(process.env.ENABLE_SQS_DELIVERY ?? '');
-  return String(raw).trim().toLowerCase() === 'true';
+  const value = String(raw).trim().toLowerCase() === 'true';
+  cachedFlag = { value, fetchedAt: Date.now() };
+  return value;
 }
 
 export const AWS_CONFIG = {
