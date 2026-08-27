@@ -1,11 +1,3 @@
-/**
- * Outbox Queued Repository
- * Marks an application_outbox row QUEUED once it has been handed off to SQS.
- * Deliberately outside claimBatch()'s WHERE status IN ('PENDING','ERROR')
- * filter in outboxRepo.js, so a queued-but-in-flight row is never reclaimed.
- *
- * Reuses the existing shared pg pool (util/db.js) - no parallel DB infra.
- */
 import type { Pool, PoolClient } from 'pg';
 import { initDbPool } from '../../util/db.js';
 import type { OutboxQueuedRepository } from '../types/index.js';

@@ -1,12 +1,3 @@
-/**
- * SQS Delivery Service
- * Orchestrates publishing an outbox job to SQS and marking it queued.
- * Mirrors rds-to-salesforce-worker/src/services/worker.service.ts layering.
- *
- * Reuses the existing util/error.js error classes so err instanceof
- * TransientError checks in outboxService.js's handleJobError keep working
- * against the same class identity - not a parallel/duplicate definition.
- */
 import { TransientError, PermanentError } from '../../util/error.js';
 import log from '../../util/logger.js';
 import { sqsPublisher } from '../repositories/sqsPublisher.repository.js';
