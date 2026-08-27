@@ -7,6 +7,7 @@ import { sleep, safeJsonParse } from "./util/helpers.js";
 import log from "./util/logger.js";
 import { buildSFPayload } from "./transform/buildSFPayload.js";
 import { flattenForAppflow } from "./transform/flattenForAppflow.js";
+import { isSqsDeliveryEnabled, deliverToSqs } from "./dist/src/index.js";
 
 /**
  * Processes a single outbox job and handles delivery to Salesforce or AppFlow.
@@ -23,6 +24,11 @@ export async function processJob(job) {
   const integrationMode = await getIntegrationMode();
   const mode = String(integrationMode).toUpperCase();
   try {
+    if (await isSqsDeliveryEnabled()) {
+      log.debug(`[outboxService.js:processJob][job:${jobId}] Routing to SQS delivery (ENABLE_SQS_DELIVERY=true)`);
+      await deliverToSqs(job);
+      return;
+    }
     logRawPayload(job, payload, jobId);
     if (mode === "DIRECT") {
       await handleDirectJob(job, payload, jobId);

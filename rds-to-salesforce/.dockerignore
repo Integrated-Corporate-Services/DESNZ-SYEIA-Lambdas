@@ -9,6 +9,7 @@ coverage
 *.json
 !package.json
 !package-lock.json
+!tsconfig.json
 
 # Development files
 .git
