@@ -24,8 +24,8 @@ export async function processJob(job) {
   const integrationMode = await getIntegrationMode();
   const mode = String(integrationMode).toUpperCase();
   try {
-    if (await isSqsDeliveryEnabled()) {
-      log.debug(`[outboxService.js:processJob][job:${jobId}] Routing to SQS delivery (ENABLE_SQS_DELIVERY=true)`);
+    if (mode === "SQS" || (await isSqsDeliveryEnabled())) {
+      log.debug(`[outboxService.js:processJob][job:${jobId}] Routing to SQS delivery (mode=${mode})`);
       await deliverToSqs(job);
       return;
     }
