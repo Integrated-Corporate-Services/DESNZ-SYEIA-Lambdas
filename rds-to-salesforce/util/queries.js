@@ -15,7 +15,7 @@ export const SQL_CLAIM_BATCH = `
       attempt_count = attempt_count + 1
   FROM c
   WHERE o.outbox_id = c.outbox_id
-  RETURNING o.outbox_id, o.application_id, o.payload_snapshot_json, o.attempt_count, o.event_type;
+  RETURNING o.outbox_id, o.application_id, o.payload_snapshot_json, o.attempt_count, o.event_type, o.idempotency_key;
 `;
 
 export const SQL_MARK_DIRECT_SUCCESS_OUTBOX = `

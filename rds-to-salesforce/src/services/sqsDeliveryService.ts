@@ -8,7 +8,8 @@ function buildSqsMessage(job: OutboxJob): OutboxSqsMessage {
   return {
     outboxId: job.outbox_id,
     applicationId: job.application_id,
-    eventType: job.event_type ?? null,
+    eventType: job.event_type,
+    idempotencyKey: job.idempotency_key,
     enqueuedAt: new Date().toISOString(),
   };
 }
@@ -46,10 +47,10 @@ class SqsDeliveryService {
       await outboxQueuedRepository.markQueued(job.outbox_id);
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
-      log.error(`[sqs-delivery] Failed to mark job as QUEUED`, { outboxId: job.outbox_id, error: reason });
-      throw new TransientError(`Failed to mark job as QUEUED: ${reason}`);
+      log.error(`[sqs-delivery] Failed to mark job as ENQUEUED`, { outboxId: job.outbox_id, error: reason });
+      throw new TransientError(`Failed to mark job as ENQUEUED: ${reason}`);
     }
-    log.info(`[sqs-delivery] Job queued`, { outboxId: job.outbox_id, messageId });
+    log.info(`[sqs-delivery] Job enqueued`, { outboxId: job.outbox_id, messageId });
   }
 }
 
