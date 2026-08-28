@@ -79,7 +79,10 @@ export class WorkerService {
 
     try {
       const response = await salesforceRepository.sendPayload(snapshot);
-      await repo.markSent(outboxId, response.id ?? '', response as unknown as Record<string, unknown>);
+      if (!response.id) {
+        throw new SalesforceValidationError('Salesforce response missing id despite success=true');
+      }
+      await repo.markSent(outboxId, response.id, response as unknown as Record<string, unknown>);
       return { outboxId, outcome: 'SENT' };
     } catch (error) {
       return this.handleSendFailure(outboxId, error, repo);

@@ -53,7 +53,10 @@ export function applicationOutboxRepository(pool: Pool): ApplicationOutboxReposi
     },
 
     async markSent(outboxId: string, salesforceRecordId: string, responsePayload: Record<string, unknown>): Promise<void> {
-      await pool.query(SQL_MARK_SENT, [outboxId, salesforceRecordId, responsePayload]);
+      const result = await pool.query(SQL_MARK_SENT, [outboxId, salesforceRecordId, responsePayload]);
+      if (result.rowCount !== 1) {
+        throw new Error(`Expected to update 1 row for outbox_id=${outboxId}, updated ${result.rowCount ?? 0}`);
+      }
       logger.info('Marked outbox row as SENT', { outboxId, salesforceRecordId });
     },
 
@@ -69,22 +72,29 @@ export function applicationOutboxRepository(pool: Pool): ApplicationOutboxReposi
         params.maxRetries,
       ]);
 
+      if (result.rows.length !== 1) {
+        throw new Error(`Expected to update 1 row for outbox_id=${outboxId}, updated ${result.rowCount ?? 0}`);
+      }
+
       const row = result.rows[0];
       logger.warn('Recorded failed Salesforce attempt', {
         outboxId,
-        attemptCount: row?.attempt_count,
-        status: row?.status,
+        attemptCount: row.attempt_count,
+        status: row.status,
         errorCode: params.errorCode,
       });
 
-      return { attemptCount: row?.attempt_count ?? 0, status: row?.status ?? 'ENQUEUED' };
+      return { attemptCount: row.attempt_count, status: row.status };
     },
 
     async markFatal(
       outboxId: string,
       params: { errorCode: string; errorMessage: string; responsePayload: Record<string, unknown> | null },
     ): Promise<void> {
-      await pool.query(SQL_MARK_FATAL, [outboxId, params.errorCode, params.errorMessage, params.responsePayload]);
+      const result = await pool.query(SQL_MARK_FATAL, [outboxId, params.errorCode, params.errorMessage, params.responsePayload]);
+      if (result.rowCount !== 1) {
+        throw new Error(`Expected to update 1 row for outbox_id=${outboxId}, updated ${result.rowCount ?? 0}`);
+      }
       logger.error('Marked outbox row as FATAL', {
         outboxId,
         errorCode: params.errorCode,

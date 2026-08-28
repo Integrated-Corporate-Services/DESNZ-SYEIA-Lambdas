@@ -3,7 +3,7 @@ import { Pool } from 'pg';
 import { workerService } from './src/services/worker.service';
 import { createLogger } from './src/util/logger';
 import { RetryableProcessingError } from './src/errors';
-import { getDatabaseConfig, validateEnvironment, SQS_DLQ_ARN } from './src/config/env.config';
+import { getDatabaseConfig, validateEnvironment, SQS_QUEUE_ARN, SQS_DLQ_ARN } from './src/config/env.config';
 import type { OutboxSqsMessage } from './src/types';
 
 const logger = createLogger('handler');
@@ -34,6 +34,15 @@ export const handler: SQSHandler = async (event, context) => {
 
     try {
       const message: OutboxSqsMessage = JSON.parse(record.body);
+
+      if (record.eventSourceARN !== SQS_QUEUE_ARN && record.eventSourceARN !== SQS_DLQ_ARN) {
+        logger.error('Worker: message from unrecognized event source - will retry rather than silently drop', {
+          messageId,
+          eventSourceARN: record.eventSourceARN,
+        });
+        batchItemFailures.push({ itemIdentifier: messageId });
+        continue;
+      }
       const isFromDlq = record.eventSourceARN === SQS_DLQ_ARN;
 
       logger.info('Worker: processing SQS message', {

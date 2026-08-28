@@ -4,7 +4,7 @@ import type { OutboxQueuedRepository } from '../types/index.js';
 
 const SQL_MARK_SQS_QUEUED = `
   UPDATE application_outbox
-     SET status = $2, last_error_message = NULL, updated_at = NOW()
+     SET status = $2, attempt_count = 0, last_error_message = NULL, updated_at = NOW()
    WHERE outbox_id = $1
 `;
 

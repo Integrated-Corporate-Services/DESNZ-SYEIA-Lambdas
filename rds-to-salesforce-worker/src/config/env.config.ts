@@ -2,7 +2,7 @@ import { SSMClient, GetParameterCommand } from '@aws-sdk/client-ssm';
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 
 export const AWS_CONFIG = {
-  region: process.env.REGION ?? 'eu-west-2',
+  region: process.env.REGION ?? process.env.AWS_REGION ?? 'eu-west-2',
   endpoint: process.env.AWS_ENDPOINT,
 };
 
@@ -105,7 +105,9 @@ export function validateEnvironment(): void {
     'SALESFORCE_BASE_URL',
     'SALESFORCE_OBJECT_API',
     'SQS_QUEUE_URL',
+    'SQS_QUEUE_ARN',
     'SQS_DLQ_URL',
+    'SQS_DLQ_ARN',
   ];
   const missing = required.filter((key) => !process.env[key]);
 
