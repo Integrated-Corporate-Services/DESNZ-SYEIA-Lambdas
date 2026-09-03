@@ -1,4 +1,4 @@
-import { Handler } from 'aws-lambda';
+import type { Handler } from 'aws-lambda';
 
 export const handler: Handler = async (_event, context) => ({
   outcome: 'SKIPPED',
