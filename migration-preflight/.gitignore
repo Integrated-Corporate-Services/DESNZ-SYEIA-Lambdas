@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# Build and deployment output
+dist/
+preflight-lambda.zip
+*.tsbuildinfo
+
+# Test and coverage output
+coverage/
+test-results/
+*.lcov
+
+# Logs
+*.log
+npm-debug.log*
+
+# Local environment configuration
+.env
+.env.*
+!.env.example
+
+# Tooling caches
+.npm/
+.eslintcache
