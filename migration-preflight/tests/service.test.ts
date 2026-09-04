@@ -2,9 +2,12 @@ import { MigrationBatchService } from '../src/migration-control/service';
 import { ExecutionAlreadyExistsError } from '../src/aws/stores';
 
 const config = {
-  migrationBucket: 'migration-bucket',
-  wf1StateMachineArn: 'arn:aws:states:eu-west-2:123456789012:stateMachine:wf1',
-  databaseUrl: 'postgres://example',
+  migrationBucket: 'test-migration-bucket',
+  wf1StateMachineArn: 'test-state-machine-arn',
+  dbSecretArn: 'test-database-secret-arn',
+  dbHost: 'test-database-host',
+  dbPort: 5432,
+  dbName: 'test-database',
   migrationPrefixRoot: 'migrations',
   manifestFilename: 'manifest.json',
   manifestMaxBytes: 1024,
@@ -13,32 +16,34 @@ const config = {
 };
 
 const request = {
-  migrationBatchId: 'BATCH-001',
+  migrationBatchId: 'TEST-BATCH-001',
   ingestionMethod: 'DIRECT_S3' as const,
-  bucket: 'migration-bucket',
-  prefix: 'migrations/BATCH-001',
-  manifestKey: 'migrations/BATCH-001/manifest.json',
+  bucket: 'test-migration-bucket',
+  prefix: 'migrations/TEST-BATCH-001',
+  manifestKey: 'migrations/TEST-BATCH-001/manifest.json',
   appflowExecutionId: null,
   appflowFlowName: null,
-  correlationId: '00000000-0000-0000-0000-000000000001',
+  correlationId: 'test-correlation-id',
   eventTime: '2026-09-03T00:00:00.000Z',
 };
 
 const manifest = JSON.stringify({
   schemaVersion: '1.0',
-  migrationBatchId: 'BATCH-001',
+  migrationBatchId: 'TEST-BATCH-001',
   ingestionMethod: 'DIRECT_S3',
   generatedAt: '2026-09-03T00:00:00.000Z',
   sourceSystem: 'SHAREPOINT_ONLINE',
   expectedCaseCount: 1,
   expectedDocumentCount: 1,
   casesFile: {
-    key: 'migrations/BATCH-001/cases.csv',
+    key: 'migrations/TEST-BATCH-001/cases.csv',
     sizeBytes: 20,
     checksum: 'a'.repeat(64),
     checksumAlgorithm: 'SHA256',
   },
-  documents: [{ key: 'migrations/BATCH-001/plan.pdf', sizeBytes: 10, checksum: 'b'.repeat(64) }],
+  documents: [
+    { key: 'migrations/TEST-BATCH-001/plan.pdf', sizeBytes: 10, checksum: 'b'.repeat(64) },
+  ],
 });
 
 function createRepository() {
@@ -74,7 +79,7 @@ describe('MigrationBatchService direct S3 admission', () => {
       batches as never
     ).runPreflight(request);
     expect(result.outcome).toBe('WF1_STARTED');
-    expect(workflow.start.mock.calls[0][0]).toMatch(/^BATCH-001-[a-f0-9]{16}$/);
+    expect(workflow.start.mock.calls[0][0]).toMatch(/^TEST-BATCH-001-[a-f0-9]{16}$/);
     expect(batches.admit).toHaveBeenCalledWith(
       expect.anything(),
       expect.anything(),
@@ -123,7 +128,7 @@ describe('MigrationBatchService direct S3 admission', () => {
       batches as never
     ).runPreflight(request);
     expect(result.outcome).toBe('ALREADY_STARTED');
-    expect(batches.markStarted).toHaveBeenCalledWith('BATCH-001', request.correlationId, null);
+    expect(batches.markStarted).toHaveBeenCalledWith('TEST-BATCH-001', request.correlationId, null);
   });
 
   it('propagates infrastructure failures for Lambda retry handling', async () => {

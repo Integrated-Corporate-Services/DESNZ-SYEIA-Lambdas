@@ -1,9 +1,12 @@
 import { normaliseEvent } from '../src/events/normalise-event';
 
 const config = {
-  migrationBucket: 'migration-bucket',
-  wf1StateMachineArn: 'arn:aws:states:eu-west-2:123456789012:stateMachine:wf1',
-  databaseUrl: 'postgres://example',
+  migrationBucket: 'test-migration-bucket',
+  wf1StateMachineArn: 'test-state-machine-arn',
+  dbSecretArn: 'test-database-secret-arn',
+  dbHost: 'test-database-host',
+  dbPort: 5432,
+  dbName: 'test-database',
   migrationPrefixRoot: 'migrations',
   manifestFilename: 'manifest.json',
   manifestMaxBytes: 1024,
@@ -18,8 +21,8 @@ describe('normaliseEvent direct S3', () => {
         Records: [
           {
             s3: {
-              bucket: { name: 'migration-bucket' },
-              object: { key: 'migrations/BATCH-001/manifest.json' },
+              bucket: { name: 'test-migration-bucket' },
+              object: { key: 'migrations/TEST-BATCH-001/manifest.json' },
             },
           },
         ],
@@ -28,9 +31,9 @@ describe('normaliseEvent direct S3', () => {
       { awsRequestId: 'request-1' }
     );
     expect(request).toMatchObject({
-      migrationBatchId: 'BATCH-001',
+      migrationBatchId: 'TEST-BATCH-001',
       ingestionMethod: 'DIRECT_S3',
-      prefix: 'migrations/BATCH-001',
+      prefix: 'migrations/TEST-BATCH-001',
     });
   });
 
@@ -43,15 +46,15 @@ describe('normaliseEvent direct S3', () => {
         'detail-type': 'Object Created',
         time: '2026-09-03T12:00:00.000Z',
         detail: {
-          bucket: { name: 'migration-bucket' },
-          object: { key: 'migrations/BATCH-002/manifest.json' },
+          bucket: { name: 'test-migration-bucket' },
+          object: { key: 'migrations/TEST-BATCH-002/manifest.json' },
         },
       },
       config,
       { awsRequestId: '' }
     );
     expect(request).toMatchObject({
-      migrationBatchId: 'BATCH-002',
+      migrationBatchId: 'TEST-BATCH-002',
       ingestionMethod: 'DIRECT_S3',
       correlationId: 'event-1',
       eventTime: '2026-09-03T12:00:00.000Z',
@@ -109,8 +112,8 @@ describe('normaliseEvent direct S3', () => {
           Records: [
             {
               s3: {
-                bucket: { name: 'migration-bucket' },
-                object: { key: 'untrusted/BATCH-001/manifest.json' },
+                bucket: { name: 'test-migration-bucket' },
+                object: { key: 'untrusted/TEST-BATCH-001/manifest.json' },
               },
             },
           ],
