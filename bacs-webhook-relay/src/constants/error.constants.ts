@@ -12,4 +12,4 @@ export const ERROR_CODES = {
 
 export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES];
 
-export const DLQ_SOURCE_RELAY = 'pay-callback-relay';
+export const DLQ_SOURCE_RELAY = 'bacs-webhook-relay';
