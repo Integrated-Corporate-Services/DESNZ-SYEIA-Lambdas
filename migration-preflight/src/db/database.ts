@@ -52,7 +52,7 @@ async function readSecret(
   if (!response.SecretString) throw new Error('Database secret has no SecretString');
   const secret = JSON.parse(response.SecretString) as DatabaseSecret;
   if (!secret.username || !secret.password) {
-    throw new Error('DB_CREDENTIALS requires username/password and HOST_NAME/DB_NAME');
+    throw new Error('DB_CREDENTIALS secret must contain username and password');
   }
   return { username: secret.username, password: secret.password };
 }

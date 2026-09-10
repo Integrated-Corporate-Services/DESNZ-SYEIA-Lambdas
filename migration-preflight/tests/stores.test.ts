@@ -8,10 +8,9 @@ describe('AwsS3Store.getText', () => {
         Body: { toArray: async () => [Buffer.from('too-large')] },
       }),
     };
-    await expect(new AwsS3Store(client as never).getText('bucket', 'key', 4)).rejects.toBeInstanceOf(
-      MigrationError
-    );
-    await expect(new AwsS3Store(client as never).getText('bucket', 'key', 4)).rejects.toMatchObject({
+    const result = new AwsS3Store(client as never).getText('bucket', 'key', 4);
+    await expect(result).rejects.toBeInstanceOf(MigrationError);
+    await expect(result).rejects.toMatchObject({
       code: 'INVALID_MANIFEST',
       retryable: false,
     });

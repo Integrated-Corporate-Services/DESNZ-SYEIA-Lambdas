@@ -12,7 +12,7 @@ describe('poolSslOption', () => {
 
   it('verifies certificates in production unless an operator explicitly opts out', () => {
     expect(poolSslOption('production')).toEqual({ rejectUnauthorized: true });
-    expect(poolSslOption(undefined)).toEqual({ rejectUnauthorized: true });
+    expect(poolSslOption('test')).toEqual({ rejectUnauthorized: true });
     expect(poolSslOption('production', 'false')).toEqual({ rejectUnauthorized: false });
   });
 });

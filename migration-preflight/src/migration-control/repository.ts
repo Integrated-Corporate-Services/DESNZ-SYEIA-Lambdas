@@ -9,7 +9,7 @@ export class BatchRepository {
     private readonly db: Pool,
     schema: string
   ) {
-    this.schema = `"${assertSafeSqlIdent(schema)}"`;
+    this.schema = assertSafeSqlIdent(schema);
   }
   async admit(
     batchId: string,

@@ -61,4 +61,24 @@ describe('loadConfig', () => {
     process.env.DB_SCHEMA = 'migration_control;drop table x';
     expect(() => loadConfig()).toThrow('Invalid DB_SCHEMA');
   });
+
+  it('rejects a DB_PORT outside 1-65535', () => {
+    process.env.MIGRATION_LANDING_BUCKET = 'test-migration-bucket';
+    process.env.MIGRATION_STATE_MACHINE_ARN = 'test-state-machine-arn';
+    process.env.DB_CREDENTIALS = 'test-database-secret-arn';
+    process.env.HOST_NAME = 'test-database-host';
+    process.env.DB_NAME = 'test-database';
+    process.env.DB_PORT = '0';
+    expect(() => loadConfig()).toThrow('Invalid numeric configuration: DB_PORT');
+  });
+
+  it('rejects a non-positive manifest size or claim timeout', () => {
+    process.env.MIGRATION_LANDING_BUCKET = 'test-migration-bucket';
+    process.env.MIGRATION_STATE_MACHINE_ARN = 'test-state-machine-arn';
+    process.env.DB_CREDENTIALS = 'test-database-secret-arn';
+    process.env.HOST_NAME = 'test-database-host';
+    process.env.DB_NAME = 'test-database';
+    process.env.MANIFEST_MAX_BYTES = '0';
+    expect(() => loadConfig()).toThrow('must be positive');
+  });
 });
