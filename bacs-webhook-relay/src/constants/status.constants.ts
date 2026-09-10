@@ -12,7 +12,7 @@ export const WEBHOOK_STATUS = {
 
 export type WebhookStatus = (typeof WEBHOOK_STATUS)[keyof typeof WEBHOOK_STATUS];
 
-export const RELAY_UPDATED_BY = 'pay-callback-relay';
+export const RELAY_UPDATED_BY = 'bacs-webhook-relay';
 
 export const RELAY_OUTCOME = {
   ENQUEUED: 'enqueued',
