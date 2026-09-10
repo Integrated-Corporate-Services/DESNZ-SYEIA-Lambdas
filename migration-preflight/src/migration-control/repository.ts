@@ -1,11 +1,16 @@
 import { Pool } from 'pg';
+import { assertSafeSqlIdent } from '../config/config';
 import { MigrationBatch } from '../types';
 
 export class BatchRepository {
+  private readonly schema: string;
+
   constructor(
     private readonly db: Pool,
-    private readonly schema: string
-  ) {}
+    schema: string
+  ) {
+    this.schema = `"${assertSafeSqlIdent(schema)}"`;
+  }
   async admit(
     batchId: string,
     manifestKey: string,

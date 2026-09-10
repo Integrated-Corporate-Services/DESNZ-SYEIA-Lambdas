@@ -29,7 +29,7 @@ export class AwsS3Store implements S3Store {
     const body = await (output.Body as Readable).toArray();
     const result = Buffer.concat(body);
     if (result.length > maxBytes) {
-      throw new Error('Manifest exceeds configured maximum size');
+      throw new MigrationError('INVALID_MANIFEST', 'Manifest exceeds configured maximum size');
     }
     return result.toString('utf8');
   }
