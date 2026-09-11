@@ -4,8 +4,6 @@
 [SYEIA-XXXX](https://your-jira-instance.atlassian.net/browse/SYEIA-XXXX) or `N/A`
 
 ## Lambda(s) Changed
-<!-- Check every lambda touched by this PR. PR Checks will automatically build/lint/test
-     only the lambda(s) whose folders changed - this list is for reviewer context. -->
 - [ ] bacs-webhook-relay
 - [ ] bacs-webhook-worker
 - [ ] migration-preflight
