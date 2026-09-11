@@ -44,8 +44,22 @@ export class AwsS3Store implements S3Store {
         throw new MigrationError('MISSING_FILE', 'Declared package file is missing');
       throw error;
     }
-    return { size: output.ContentLength ?? 0, checksum: output.ChecksumSHA256 };
+    return { size: output.ContentLength ?? 0, checksum: s3ChecksumToHex(output.ChecksumSHA256) };
   }
+}
+
+/** Manifest checksums are SHA-256 hex; S3 ChecksumSHA256 is Base64. Local/tests may already be hex. */
+export function s3ChecksumToHex(checksum?: string): string | undefined {
+  if (!checksum) return undefined;
+  const trimmed = checksum.trim();
+  if (/^[a-fA-F0-9]{64}$/.test(trimmed)) return trimmed.toLowerCase();
+  try {
+    const bytes = Buffer.from(trimmed, 'base64');
+    if (bytes.length === 32) return bytes.toString('hex');
+  } catch {
+    return trimmed;
+  }
+  return trimmed;
 }
 
 function isNotFound(error: unknown): boolean {
