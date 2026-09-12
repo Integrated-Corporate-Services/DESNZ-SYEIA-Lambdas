@@ -1,8 +1,5 @@
 import { APPLICATION_OUTBOX_TABLE, APPLICATION_OUTBOX_STATUS } from '../constants/applicationOutbox.constants';
 
-// Mirrors payment-service/DESNZ-SYEIA-Lambdas/pay-callback-reconciler/src/queries/applicationOutboxQueries.ts
-// and desnz-syeia-backend-beta/src/repositories/submitApplicationRepository.js#insertOutboxEvent,
-// which both write to the shared `application_outbox` table (schema: database-migrations/sql/V1.2__application_core.sql).
 export const applicationOutboxQueries = {
   insertBacsPaymentEvent: `
     INSERT INTO ${APPLICATION_OUTBOX_TABLE} (
