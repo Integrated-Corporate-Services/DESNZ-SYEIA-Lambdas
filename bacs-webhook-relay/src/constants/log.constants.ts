@@ -30,6 +30,7 @@ export const LOG_MESSAGES = {
   DB_POOL_IDLE_CLIENT_ERROR: 'unexpected idle client error',
   DB_AUTH_ERROR_DETECTED: 'postgres authentication error detected — refreshing credentials and retrying once',
   DB_AUTH_FAILED_AFTER_REFRESH: 'Postgres rejected refreshed credentials',
+  DB_ROLLBACK_FAILED: 'error rolling back transaction — continuing to throw original error',
 
   RETRY_ATTEMPT_FAILED: 'attempt failed, will retry',
 
