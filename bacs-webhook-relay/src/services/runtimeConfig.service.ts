@@ -1,11 +1,11 @@
 import { envConfig } from '../config/env.config';
 import { ssmConfig } from '../config/ssm.config';
 import { createLogger } from '../util/logger';
-import { LOG_MESSAGES } from '../constants/log.constants';
+import { LOG_MESSAGES, LOG_CHILD_DOMAIN } from '../constants/log.constants';
 import { BATCH_SIZE } from '../constants/defaults.constants';
 import type { BacsWebhookRelayConfig } from '../types';
 
-const log = createLogger('runtimeConfig.service.ts');
+const log = createLogger('runtimeConfig.service.ts', LOG_CHILD_DOMAIN.CONFIG);
 
 const METHOD = {
   LOAD: 'load',

@@ -137,7 +137,7 @@ class RelayService {
       log.error(METHOD.RELAY_ONE, LOG_MESSAGES.RELAY_TRANSIENT_FAILURE, {
         webhookId: row.webhook_id,
         error: err instanceof Error ? err.message : String(err),
-      });
+      }, LOG_EVENTS.WEBHOOK_FAILED);
       const failedItem: RelayResultItem = {
         webhookId: row.webhook_id,
         outcome: RELAY_OUTCOME.FAILED,

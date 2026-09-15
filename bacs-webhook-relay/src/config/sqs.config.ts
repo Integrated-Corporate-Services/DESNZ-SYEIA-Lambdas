@@ -9,10 +9,10 @@ import { withRetry } from '../util/retry';
 import { AppError } from '../errors/AppError';
 import { createLogger } from '../util/logger';
 import { ERROR_CODES, DLQ_SOURCE_RELAY } from '../constants/error.constants';
-import { LOG_MESSAGES } from '../constants/log.constants';
+import { LOG_MESSAGES, LOG_CHILD_DOMAIN } from '../constants/log.constants';
 import { RETRY_DEFAULTS } from '../constants/defaults.constants';
 
-const log = createLogger('sqs.config.ts');
+const log = createLogger('sqs.config.ts', LOG_CHILD_DOMAIN.SQS);
 
 const METHOD = {
   SEND_TO_BACS_WEBHOOK_RELAY_QUEUE: 'sendToBacsWebhookRelayQueue',
