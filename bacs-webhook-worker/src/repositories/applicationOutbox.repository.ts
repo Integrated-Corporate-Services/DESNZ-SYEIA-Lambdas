@@ -75,10 +75,6 @@ export const applicationOutboxRepository = {
       return null;
     }
 
-    // BACS payments never populate payment.payment_id (a GOV.UK Pay field), so
-    // applicationId is resolved via the invoice generated for this payment instead -
-    // payment.transactionId is the UKSBS "payment reference", which is that invoice's
-    // invoice_number (e.g. "INV01/NWL00045").
     const invoiceLookup = await paymentRepository.findApplicationByInvoiceNumber(payment.transactionId);
     if (!invoiceLookup) {
       log.warn(METHOD.INSERT_BACS_PAYMENT_EVENT, LOG_MESSAGES.OUTBOX_INVOICE_LOOKUP_FAILED, {

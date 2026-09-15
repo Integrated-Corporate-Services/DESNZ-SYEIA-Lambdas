@@ -7,7 +7,6 @@ export const LOG_MARKERS = {
 
 export type LogMarker = (typeof LOG_MARKERS)[keyof typeof LOG_MARKERS];
 
-// Bracket-2 "child domain" assigned per file for lifecycle (start/end/generic) log lines.
 export const LOG_CHILD_DOMAIN = {
   HANDLER: 'RELAY',
   RELAY_SERVICE: 'RELAY',
@@ -20,7 +19,6 @@ export const LOG_CHILD_DOMAIN = {
   SQS: 'SQS',
 } as const;
 
-// Bracket-2 "event" names for meaningful business-state-transition log lines.
 export const LOG_EVENTS = {
   WEBHOOK_ENQUEUED: 'ENQUEUED',
   WEBHOOK_DEAD_LETTERED: 'DEAD_LETTERED',

@@ -5,7 +5,6 @@ export const LOG_MARKERS = {
   END: 'ENDs',
 } as const;
 
-// Bracket-2 "child domain" assigned per file for lifecycle (start/end/generic) log lines.
 export const LOG_CHILD_DOMAIN = {
   HANDLER: 'WORKER',
   WORKER_SERVICE: 'WORKER',
@@ -13,7 +12,6 @@ export const LOG_CHILD_DOMAIN = {
   OUTBOX_REPOSITORY: 'OUTBOX',
 } as const;
 
-// Bracket-2 "event" names for meaningful business-state-transition log lines.
 export const LOG_EVENTS = {
   PAYMENT_RECORDED: 'PAYMENT_RECORDED',
   WEBHOOK_PROCESSED: 'WEBHOOK_PROCESSED',

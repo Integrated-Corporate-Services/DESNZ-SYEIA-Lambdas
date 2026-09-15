@@ -6,10 +6,6 @@ export const paymentQueries = {
     SET status = $3, updated_at = NOW()
   `,
 
-  // BACS webhooks identify a payment by the UKSBS "payment reference", which is
-  // the invoice number we generated (e.g. "INV01/NWL00045") - the payment table's
-  // own payment_id column is a GOV.UK Pay field, never populated for BACS payments,
-  // so applicationId must be resolved via the invoice table instead.
   FIND_APPLICATION_BY_INVOICE_NUMBER: `
     SELECT application_id, invoice_number, payment_method
       FROM invoice

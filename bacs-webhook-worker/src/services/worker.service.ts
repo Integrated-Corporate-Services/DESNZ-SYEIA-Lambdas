@@ -263,17 +263,7 @@ async function processPayment(payment: ProcessablePayment, recordId: string): Pr
 
   await paymentRepository.markWebhookProcessed(payment.webhookId, 'bacs-webhook-worker');
 
-  try {
-    await applicationOutboxRepository.insertBacsPaymentEvent(payment, recordId);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    log.error(METHOD.PROCESS_PAYMENT, LOG_MESSAGES.OUTBOX_INSERT_FAILED, {
-      recordId,
-      webhookId: payment.webhookId,
-      paymentId: payment.paymentId,
-      error: message,
-    });
-  }
+  await applicationOutboxRepository.insertBacsPaymentEvent(payment, recordId);
 
   log.info(METHOD.PROCESS_PAYMENT, LOG_MESSAGES.PAYMENT_PROCESSING_COMPLETE, {
     recordId,

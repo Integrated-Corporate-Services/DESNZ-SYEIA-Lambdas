@@ -58,7 +58,7 @@ export interface ProcessablePayment {
   status: string;         // From detail.status
   currency: string;       // From detail.currency
   bacsReference?: string; // From detail.bacsReference
-  paymentDate?: string;   // From detail.paymentDate
+  paymentDate?: string;
   eventType: string;      // From envelope
   correlationId: string | null;
   receivedAt: string;

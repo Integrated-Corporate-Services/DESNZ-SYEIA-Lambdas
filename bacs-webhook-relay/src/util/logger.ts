@@ -19,8 +19,6 @@ export function getCorrelationId(): string | undefined {
 
 export type LogMeta = object;
 
-// Every log line is [Domain][ChildDomain-or-Event][File][Function] message - correlationId,
-// so the whole lifecycle of one Lambda invocation can be reconstructed just by grepping one id.
 function emit(
   level: LogLevel,
   file: string,
