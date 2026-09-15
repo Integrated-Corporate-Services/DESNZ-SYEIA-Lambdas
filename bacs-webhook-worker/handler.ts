@@ -3,7 +3,7 @@ import type { Context, SQSEvent, SQSBatchResponse } from 'aws-lambda';
 import { envConfig } from './src/config/env.config';
 import { workerService } from './src/services/worker.service';
 import { createLogger, setCorrelationId } from './src/util/logger';
-import { LOG_MESSAGES, LOG_CHILD_DOMAIN } from './src/constants/log.constants';
+import { LOG_MESSAGES, LOG_CHILD_DOMAIN, LOG_EVENTS } from './src/constants/log.constants';
 
 const log = createLogger('handler.ts', LOG_CHILD_DOMAIN.HANDLER);
 
@@ -73,7 +73,7 @@ export const handler = async (
     log.error(METHOD.HANDLER, LOG_MESSAGES.HANDLER_INVOCATION_FAILED, {
       error: errorMsg,
       stack: error instanceof Error ? error.stack : undefined,
-    }, 'FAILED');
+    }, LOG_EVENTS.INVOCATION_FAILED);
 
     return {
       batchItemFailures: (event.Records || []).map((r) => ({ itemIdentifier: r.messageId })),

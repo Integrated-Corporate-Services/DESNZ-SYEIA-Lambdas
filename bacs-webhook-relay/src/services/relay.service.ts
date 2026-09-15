@@ -116,7 +116,7 @@ class RelayService {
           log.error(METHOD.RELAY_ONE, LOG_MESSAGES.RELAY_POISON_DLQ_FAILED, {
             webhookId: row.webhook_id,
             error: dlqErr instanceof Error ? dlqErr.message : String(dlqErr),
-          }, LOG_EVENTS.WEBHOOK_FAILED);
+          }, LOG_EVENTS.DLQ_FORWARD_FAILED);
           const dlqFailedItem: RelayResultItem = {
             webhookId: row.webhook_id,
             outcome: RELAY_OUTCOME.FAILED,
@@ -137,7 +137,7 @@ class RelayService {
       log.error(METHOD.RELAY_ONE, LOG_MESSAGES.RELAY_TRANSIENT_FAILURE, {
         webhookId: row.webhook_id,
         error: err instanceof Error ? err.message : String(err),
-      }, LOG_EVENTS.WEBHOOK_FAILED);
+      }, LOG_EVENTS.ENQUEUE_FAILED);
       const failedItem: RelayResultItem = {
         webhookId: row.webhook_id,
         outcome: RELAY_OUTCOME.FAILED,

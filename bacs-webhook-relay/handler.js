@@ -39,7 +39,7 @@ const handler = async (_event, context) => {
         log.error(METHOD.HANDLER, log_constants_1.LOG_MESSAGES.HANDLER_INVOCATION_FAILED, {
             error: err instanceof Error ? err.message : String(err),
             stack: err instanceof Error ? err.stack : undefined,
-        }, 'FAILED');
+        }, log_constants_1.LOG_EVENTS.INVOCATION_FAILED);
         throw err;
     }
     finally {
