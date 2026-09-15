@@ -5,7 +5,7 @@ const env_config_1 = require("./src/config/env.config");
 const relay_service_1 = require("./src/services/relay.service");
 const logger_1 = require("./src/util/logger");
 const log_constants_1 = require("./src/constants/log.constants");
-const log = (0, logger_1.createLogger)('handler.ts');
+const log = (0, logger_1.createLogger)('handler.ts', log_constants_1.LOG_CHILD_DOMAIN.HANDLER);
 const METHOD = {
     HANDLER: 'handler',
     ENSURE_ENV: 'ensureEnv',
@@ -39,7 +39,7 @@ const handler = async (_event, context) => {
         log.error(METHOD.HANDLER, log_constants_1.LOG_MESSAGES.HANDLER_INVOCATION_FAILED, {
             error: err instanceof Error ? err.message : String(err),
             stack: err instanceof Error ? err.stack : undefined,
-        });
+        }, log_constants_1.LOG_EVENTS.INVOCATION_FAILED);
         throw err;
     }
     finally {

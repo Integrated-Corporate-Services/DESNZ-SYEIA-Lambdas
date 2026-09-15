@@ -1,9 +1,31 @@
+export const LOG_DOMAIN = 'BACS';
+
 export const LOG_MARKERS = {
-  START: 'START',
-  END: 'END',
+  START: 'STARTs',
+  END: 'ENDs',
 } as const;
 
 export type LogMarker = (typeof LOG_MARKERS)[keyof typeof LOG_MARKERS];
+
+export const LOG_CHILD_DOMAIN = {
+  HANDLER: 'RELAY',
+  RELAY_SERVICE: 'RELAY',
+  MESSAGE_BUILDER: 'RELAY',
+  RETRY: 'RELAY',
+  CONFIG: 'CONFIG',
+  DATABASE_POOL: 'DATABASE',
+  PAYMENT_WEBHOOKS_QUERIES: 'DATABASE',
+  PAYMENT_WEBHOOKS_REPOSITORY: 'DATABASE',
+  SQS: 'SQS',
+} as const;
+
+export const LOG_EVENTS = {
+  WEBHOOK_ENQUEUED: 'ENQUEUED',
+  WEBHOOK_DEAD_LETTERED: 'DEAD_LETTERED',
+  DLQ_FORWARD_FAILED: 'DLQ_FORWARD_FAILED',
+  ENQUEUE_FAILED: 'ENQUEUE_FAILED',
+  INVOCATION_FAILED: 'INVOCATION_FAILED',
+} as const;
 
 export const LOG_MESSAGES = {
   ENV_LOADED: 'environment loaded',
@@ -30,6 +52,7 @@ export const LOG_MESSAGES = {
   DB_POOL_IDLE_CLIENT_ERROR: 'unexpected idle client error',
   DB_AUTH_ERROR_DETECTED: 'postgres authentication error detected — refreshing credentials and retrying once',
   DB_AUTH_FAILED_AFTER_REFRESH: 'Postgres rejected refreshed credentials',
+  DB_ROLLBACK_FAILED: 'error rolling back transaction — continuing to throw original error',
 
   RETRY_ATTEMPT_FAILED: 'attempt failed, will retry',
 

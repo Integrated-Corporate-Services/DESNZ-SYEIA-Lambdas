@@ -1,7 +1,7 @@
 import { createLogger } from './logger';
-import { LOG_MESSAGES } from '../constants/log.constants';
+import { LOG_MESSAGES, LOG_CHILD_DOMAIN } from '../constants/log.constants';
 
-const log = createLogger('retry.ts');
+const log = createLogger('retry.ts', LOG_CHILD_DOMAIN.RETRY);
 
 const METHOD = {
   WITH_RETRY: 'withRetry',

@@ -4,10 +4,10 @@ import { envConfig } from './env.config';
 import { secretsManagerConfig } from './secretsManager.config';
 import { DatabaseAuthError } from '../errors/AppError';
 import { POSTGRES_INVALID_AUTH_CODES } from '../constants/database.constants';
-import { LOG_MESSAGES } from '../constants/log.constants';
+import { LOG_MESSAGES, LOG_CHILD_DOMAIN } from '../constants/log.constants';
 import { createLogger } from '../util/logger';
 
-const log = createLogger('databasePool.config.ts');
+const log = createLogger('databasePool.config.ts', LOG_CHILD_DOMAIN.DATABASE_POOL);
 
 const METHOD = {
   QUERY: 'query',
@@ -68,7 +68,13 @@ class DatabasePoolConfig {
       log.end(METHOD.WITH_TRANSACTION, { outcome: 'committed' });
       return result;
     } catch (err) {
-      try { await client.query('ROLLBACK'); } catch {  }
+      try {
+        await client.query('ROLLBACK');
+      } catch (rollbackErr) {
+        log.warn(METHOD.WITH_TRANSACTION, LOG_MESSAGES.DB_ROLLBACK_FAILED, {
+          rollbackError: rollbackErr instanceof Error ? rollbackErr.message : String(rollbackErr),
+        });
+      }
       throw err;
     } finally {
       client.release();

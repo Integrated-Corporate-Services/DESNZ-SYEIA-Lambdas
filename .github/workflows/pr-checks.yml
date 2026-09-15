@@ -1,0 +1,219 @@
+name: PR Checks
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - main
+      - uat
+
+concurrency:
+  group: pr-checks-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  dependency-review:
+    name: Dependency Review
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Dependency Review
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: moderate
+          comment-summary-in-pr: always
+          allow-ghsas: GHSA-mh99-v99m-4gvg
+
+  detect-changes:
+    name: Detect Changed Lambdas
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      lambdas: ${{ steps.filter.outputs.changes }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Filter changed paths per lambda
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            bacs-webhook-relay:
+              - 'bacs-webhook-relay/**'
+            bacs-webhook-worker:
+              - 'bacs-webhook-worker/**'
+            migration-preflight:
+              - 'migration-preflight/**'
+            notify-callback-relay:
+              - 'notify-callback-relay/**'
+            notify-callback-worker:
+              - 'notify-callback-worker/**'
+            pay-callback-reconciler:
+              - 'pay-callback-reconciler/**'
+            pay-callback-relay:
+              - 'pay-callback-relay/**'
+            rds-to-salesforce:
+              - 'rds-to-salesforce/**'
+            rds-to-salesforce-worker:
+              - 'rds-to-salesforce-worker/**'
+
+      - name: Show detected lambdas
+        run: echo "Changed lambdas -> ${{ steps.filter.outputs.changes }}"
+
+  build:
+    name: Build (${{ matrix.lambda }})
+    needs: detect-changes
+    if: needs.detect-changes.outputs.lambdas != '[]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        lambda: ${{ fromJson(needs.detect-changes.outputs.lambdas) }}
+    defaults:
+      run:
+        working-directory: ${{ matrix.lambda }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: ${{ matrix.lambda }}/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build application
+        run: npm run build --if-present
+        env:
+          CI: true
+
+      - name: Check for build artifacts
+        run: |
+          if [ -d "dist" ]; then
+            echo "Build successful: dist directory created"
+          else
+            echo "No dist directory found for ${{ matrix.lambda }} (build script may not emit one) - skipping artifact check"
+          fi
+
+  test:
+    name: Test (${{ matrix.lambda }})
+    needs: [detect-changes, build]
+    if: needs.detect-changes.outputs.lambdas != '[]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        lambda: ${{ fromJson(needs.detect-changes.outputs.lambdas) }}
+    defaults:
+      run:
+        working-directory: ${{ matrix.lambda }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: ${{ matrix.lambda }}/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build application
+        run: npm run build --if-present
+        env:
+          CI: true
+
+      - name: Run tests
+        run: |
+          if npm run | grep -qE '^\s*test:unit$'; then
+            echo "Running npm run test:unit"
+            npm run test:unit
+          else
+            echo "No test:unit script found - running npm test"
+            npm test
+          fi
+        env:
+          CI: true
+
+  lint:
+    name: Lint (${{ matrix.lambda }})
+    needs: detect-changes
+    if: needs.detect-changes.outputs.lambdas != '[]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        lambda: ${{ fromJson(needs.detect-changes.outputs.lambdas) }}
+    defaults:
+      run:
+        working-directory: ${{ matrix.lambda }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: ${{ matrix.lambda }}/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Lint
+        run: npm run lint --if-present
+
+  pr-checks-summary:
+    name: PR Checks Summary
+    if: always()
+    needs: [dependency-review, detect-changes, build, test, lint]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Evaluate results
+        run: |
+          echo "dependency-review: ${{ needs.dependency-review.result }}"
+          echo "detect-changes: ${{ needs.detect-changes.result }}"
+          echo "build: ${{ needs.build.result }}"
+          echo "test: ${{ needs.test.result }}"
+          echo "lint: ${{ needs.lint.result }}"
+
+          if [ "${{ needs.dependency-review.result }}" != "success" ]; then
+            echo "dependency-review failed"; exit 1
+          fi
+
+          if [ "${{ needs.detect-changes.result }}" != "success" ]; then
+            echo "detect-changes failed"; exit 1
+          fi
+
+          for result in "${{ needs.build.result }}" "${{ needs.test.result }}" "${{ needs.lint.result }}"; do
+            if [ "$result" != "success" ] && [ "$result" != "skipped" ]; then
+              echo "One or more lambda checks failed: $result"
+              exit 1
+            fi
+          done
+
+          echo "All applicable lambda checks passed (or none were affected by this PR)."

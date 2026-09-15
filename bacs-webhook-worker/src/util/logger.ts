@@ -1,71 +1,81 @@
-import { envConfig } from '../config/env.config';
+import { LOG_MARKERS, LOG_DOMAIN } from '../constants/log.constants';
 
-interface LogContext {
-  [key: string]: unknown;
-}
+type LogLevel = 'error' | 'warn' | 'info' | 'debug';
 
-export function createLogger(module: string) {
-  const prefix = `[${module}]`;
+const LEVELS: Record<LogLevel, number> = { error: 0, warn: 1, info: 2, debug: 3 };
+const SERVICE = process.env.SERVICE_NAME || 'bacs-webhook-worker';
+const ACTIVE_LEVEL = (process.env.LOG_LEVEL as LogLevel) || 'info';
+const THRESHOLD = LEVELS[ACTIVE_LEVEL] ?? LEVELS.info;
 
-  return {
-    debug: (message: string, context?: LogContext) => {
-      if (shouldLog('debug')) {
-        console.log(JSON.stringify({ level: 'DEBUG', prefix, message, ...context }));
-      }
-    },
+let correlationId: string | undefined;
 
-    info: (message: string, context?: LogContext) => {
-      if (shouldLog('info')) {
-        console.log(JSON.stringify({ level: 'INFO', prefix, message, ...context }));
-      }
-    },
-
-    warn: (message: string, context?: LogContext) => {
-      if (shouldLog('warn')) {
-        console.warn(JSON.stringify({ level: 'WARN', prefix, message, ...context }));
-      }
-    },
-
-    error: (message: string, context?: LogContext) => {
-      console.error(JSON.stringify({ level: 'ERROR', prefix, message, ...context }));
-    },
-
-    start: (method: string, context?: LogContext) => {
-      if (shouldLog('debug')) {
-        console.log(JSON.stringify({ level: 'DEBUG', prefix, message: `→ ${method}`, ...context }));
-      }
-    },
-
-    end: (method: string, context?: LogContext) => {
-      if (shouldLog('debug')) {
-        console.log(JSON.stringify({ level: 'DEBUG', prefix, message: `← ${method}`, ...context }));
-      }
-    },
-  };
-}
-
-let correlationId = '';
-
-export function setCorrelationId(id: string): void {
+export function setCorrelationId(id: string | undefined): void {
   correlationId = id;
 }
 
-export function getCorrelationId(): string {
+export function getCorrelationId(): string | undefined {
   return correlationId;
 }
 
-function shouldLog(level: string): boolean {
-  const levels = ['debug', 'info', 'warn', 'error'];
+export type LogMeta = object;
 
-  let configuredLevel: string;
-  try {
-    configuredLevel = envConfig.get().logLevel;
-  } catch {
-    configuredLevel = process.env.LOG_LEVEL || 'info';
+function emit(
+  level: LogLevel,
+  file: string,
+  childDomain: string,
+  method: string,
+  message: string,
+  meta: LogMeta = {},
+  event?: string,
+): void {
+  if (LEVELS[level] > THRESHOLD) return;
+
+  const bracket2 = event || childDomain;
+  const corrIdSuffix = correlationId ? ` - ${correlationId}` : '';
+  const formattedMsg = `[${LOG_DOMAIN}][${bracket2}][${file}][${method}] ${message}${corrIdSuffix}`;
+
+  const entry = {
+    timestamp: new Date().toISOString(),
+    level,
+    service: SERVICE,
+    file,
+    method,
+    msg: formattedMsg,
+    ...(correlationId ? { correlationId } : {}),
+    ...(meta as Record<string, unknown>),
+  };
+
+  const line = JSON.stringify(entry);
+  if (level === 'error') {
+    console.error(line);
+  } else if (level === 'warn') {
+    console.warn(line);
+  } else {
+    console.log(line);
   }
-
-  const configLevelIndex = levels.indexOf(configuredLevel);
-  const messageLevelIndex = levels.indexOf(level);
-
-  return messageLevelIndex >= (configLevelIndex === -1 ? levels.indexOf('info') : configLevelIndex);
 }
+
+export interface Logger {
+  error: (method: string, message: string, meta?: LogMeta, event?: string) => void;
+  warn: (method: string, message: string, meta?: LogMeta, event?: string) => void;
+  info: (method: string, message: string, meta?: LogMeta, event?: string) => void;
+  debug: (method: string, message: string, meta?: LogMeta, event?: string) => void;
+
+  start: (method: string, meta?: LogMeta) => void;
+
+  end: (method: string, meta?: LogMeta) => void;
+}
+
+export function createLogger(file: string, childDomain: string): Logger {
+  return {
+    error: (method, message, meta, event) => emit('error', file, childDomain, method, message, meta, event),
+    warn: (method, message, meta, event) => emit('warn', file, childDomain, method, message, meta, event),
+    info: (method, message, meta, event) => emit('info', file, childDomain, method, message, meta, event),
+    debug: (method, message, meta, event) => emit('debug', file, childDomain, method, message, meta, event),
+    start: (method, meta) => emit('info', file, childDomain, method, LOG_MARKERS.START, meta),
+    end: (method, meta) => emit('info', file, childDomain, method, LOG_MARKERS.END, meta),
+  };
+}
+
+const defaultLogger: Logger = createLogger('logger.ts', 'UTIL');
+export default defaultLogger;
