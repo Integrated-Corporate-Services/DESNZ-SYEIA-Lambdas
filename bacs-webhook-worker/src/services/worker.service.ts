@@ -4,7 +4,7 @@ import { LOG_MESSAGES, LOG_CHILD_DOMAIN, LOG_EVENTS } from '../constants/log.con
 import type { WorkerSummary, BacsWebhookRelayEnvelope, UkSbsWebhookPayload, ProcessablePayment } from '../types';
 import { ValidationError } from '../errors/worker.errors';
 import { paymentRepository } from '../repositories/payment.repository';
-import { applicationOutboxRepository } from '../repositories/applicationOutbox.repository';
+import { applicationOutboxService } from './applicationOutbox.service';
 
 const log = createLogger('worker.service.ts', LOG_CHILD_DOMAIN.WORKER_SERVICE);
 
@@ -263,7 +263,7 @@ async function processPayment(payment: ProcessablePayment, recordId: string): Pr
 
   await paymentRepository.markWebhookProcessed(payment.webhookId, 'bacs-webhook-worker');
 
-  await applicationOutboxRepository.insertBacsPaymentEvent(payment, recordId);
+  await applicationOutboxService.recordBacsPaymentEvent(payment, recordId);
 
   log.info(METHOD.PROCESS_PAYMENT, LOG_MESSAGES.PAYMENT_PROCESSING_COMPLETE, {
     recordId,

@@ -24,9 +24,9 @@ jest.mock('../../src/repositories/payment.repository', () => ({
   },
 }));
 
-jest.mock('../../src/repositories/applicationOutbox.repository', () => ({
-  applicationOutboxRepository: {
-    insertBacsPaymentEvent: jest.fn().mockResolvedValue(null),
+jest.mock('../../src/services/applicationOutbox.service', () => ({
+  applicationOutboxService: {
+    recordBacsPaymentEvent: jest.fn().mockResolvedValue(null),
   },
 }));
 
