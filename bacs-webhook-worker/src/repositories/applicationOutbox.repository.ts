@@ -1,13 +1,13 @@
 import { createHash } from 'crypto';
 import { getPool, paymentRepository } from './payment.repository';
 import { createLogger } from '../util/logger';
-import { LOG_MESSAGES } from '../constants/log.constants';
+import { LOG_MESSAGES, LOG_CHILD_DOMAIN, LOG_EVENTS } from '../constants/log.constants';
 import { applicationOutboxQueries } from '../queries/applicationOutbox.queries';
 import { BACS_PAYMENT_EVENT_TYPE } from '../constants/applicationOutbox.constants';
 import { DatabaseError } from '../errors/worker.errors';
 import type { ProcessablePayment } from '../types';
 
-const log = createLogger('applicationOutbox.repository.ts');
+const log = createLogger('applicationOutbox.repository.ts', LOG_CHILD_DOMAIN.OUTBOX_REPOSITORY);
 
 const METHOD = {
   INSERT_BACS_PAYMENT_EVENT: 'insertBacsPaymentEvent',
@@ -61,7 +61,7 @@ export const applicationOutboxRepository = {
     });
 
     if (!isApplicationOutboxEnabled()) {
-      log.info(METHOD.INSERT_BACS_PAYMENT_EVENT, LOG_MESSAGES.OUTBOX_DISABLED, { recordId });
+      log.info(METHOD.INSERT_BACS_PAYMENT_EVENT, LOG_MESSAGES.OUTBOX_DISABLED, { recordId }, LOG_EVENTS.OUTBOX_SKIPPED);
       log.end(METHOD.INSERT_BACS_PAYMENT_EVENT, { recordId, outboxId: null });
       return null;
     }
@@ -70,7 +70,7 @@ export const applicationOutboxRepository = {
       log.warn(METHOD.INSERT_BACS_PAYMENT_EVENT, LOG_MESSAGES.OUTBOX_MISSING_APPLICATION_ID, {
         recordId,
         webhookId: payment.webhookId,
-      });
+      }, LOG_EVENTS.OUTBOX_SKIPPED);
       log.end(METHOD.INSERT_BACS_PAYMENT_EVENT, { recordId, outboxId: null });
       return null;
     }
@@ -86,7 +86,7 @@ export const applicationOutboxRepository = {
         webhookId: payment.webhookId,
         paymentId: payment.paymentId,
         invoiceNumber: payment.transactionId,
-      });
+      }, LOG_EVENTS.OUTBOX_SKIPPED);
       log.end(METHOD.INSERT_BACS_PAYMENT_EVENT, { recordId, outboxId: null });
       return null;
     }
@@ -130,7 +130,7 @@ export const applicationOutboxRepository = {
             applicationId,
             idempotencyKey,
             outboxId,
-          });
+          }, LOG_EVENTS.OUTBOX_DUPLICATE);
           log.end(METHOD.INSERT_BACS_PAYMENT_EVENT, { recordId, outboxId });
           return outboxId;
         }
@@ -143,7 +143,7 @@ export const applicationOutboxRepository = {
           transactionId: payment.transactionId,
           eventType: BACS_PAYMENT_EVENT_TYPE,
           outboxId,
-        });
+        }, LOG_EVENTS.OUTBOX_INSERTED);
         log.end(METHOD.INSERT_BACS_PAYMENT_EVENT, { recordId, outboxId });
         return outboxId;
       } finally {
@@ -155,7 +155,7 @@ export const applicationOutboxRepository = {
         recordId,
         applicationId,
         error: message,
-      });
+      }, LOG_EVENTS.OUTBOX_FAILED);
       throw new DatabaseError(`Failed to insert application_outbox event: ${message}`);
     }
   },

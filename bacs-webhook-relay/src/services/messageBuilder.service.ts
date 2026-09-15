@@ -4,9 +4,10 @@ import {
   BACS_WEBHOOK_RELAY_SCHEMA_VERSION,
   SOURCE_BACS,
 } from '../constants/status.constants';
+import { LOG_CHILD_DOMAIN } from '../constants/log.constants';
 import type { PaymentWebhookRow, BacsWebhookRelayEnvelope } from '../types';
 
-const log = createLogger('messageBuilder.service.ts');
+const log = createLogger('messageBuilder.service.ts', LOG_CHILD_DOMAIN.MESSAGE_BUILDER);
 
 const METHOD = {
   BUILD: 'build',

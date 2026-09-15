@@ -1,12 +1,12 @@
 import type { SQSRecord } from 'aws-lambda';
 import { createLogger, getCorrelationId, setCorrelationId } from '../util/logger';
-import { LOG_MESSAGES } from '../constants/log.constants';
+import { LOG_MESSAGES, LOG_CHILD_DOMAIN } from '../constants/log.constants';
 import type { WorkerSummary, BacsWebhookRelayEnvelope, UkSbsWebhookPayload, ProcessablePayment } from '../types';
 import { ValidationError } from '../errors/worker.errors';
 import { paymentRepository } from '../repositories/payment.repository';
 import { applicationOutboxRepository } from '../repositories/applicationOutbox.repository';
 
-const log = createLogger('worker.service.ts');
+const log = createLogger('worker.service.ts', LOG_CHILD_DOMAIN.WORKER_SERVICE);
 
 const METHOD = {
   PROCESS_RECORDS: 'processRecords',
@@ -71,7 +71,7 @@ async function processRecord(record: SQSRecord): Promise<{ success: boolean; mes
       recordId: record.messageId,
       webhookId: payment.webhookId,
       transactionId: payment.transactionId,
-    });
+    }, 'PROCESSED');
     log.end(METHOD.PROCESS_RECORD, { recordId: record.messageId, outcome: 'processed' });
     return { success: true };
   } catch (error) {
@@ -79,7 +79,7 @@ async function processRecord(record: SQSRecord): Promise<{ success: boolean; mes
     log.error(METHOD.PROCESS_RECORD, LOG_MESSAGES.RECORD_FAILED, {
       recordId: record.messageId,
       error: message,
-    });
+    }, 'FAILED');
     log.end(METHOD.PROCESS_RECORD, { recordId: record.messageId, outcome: 'failed' });
     return { success: false, message };
   } finally {

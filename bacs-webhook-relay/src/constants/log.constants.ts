@@ -1,9 +1,31 @@
+export const LOG_DOMAIN = 'BACS';
+
 export const LOG_MARKERS = {
-  START: 'START',
-  END: 'END',
+  START: 'STARTs',
+  END: 'ENDs',
 } as const;
 
 export type LogMarker = (typeof LOG_MARKERS)[keyof typeof LOG_MARKERS];
+
+// Bracket-2 "child domain" assigned per file for lifecycle (start/end/generic) log lines.
+export const LOG_CHILD_DOMAIN = {
+  HANDLER: 'RELAY',
+  RELAY_SERVICE: 'RELAY',
+  MESSAGE_BUILDER: 'RELAY',
+  RETRY: 'RELAY',
+  CONFIG: 'CONFIG',
+  DATABASE_POOL: 'DATABASE',
+  PAYMENT_WEBHOOKS_QUERIES: 'DATABASE',
+  PAYMENT_WEBHOOKS_REPOSITORY: 'DATABASE',
+  SQS: 'SQS',
+} as const;
+
+// Bracket-2 "event" names for meaningful business-state-transition log lines.
+export const LOG_EVENTS = {
+  WEBHOOK_ENQUEUED: 'ENQUEUED',
+  WEBHOOK_DEAD_LETTERED: 'DEAD_LETTERED',
+  WEBHOOK_FAILED: 'FAILED',
+} as const;
 
 export const LOG_MESSAGES = {
   ENV_LOADED: 'environment loaded',

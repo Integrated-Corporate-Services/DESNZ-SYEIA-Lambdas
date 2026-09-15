@@ -4,9 +4,10 @@ import {
   updateToDeadLetter,
 } from '../queries/paymentWebhooks.queries';
 import { createLogger } from '../util/logger';
+import { LOG_CHILD_DOMAIN } from '../constants/log.constants';
 import type { PaymentWebhookRow } from '../types';
 
-const log = createLogger('paymentWebhooks.repository.ts');
+const log = createLogger('paymentWebhooks.repository.ts', LOG_CHILD_DOMAIN.PAYMENT_WEBHOOKS_REPOSITORY);
 
 const METHOD = {
   FIND_PENDING: 'findPending',

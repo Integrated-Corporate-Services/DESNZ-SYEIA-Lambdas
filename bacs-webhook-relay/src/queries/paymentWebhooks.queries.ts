@@ -2,9 +2,10 @@ import { databasePoolConfig } from '../config/databasePool.config';
 import { createLogger } from '../util/logger';
 import { TABLES } from '../constants/database.constants';
 import { WEBHOOK_STATUS, RELAY_UPDATED_BY } from '../constants/status.constants';
+import { LOG_CHILD_DOMAIN } from '../constants/log.constants';
 import type { PaymentWebhookRow } from '../types';
 
-const log = createLogger('paymentWebhooks.queries.ts');
+const log = createLogger('paymentWebhooks.queries.ts', LOG_CHILD_DOMAIN.PAYMENT_WEBHOOKS_QUERIES);
 
 const METHOD = {
   SELECT_PENDING_FOR_RELAY: 'selectPendingForRelay',

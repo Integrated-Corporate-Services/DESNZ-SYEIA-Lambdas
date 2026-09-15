@@ -1,11 +1,11 @@
 import { Pool, PoolClient } from 'pg';
 import { createLogger } from '../util/logger';
 import { envConfig } from '../config/env.config';
-import { LOG_MESSAGES } from '../constants/log.constants';
+import { LOG_MESSAGES, LOG_CHILD_DOMAIN, LOG_EVENTS } from '../constants/log.constants';
 import { DatabaseError } from '../errors/worker.errors';
 import { paymentQueries } from '../queries/payment.queries';
 
-const log = createLogger('payment.repository.ts');
+const log = createLogger('payment.repository.ts', LOG_CHILD_DOMAIN.PAYMENT_REPOSITORY);
 
 const METHOD = {
   CONNECT: 'connect',
@@ -76,7 +76,7 @@ export const paymentRepository = {
     try {
       client = await getPool().connect();
       await client.query(paymentQueries.RECORD_PAYMENT, [transactionId, amount, status]);
-      log.info(METHOD.RECORD_PAYMENT, LOG_MESSAGES.PAYMENT_RECORDED, { transactionId, amount, status });
+      log.info(METHOD.RECORD_PAYMENT, LOG_MESSAGES.PAYMENT_RECORDED, { transactionId, amount, status }, LOG_EVENTS.PAYMENT_RECORDED);
       log.end(METHOD.RECORD_PAYMENT, { transactionId });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -179,7 +179,7 @@ export const paymentRepository = {
           webhookId,
           status: 'processed',
           rowsUpdated: result.rowCount,
-        });
+        }, LOG_EVENTS.WEBHOOK_PROCESSED);
       }
 
       log.end(METHOD.MARK_WEBHOOK_PROCESSED, { webhookId, rowsUpdated: result.rowCount });

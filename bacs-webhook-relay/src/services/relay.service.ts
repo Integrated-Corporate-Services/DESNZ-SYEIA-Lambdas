@@ -4,12 +4,12 @@ import { runtimeConfigService } from './runtimeConfig.service';
 import { sqsConfig } from '../config/sqs.config';
 import { PoisonMessageError } from '../errors/AppError';
 import { createLogger } from '../util/logger';
-import { LOG_MESSAGES } from '../constants/log.constants';
+import { LOG_MESSAGES, LOG_CHILD_DOMAIN, LOG_EVENTS } from '../constants/log.constants';
 import { ERROR_CODES } from '../constants/error.constants';
 import { RELAY_OUTCOME } from '../constants/status.constants';
 import type { PaymentWebhookRow, RelayResultItem, RelaySummary } from '../types';
 
-const log = createLogger('relay.service.ts');
+const log = createLogger('relay.service.ts', LOG_CHILD_DOMAIN.RELAY_SERVICE);
 
 const METHOD = {
   EXECUTE: 'execute',
@@ -91,7 +91,7 @@ class RelayService {
         webhookId: row.webhook_id,
         paymentId: row.payment_id,
         sqsMessageId: out.MessageId,
-      });
+      }, LOG_EVENTS.WEBHOOK_ENQUEUED);
       const enqueuedItem: RelayResultItem = {
         webhookId: row.webhook_id,
         outcome: RELAY_OUTCOME.ENQUEUED,
@@ -108,11 +108,15 @@ class RelayService {
             reason,
           );
           await paymentWebhooksRepository.markDeadLetter(row.webhook_id, reason);
+          log.info(METHOD.RELAY_ONE, LOG_MESSAGES.SQS_MESSAGE_SENT_DLQ, {
+            webhookId: row.webhook_id,
+            reason,
+          }, LOG_EVENTS.WEBHOOK_DEAD_LETTERED);
         } catch (dlqErr) {
           log.error(METHOD.RELAY_ONE, LOG_MESSAGES.RELAY_POISON_DLQ_FAILED, {
             webhookId: row.webhook_id,
             error: dlqErr instanceof Error ? dlqErr.message : String(dlqErr),
-          });
+          }, LOG_EVENTS.WEBHOOK_FAILED);
           const dlqFailedItem: RelayResultItem = {
             webhookId: row.webhook_id,
             outcome: RELAY_OUTCOME.FAILED,

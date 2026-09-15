@@ -1,9 +1,9 @@
 import { createLogger } from '../util/logger';
 import { CACHE_TTL_DEFAULTS } from '../constants/defaults.constants';
 import { DB_DEFAULTS } from '../constants/database.constants';
-import { LOG_MESSAGES } from '../constants/log.constants';
+import { LOG_MESSAGES, LOG_CHILD_DOMAIN } from '../constants/log.constants';
 
-const log = createLogger('env.config.ts');
+const log = createLogger('env.config.ts', LOG_CHILD_DOMAIN.CONFIG);
 
 const METHOD = {
   LOAD: 'load',

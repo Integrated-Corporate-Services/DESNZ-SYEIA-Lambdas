@@ -1,4 +1,4 @@
-import { LOG_MARKERS } from '../constants/log.constants';
+import { LOG_MARKERS, LOG_DOMAIN } from '../constants/log.constants';
 
 type LogLevel = 'error' | 'warn' | 'info' | 'debug';
 
@@ -19,16 +19,22 @@ export function getCorrelationId(): string | undefined {
 
 export type LogMeta = object;
 
+// Every log line is [Domain][ChildDomain-or-Event][File][Function] message - correlationId,
+// so the whole lifecycle of one Lambda invocation can be reconstructed just by grepping one id.
 function emit(
   level: LogLevel,
   file: string,
+  childDomain: string,
   method: string,
   message: string,
   meta: LogMeta = {},
+  event?: string,
 ): void {
   if (LEVELS[level] > THRESHOLD) return;
 
-  const formattedMsg = `[${file}] [${method}] ${message}`;
+  const bracket2 = event || childDomain;
+  const corrIdSuffix = correlationId ? ` - ${correlationId}` : '';
+  const formattedMsg = `[${LOG_DOMAIN}][${bracket2}][${file}][${method}] ${message}${corrIdSuffix}`;
 
   const entry = {
     timestamp: new Date().toISOString(),
@@ -50,26 +56,26 @@ function emit(
 }
 
 export interface Logger {
-  error: (method: string, message: string, meta?: LogMeta) => void;
-  warn:  (method: string, message: string, meta?: LogMeta) => void;
-  info:  (method: string, message: string, meta?: LogMeta) => void;
-  debug: (method: string, message: string, meta?: LogMeta) => void;
-  
+  error: (method: string, message: string, meta?: LogMeta, event?: string) => void;
+  warn:  (method: string, message: string, meta?: LogMeta, event?: string) => void;
+  info:  (method: string, message: string, meta?: LogMeta, event?: string) => void;
+  debug: (method: string, message: string, meta?: LogMeta, event?: string) => void;
+
   start: (method: string, meta?: LogMeta) => void;
-  
+
   end:   (method: string, meta?: LogMeta) => void;
 }
 
-export function createLogger(file: string): Logger {
+export function createLogger(file: string, childDomain: string): Logger {
   return {
-    error: (method, message, meta) => emit('error', file, method, message, meta),
-    warn:  (method, message, meta) => emit('warn',  file, method, message, meta),
-    info:  (method, message, meta) => emit('info',  file, method, message, meta),
-    debug: (method, message, meta) => emit('debug', file, method, message, meta),
-    start: (method, meta) => emit('info', file, method, LOG_MARKERS.START, meta),
-    end:   (method, meta) => emit('info', file, method, LOG_MARKERS.END,   meta),
+    error: (method, message, meta, event) => emit('error', file, childDomain, method, message, meta, event),
+    warn:  (method, message, meta, event) => emit('warn',  file, childDomain, method, message, meta, event),
+    info:  (method, message, meta, event) => emit('info',  file, childDomain, method, message, meta, event),
+    debug: (method, message, meta, event) => emit('debug', file, childDomain, method, message, meta, event),
+    start: (method, meta) => emit('info', file, childDomain, method, LOG_MARKERS.START, meta),
+    end:   (method, meta) => emit('info', file, childDomain, method, LOG_MARKERS.END,   meta),
   };
 }
 
-const defaultLogger: Logger = createLogger('logger.ts');
+const defaultLogger: Logger = createLogger('logger.ts', 'UTIL');
 export default defaultLogger;

@@ -5,11 +5,11 @@ import { withRetry } from '../util/retry';
 import { AppError } from '../errors/AppError';
 import { createLogger } from '../util/logger';
 import { ERROR_CODES } from '../constants/error.constants';
-import { LOG_MESSAGES } from '../constants/log.constants';
+import { LOG_MESSAGES, LOG_CHILD_DOMAIN } from '../constants/log.constants';
 import { RETRY_DEFAULTS } from '../constants/defaults.constants';
 import type { RdsCredentials } from '../types';
 
-const log = createLogger('secretsManager.config.ts');
+const log = createLogger('secretsManager.config.ts', LOG_CHILD_DOMAIN.CONFIG);
 
 const METHOD = {
   GET_RDS_CREDENTIALS: 'getRdsCredentials',

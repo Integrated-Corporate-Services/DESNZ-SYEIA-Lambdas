@@ -3,10 +3,10 @@ import type { Context } from 'aws-lambda';
 import { envConfig } from './src/config/env.config';
 import { relayService } from './src/services/relay.service';
 import { createLogger, setCorrelationId } from './src/util/logger';
-import { LOG_MESSAGES } from './src/constants/log.constants';
+import { LOG_MESSAGES, LOG_CHILD_DOMAIN } from './src/constants/log.constants';
 import type { RelaySummary } from './src/types';
 
-const log = createLogger('handler.ts');
+const log = createLogger('handler.ts', LOG_CHILD_DOMAIN.HANDLER);
 
 const METHOD = {
   HANDLER: 'handler',
@@ -44,7 +44,7 @@ export const handler = async (_event: unknown, context?: Context): Promise<Relay
     log.error(METHOD.HANDLER, LOG_MESSAGES.HANDLER_INVOCATION_FAILED, {
       error: err instanceof Error ? err.message : String(err),
       stack: err instanceof Error ? err.stack : undefined,
-    });
+    }, 'FAILED');
     throw err;
   } finally {
     setCorrelationId(undefined);
