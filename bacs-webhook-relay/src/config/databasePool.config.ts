@@ -71,7 +71,9 @@ class DatabasePoolConfig {
       try {
         await client.query('ROLLBACK');
       } catch (rollbackErr) {
-        log.warn(METHOD.WITH_TRANSACTION, LOG_MESSAGES.DB_ROLLBACK_FAILED, { rollbackErr });
+        log.warn(METHOD.WITH_TRANSACTION, LOG_MESSAGES.DB_ROLLBACK_FAILED, {
+          rollbackError: rollbackErr instanceof Error ? rollbackErr.message : String(rollbackErr),
+        });
       }
       throw err;
     } finally {

@@ -1,10 +1,9 @@
-import type { Context, SQSEvent } from 'aws-lambda';
+import type { Context, SQSEvent, SQSBatchResponse } from 'aws-lambda';
 
 import { envConfig } from './src/config/env.config';
 import { workerService } from './src/services/worker.service';
 import { createLogger, setCorrelationId } from './src/util/logger';
 import { LOG_MESSAGES } from './src/constants/log.constants';
-import type { WorkerSummary } from './src/types';
 
 const log = createLogger('handler.ts');
 
@@ -26,7 +25,7 @@ async function ensureEnv(): Promise<void> {
 export const handler = async (
   event: SQSEvent,
   context: Context
-): Promise<WorkerSummary> => {
+): Promise<SQSBatchResponse> => {
   setCorrelationId(context.awsRequestId);
   log.start(METHOD.HANDLER);
   log.info(METHOD.HANDLER, LOG_MESSAGES.HANDLER_INVOCATION_START, {
@@ -41,8 +40,8 @@ export const handler = async (
 
     if (!event.Records || event.Records.length === 0) {
       log.info(METHOD.HANDLER, LOG_MESSAGES.NO_RECORDS);
-      const empty: WorkerSummary = { processed: 0, failed: 0, errors: [] };
-      log.end(METHOD.HANDLER, empty);
+      const empty: SQSBatchResponse = { batchItemFailures: [] };
+      log.end(METHOD.HANDLER, { processed: 0, failed: 0, errors: 0 });
       return empty;
     }
 
@@ -64,7 +63,11 @@ export const handler = async (
       errors: summary.errors.length,
     });
 
-    return summary;
+    return {
+      batchItemFailures: summary.errors
+        .filter((e) => e.recordId)
+        .map((e) => ({ itemIdentifier: e.recordId })),
+    };
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
     log.error(METHOD.HANDLER, LOG_MESSAGES.HANDLER_INVOCATION_FAILED, {
@@ -73,9 +76,7 @@ export const handler = async (
     });
 
     return {
-      processed: 0,
-      failed: event.Records?.length || 0,
-      errors: [{ message: errorMsg, recordId: 'handler-error' }],
+      batchItemFailures: (event.Records || []).map((r) => ({ itemIdentifier: r.messageId })),
     };
   } finally {
     setCorrelationId(undefined);

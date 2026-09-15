@@ -1,5 +1,5 @@
 import { createHash } from 'crypto';
-import { getPool } from './payment.repository';
+import { getPool, paymentRepository } from './payment.repository';
 import { createLogger } from '../util/logger';
 import { LOG_MESSAGES } from '../constants/log.constants';
 import { applicationOutboxQueries } from '../queries/applicationOutbox.queries';
@@ -17,51 +17,47 @@ export function isApplicationOutboxEnabled(): boolean {
   return process.env.ENABLE_APPLICATION_OUTBOX === 'true';
 }
 
-function buildIdempotencyKey(applicationId: string, transactionId: string): string {
+function buildIdempotencyKey(
+  applicationId: string,
+  transactionId: string,
+  webhookId: string,
+  status: string
+): string {
   return createHash('sha256')
-    .update(`${BACS_PAYMENT_EVENT_TYPE}|${applicationId}|${transactionId}`)
+    .update(`${BACS_PAYMENT_EVENT_TYPE}|${applicationId}|${transactionId}|${webhookId}|${status}`)
     .digest('hex');
 }
 
-function buildBacsPaymentOutboxPayload(payment: ProcessablePayment, recordId: string): Record<string, unknown> {
+function buildBacsPaymentOutboxPayload(
+  applicationId: string,
+  desnzReference: string | null,
+  invoiceNumber: string,
+  payment: ProcessablePayment
+): Record<string, unknown> {
   return {
-    applicationId: payment.paymentId,
+    applicationId,
     event_type: BACS_PAYMENT_EVENT_TYPE,
-    metadata: {
-      source: 'payment-service',
-      channel: 'bacs-webhook-worker',
-      schemaVersion: 1,
-    },
+    desnzReference,
+    invoiceNumber,
     payment: {
-      recordId,
-      webhookId: payment.webhookId,
-      paymentId: payment.paymentId,
-      transactionId: payment.transactionId,
       amount: payment.amount,
       currency: payment.currency,
       status: payment.status,
-      bacsReference: payment.bacsReference,
-      eventType: payment.eventType,
-      correlationId: payment.correlationId,
+      bacsReference: payment.bacsReference ?? null,
+      paymentReference: invoiceNumber,
+      paymentDate: payment.paymentDate ?? null,
       receivedAt: payment.receivedAt,
-      updatedAt: new Date().toISOString(),
     },
   };
 }
 
-/**
- * Inserts a BACS_PAYMENT_EVENT row into the shared `application_outbox` table as soon as the
- * payment has been recorded and the webhook marked processed, so downstream consumers
- * (e.g. Salesforce sync) can pick it up. Mirrors the pattern used by:
- *  - desnz-syeia-backend-beta/src/services/withdrawalService.js (insertWithdrawalRequestedOutboxEvent)
- *  - payment-service/DESNZ-SYEIA-Lambdas/pay-callback-reconciler (applicationOutboxRepository.ts)
- */
+
 export const applicationOutboxRepository = {
   insertBacsPaymentEvent: async (payment: ProcessablePayment, recordId: string): Promise<string | null> => {
     log.start(METHOD.INSERT_BACS_PAYMENT_EVENT, {
       recordId,
       webhookId: payment.webhookId,
-      applicationId: payment.paymentId,
+      paymentId: payment.paymentId,
     });
 
     if (!isApplicationOutboxEnabled()) {
@@ -70,8 +66,7 @@ export const applicationOutboxRepository = {
       return null;
     }
 
-    const applicationId = payment.paymentId;
-    if (!applicationId) {
+    if (!payment.paymentId) {
       log.warn(METHOD.INSERT_BACS_PAYMENT_EVENT, LOG_MESSAGES.OUTBOX_MISSING_APPLICATION_ID, {
         recordId,
         webhookId: payment.webhookId,
@@ -80,30 +75,65 @@ export const applicationOutboxRepository = {
       return null;
     }
 
-    const idempotencyKey = buildIdempotencyKey(applicationId, payment.transactionId);
+    // BACS payments never populate payment.payment_id (a GOV.UK Pay field), so
+    // applicationId is resolved via the invoice generated for this payment instead -
+    // payment.transactionId is the UKSBS "payment reference", which is that invoice's
+    // invoice_number (e.g. "INV01/NWL00045").
+    const invoiceLookup = await paymentRepository.findApplicationByInvoiceNumber(payment.transactionId);
+    if (!invoiceLookup) {
+      log.warn(METHOD.INSERT_BACS_PAYMENT_EVENT, LOG_MESSAGES.OUTBOX_INVOICE_LOOKUP_FAILED, {
+        recordId,
+        webhookId: payment.webhookId,
+        paymentId: payment.paymentId,
+        invoiceNumber: payment.transactionId,
+      });
+      log.end(METHOD.INSERT_BACS_PAYMENT_EVENT, { recordId, outboxId: null });
+      return null;
+    }
+
+    if (invoiceLookup.paymentMethod && invoiceLookup.paymentMethod.toUpperCase() !== 'BACS') {
+      log.warn(METHOD.INSERT_BACS_PAYMENT_EVENT, LOG_MESSAGES.OUTBOX_INVOICE_PAYMENT_METHOD_MISMATCH, {
+        recordId,
+        invoiceNumber: invoiceLookup.invoiceNumber,
+        paymentMethod: invoiceLookup.paymentMethod,
+      });
+    }
+
+    const applicationId = invoiceLookup.applicationId;
+
+    const desnzReference = await paymentRepository.findDesnzReferenceByApplicationId(applicationId);
+    if (!desnzReference) {
+      log.warn(METHOD.INSERT_BACS_PAYMENT_EVENT, LOG_MESSAGES.OUTBOX_DESNZ_REF_LOOKUP_FAILED, {
+        recordId,
+        applicationId,
+      });
+    }
+
+    const idempotencyKey = buildIdempotencyKey(applicationId, payment.transactionId, payment.webhookId, payment.status);
 
     try {
       const client = await getPool().connect();
       try {
-        const existing = await client.query(applicationOutboxQueries.findExistingByIdempotencyKey, [idempotencyKey]);
-        if (existing.rows.length > 0) {
-          log.info(METHOD.INSERT_BACS_PAYMENT_EVENT, LOG_MESSAGES.OUTBOX_ALREADY_RECORDED, {
-            recordId,
-            applicationId,
-            idempotencyKey,
-            outboxId: existing.rows[0].outbox_id,
-          });
-          log.end(METHOD.INSERT_BACS_PAYMENT_EVENT, { recordId, outboxId: existing.rows[0].outbox_id });
-          return existing.rows[0].outbox_id;
-        }
-
-        const payloadJson = buildBacsPaymentOutboxPayload(payment, recordId);
-        const result = await client.query(applicationOutboxQueries.insertBacsPaymentEvent, [
+        const payloadJson = buildBacsPaymentOutboxPayload(applicationId, desnzReference, invoiceLookup.invoiceNumber, payment);
+        const result = await client.query(applicationOutboxQueries.INSERT_BACS_PAYMENT_EVENT, [
           applicationId,
           BACS_PAYMENT_EVENT_TYPE,
           JSON.stringify(payloadJson),
           idempotencyKey,
         ]);
+
+        if (result.rows.length === 0) {
+          const existing = await client.query(applicationOutboxQueries.FIND_EXISTING_BY_IDEMPOTENCY_KEY, [idempotencyKey]);
+          const outboxId = existing.rows[0]?.outbox_id ?? null;
+          log.info(METHOD.INSERT_BACS_PAYMENT_EVENT, LOG_MESSAGES.OUTBOX_ALREADY_RECORDED, {
+            recordId,
+            applicationId,
+            idempotencyKey,
+            outboxId,
+          });
+          log.end(METHOD.INSERT_BACS_PAYMENT_EVENT, { recordId, outboxId });
+          return outboxId;
+        }
 
         const outboxId = result.rows[0]?.outbox_id ?? null;
         log.info(METHOD.INSERT_BACS_PAYMENT_EVENT, LOG_MESSAGES.OUTBOX_EVENT_INSERTED, {

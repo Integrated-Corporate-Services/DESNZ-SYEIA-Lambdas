@@ -46,6 +46,11 @@ export const LOG_MESSAGES = {
   // Application outbox messages
   OUTBOX_DISABLED: 'application outbox writes disabled — skipping (ENABLE_APPLICATION_OUTBOX is not "true")',
   OUTBOX_MISSING_APPLICATION_ID: 'cannot write outbox event — payment has no applicationId (paymentId)',
+  OUTBOX_INVOICE_LOOKUP_FAILED:
+    'cannot write outbox event — no invoice found for this payment reference (invoice_number)',
+  OUTBOX_INVOICE_PAYMENT_METHOD_MISMATCH:
+    'invoice matched but its payment_method is not BACS — proceeding anyway, but this may indicate a data anomaly',
+  OUTBOX_DESNZ_REF_LOOKUP_FAILED: 'no desnz_ref found for this application — proceeding with desnzReference=null',
   OUTBOX_ALREADY_RECORDED: 'outbox event already recorded for this idempotency key — skipping duplicate insert',
   OUTBOX_EVENT_INSERTED: 'BACS payment event inserted into application_outbox',
   OUTBOX_INSERT_FAILED: 'failed to insert BACS payment event into application_outbox',

@@ -16,9 +16,35 @@ describe('handler integration tests', () => {
           messageId: 'msg-1',
           receiptHandle: 'handle-1',
           body: JSON.stringify({
-            transactionId: 'txn-123',
-            amount: 100,
-            status: 'success',
+            schemaVersion: '1',
+            source: 'BACS',
+            webhookId: 'webhook-1',
+            paymentId: 'payment-123',
+            eventType: 'PAYMENT_STATUS_UPDATED',
+            status: 'PAID',
+            correlationId: 'correlation-1',
+            receivedAt: '2026-01-01T00:00:00.000Z',
+            payload: {
+              event: {
+                eventId: 'event-1',
+                eventType: 'PAYMENT_STATUS_UPDATED',
+                eventVersion: '1',
+                occurredAt: '2026-01-01T00:00:00.000Z',
+                source: 'UKSBS',
+              },
+              callback: {
+                deliveryId: 'delivery-1',
+                attemptNumber: 1,
+              },
+              payment: {
+                paymentReference: 'txn-123',
+              },
+              detail: {
+                status: 'success',
+                amount: 100,
+                currency: 'GBP',
+              },
+            },
           }),
           attributes: {} as any,
           messageAttributes: {},
@@ -48,9 +74,8 @@ describe('handler integration tests', () => {
 
     const result = await handler(event, context);
 
-    expect(result.processed).toBe(1);
-    expect(result.failed).toBe(0);
-    expect(result.errors).toHaveLength(0);
+    expect(result.batchItemFailures).toHaveLength(0);
+  });
 
   it('should handle empty records gracefully', async () => {
     const event: SQSEvent = { Records: [] };
@@ -61,7 +86,7 @@ describe('handler integration tests', () => {
 
     const result = await handler(event, context);
 
-    expect(result.processed).toBe(0);
-    expect(result.failed).toBe(0);
+    expect(result.batchItemFailures).toHaveLength(0);
   });
 });
+

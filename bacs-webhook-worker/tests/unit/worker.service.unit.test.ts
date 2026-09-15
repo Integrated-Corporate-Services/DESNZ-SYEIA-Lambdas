@@ -1,4 +1,55 @@
+jest.mock('../../src/repositories/payment.repository', () => ({
+  paymentRepository: {
+    recordPayment: jest.fn().mockResolvedValue(undefined),
+    markWebhookProcessed: jest.fn().mockResolvedValue(undefined),
+    getPaymentStatus: jest.fn().mockResolvedValue(null),
+    findApplicationByInvoiceNumber: jest.fn().mockResolvedValue(null),
+    findDesnzReferenceByApplicationId: jest.fn().mockResolvedValue(null),
+  },
+}));
+
+jest.mock('../../src/repositories/applicationOutbox.repository', () => ({
+  applicationOutboxRepository: {
+    insertBacsPaymentEvent: jest.fn().mockResolvedValue(null),
+  },
+}));
+
 import { workerService } from '../../src/services/worker.service';
+
+function validEnvelopeBody(overrides: Record<string, unknown> = {}): string {
+  return JSON.stringify({
+    schemaVersion: '1',
+    source: 'BACS',
+    webhookId: 'webhook-1',
+    paymentId: 'payment-123',
+    eventType: 'PAYMENT_STATUS_UPDATED',
+    status: 'PAID',
+    correlationId: 'correlation-1',
+    receivedAt: '2026-01-01T00:00:00.000Z',
+    payload: {
+      event: {
+        eventId: 'event-1',
+        eventType: 'PAYMENT_STATUS_UPDATED',
+        eventVersion: '1',
+        occurredAt: '2026-01-01T00:00:00.000Z',
+        source: 'UKSBS',
+      },
+      callback: {
+        deliveryId: 'delivery-1',
+        attemptNumber: 1,
+      },
+      payment: {
+        paymentReference: 'txn-123',
+      },
+      detail: {
+        status: 'success',
+        amount: 100,
+        currency: 'GBP',
+      },
+    },
+    ...overrides,
+  });
+}
 
 describe('workerService', () => {
   describe('processRecords', () => {
@@ -7,11 +58,7 @@ describe('workerService', () => {
         {
           messageId: 'msg-1',
           receiptHandle: 'handle-1',
-          body: JSON.stringify({
-            transactionId: 'txn-123',
-            amount: 100,
-            status: 'success',
-          }),
+          body: validEnvelopeBody(),
           attributes: {} as any,
           messageAttributes: {},
           md5OfBody: '',
@@ -74,3 +121,4 @@ describe('workerService', () => {
     });
   });
 });
+

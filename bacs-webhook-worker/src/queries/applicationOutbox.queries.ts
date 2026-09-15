@@ -1,7 +1,7 @@
 import { APPLICATION_OUTBOX_TABLE, APPLICATION_OUTBOX_STATUS } from '../constants/applicationOutbox.constants';
 
 export const applicationOutboxQueries = {
-  insertBacsPaymentEvent: `
+  INSERT_BACS_PAYMENT_EVENT: `
     INSERT INTO ${APPLICATION_OUTBOX_TABLE} (
       application_id,
       event_type,
@@ -23,10 +23,11 @@ export const applicationOutboxQueries = {
       NOW(),
       NOW()
     )
+    ON CONFLICT (idempotency_key) DO NOTHING
     RETURNING outbox_id
   `,
 
-  findExistingByIdempotencyKey: `
+  FIND_EXISTING_BY_IDEMPOTENCY_KEY: `
     SELECT outbox_id
       FROM ${APPLICATION_OUTBOX_TABLE}
      WHERE idempotency_key = $1

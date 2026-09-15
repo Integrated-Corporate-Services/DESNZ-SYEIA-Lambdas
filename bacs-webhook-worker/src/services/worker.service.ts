@@ -228,6 +228,7 @@ function validateAndTransform(envelope: BacsWebhookRelayEnvelope, recordId: stri
     status: uksbsPayload.detail.status.toUpperCase(),
     currency: uksbsPayload.detail.currency || 'GBP',
     bacsReference: uksbsPayload.detail.bacsReference,
+    paymentDate: uksbsPayload.detail.paymentDate,
     eventType: envelope.eventType,
     correlationId: envelope.correlationId,
     receivedAt: envelope.receivedAt,
@@ -262,9 +263,6 @@ async function processPayment(payment: ProcessablePayment, recordId: string): Pr
 
   await paymentRepository.markWebhookProcessed(payment.webhookId, 'bacs-webhook-worker');
 
-  // Best-effort: publish a BACS_PAYMENT_EVENT to the shared application_outbox table now that
-  // the payment has been recorded and the webhook marked processed. A failure here must not
-  // fail/retry the whole SQS record, since the primary DB writes above already succeeded.
   try {
     await applicationOutboxRepository.insertBacsPaymentEvent(payment, recordId);
   } catch (error) {
@@ -272,7 +270,7 @@ async function processPayment(payment: ProcessablePayment, recordId: string): Pr
     log.error(METHOD.PROCESS_PAYMENT, LOG_MESSAGES.OUTBOX_INSERT_FAILED, {
       recordId,
       webhookId: payment.webhookId,
-      applicationId: payment.paymentId,
+      paymentId: payment.paymentId,
       error: message,
     });
   }
