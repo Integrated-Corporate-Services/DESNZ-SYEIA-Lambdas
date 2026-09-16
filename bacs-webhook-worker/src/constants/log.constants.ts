@@ -56,6 +56,7 @@ export const LOG_MESSAGES = {
   DB_CONNECT_ERROR: 'database connection error',
   DB_CONNECTED: 'database connection verified',
   DB_QUERY_ERROR: 'database query error',
+  DB_ROLLBACK_FAILED: 'error rolling back transaction — continuing to throw original error',
   PAYMENT_RECORDED: 'payment recorded in payments table',
   WEBHOOK_MARKED_PROCESSED: 'webhook marked as processed',
   WEBHOOK_ALREADY_PROCESSED: 'webhook not found or already processed — no rows updated',
