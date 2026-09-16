@@ -5,6 +5,7 @@ import type { WorkerSummary, BacsWebhookRelayEnvelope, UkSbsWebhookPayload, Proc
 import { ValidationError } from '../errors/worker.errors';
 import { paymentRepository } from '../repositories/payment.repository';
 import { applicationOutboxService } from './applicationOutbox.service';
+import { mapUksbsStatusToPaymentStatus } from '../util/paymentStatus.mapper';
 
 const log = createLogger('worker.service.ts', LOG_CHILD_DOMAIN.WORKER_SERVICE);
 
@@ -259,7 +260,39 @@ async function processPayment(payment: ProcessablePayment, recordId: string): Pr
     status: payment.status,
   });
 
-  await paymentRepository.recordPayment(payment.transactionId, payment.amount, payment.status);
+  const mappedStatus = mapUksbsStatusToPaymentStatus(payment.status);
+  if (!mappedStatus) {
+    log.warn(METHOD.PROCESS_PAYMENT, LOG_MESSAGES.PAYMENT_STATUS_UNMAPPED, {
+      recordId,
+      webhookId: payment.webhookId,
+      uksbsStatus: payment.status,
+    }, LOG_EVENTS.PAYMENT_SKIPPED);
+  } else {
+    const invoiceLookup = await paymentRepository.findApplicationByInvoiceNumber(payment.transactionId);
+    if (!invoiceLookup) {
+      log.warn(METHOD.PROCESS_PAYMENT, LOG_MESSAGES.PAYMENT_INVOICE_LOOKUP_FAILED, {
+        recordId,
+        webhookId: payment.webhookId,
+        invoiceNumber: payment.transactionId,
+      }, LOG_EVENTS.PAYMENT_SKIPPED);
+    } else {
+      const existingPayment = await paymentRepository.findPaymentForInvoice(
+        invoiceLookup.paymentRecordId,
+        invoiceLookup.applicationId,
+      );
+      if (!existingPayment) {
+        log.warn(METHOD.PROCESS_PAYMENT, LOG_MESSAGES.PAYMENT_ROW_LOOKUP_FAILED, {
+          recordId,
+          webhookId: payment.webhookId,
+          invoiceNumber: invoiceLookup.invoiceNumber,
+          applicationId: invoiceLookup.applicationId,
+          paymentRecordId: invoiceLookup.paymentRecordId,
+        }, LOG_EVENTS.PAYMENT_NOT_FOUND);
+      } else {
+        await paymentRepository.updatePaymentStatus(existingPayment.id, mappedStatus);
+      }
+    }
+  }
 
   await paymentRepository.markWebhookProcessed(payment.webhookId, 'bacs-webhook-worker');
 

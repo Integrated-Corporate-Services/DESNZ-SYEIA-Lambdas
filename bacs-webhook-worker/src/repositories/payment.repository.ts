@@ -10,10 +10,11 @@ const log = createLogger('payment.repository.ts', LOG_CHILD_DOMAIN.PAYMENT_REPOS
 const METHOD = {
   CONNECT: 'connect',
   DISCONNECT: 'disconnect',
-  RECORD_PAYMENT: 'recordPayment',
+  UPDATE_PAYMENT_STATUS: 'updatePaymentStatus',
   GET_PAYMENT_STATUS: 'getPaymentStatus',
   MARK_WEBHOOK_PROCESSED: 'markWebhookProcessed',
   FIND_APPLICATION_BY_INVOICE_NUMBER: 'findApplicationByInvoiceNumber',
+  FIND_PAYMENT_FOR_INVOICE: 'findPaymentForInvoice',
   FIND_DESNZ_REF_BY_APPLICATION_ID: 'findDesnzReferenceByApplicationId',
 } as const;
 
@@ -21,6 +22,13 @@ export interface InvoiceApplicationLookup {
   applicationId: string;
   invoiceNumber: string;
   paymentMethod: string | null;
+  paymentRecordId: number | null;
+}
+
+export interface PaymentRowLookup {
+  id: number;
+  applicationId: string;
+  status: string;
 }
 
 let pool: Pool | null = null;
@@ -71,18 +79,34 @@ export const paymentRepository = {
     }
   },
 
-  recordPayment: async (transactionId: string, amount: number, status: string): Promise<void> => {
-    log.start(METHOD.RECORD_PAYMENT, { transactionId, amount, status });
+  updatePaymentStatus: async (paymentId: number, status: string): Promise<PaymentRowLookup | null> => {
+    log.start(METHOD.UPDATE_PAYMENT_STATUS, { paymentId, status });
     let client: PoolClient | null = null;
     try {
       client = await getPool().connect();
-      await client.query(paymentQueries.RECORD_PAYMENT, [transactionId, amount, status]);
-      log.info(METHOD.RECORD_PAYMENT, LOG_MESSAGES.PAYMENT_RECORDED, { transactionId, amount, status }, LOG_EVENTS.PAYMENT_RECORDED);
-      log.end(METHOD.RECORD_PAYMENT, { transactionId });
+      const result = await client.query(paymentQueries.UPDATE_PAYMENT_STATUS, [paymentId, status]);
+      if (result.rows.length === 0) {
+        log.end(METHOD.UPDATE_PAYMENT_STATUS, { paymentId, updated: false });
+        return null;
+      }
+
+      const row = result.rows[0];
+      const updated: PaymentRowLookup = {
+        id: Number(row.id),
+        applicationId: row.application_id,
+        status: row.status,
+      };
+      log.info(METHOD.UPDATE_PAYMENT_STATUS, LOG_MESSAGES.PAYMENT_RECORDED, {
+        paymentId: updated.id,
+        applicationId: updated.applicationId,
+        status: updated.status,
+      }, LOG_EVENTS.PAYMENT_RECORDED);
+      log.end(METHOD.UPDATE_PAYMENT_STATUS, { paymentId: updated.id });
+      return updated;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      log.error(METHOD.RECORD_PAYMENT, LOG_MESSAGES.DB_QUERY_ERROR, { error: message, transactionId });
-      throw new DatabaseError(`Failed to record payment: ${message}`);
+      log.error(METHOD.UPDATE_PAYMENT_STATUS, LOG_MESSAGES.DB_QUERY_ERROR, { error: message, paymentId });
+      throw new DatabaseError(`Failed to update payment status: ${message}`);
     } finally {
       if (client) {
         client.release();
@@ -107,6 +131,7 @@ export const paymentRepository = {
         applicationId: row.application_id,
         invoiceNumber: row.invoice_number,
         paymentMethod: row.payment_method ?? null,
+        paymentRecordId: row.payment_record_id == null ? null : Number(row.payment_record_id),
       };
       log.end(METHOD.FIND_APPLICATION_BY_INVOICE_NUMBER, { invoiceNumber, applicationId: lookup.applicationId });
 
@@ -115,6 +140,44 @@ export const paymentRepository = {
       const message = error instanceof Error ? error.message : String(error);
       log.error(METHOD.FIND_APPLICATION_BY_INVOICE_NUMBER, LOG_MESSAGES.DB_QUERY_ERROR, { error: message, invoiceNumber });
       throw new DatabaseError(`Failed to find application by invoice number: ${message}`);
+    } finally {
+      if (client) {
+        client.release();
+      }
+    }
+  },
+
+  findPaymentForInvoice: async (
+    paymentRecordId: number | null,
+    applicationId: string,
+  ): Promise<PaymentRowLookup | null> => {
+    log.start(METHOD.FIND_PAYMENT_FOR_INVOICE, { paymentRecordId, applicationId });
+    let client: PoolClient | null = null;
+    try {
+      client = await getPool().connect();
+      const result = await client.query(paymentQueries.FIND_PAYMENT_FOR_INVOICE, [paymentRecordId, applicationId]);
+
+      if (result.rows.length === 0) {
+        log.end(METHOD.FIND_PAYMENT_FOR_INVOICE, { paymentRecordId, applicationId, paymentId: null });
+        return null;
+      }
+
+      const row = result.rows[0];
+      const payment: PaymentRowLookup = {
+        id: Number(row.id),
+        applicationId: row.application_id,
+        status: row.status,
+      };
+      log.end(METHOD.FIND_PAYMENT_FOR_INVOICE, { paymentRecordId, applicationId, paymentId: payment.id });
+      return payment;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      log.error(METHOD.FIND_PAYMENT_FOR_INVOICE, LOG_MESSAGES.DB_QUERY_ERROR, {
+        error: message,
+        paymentRecordId,
+        applicationId,
+      });
+      throw new DatabaseError(`Failed to find payment for invoice: ${message}`);
     } finally {
       if (client) {
         client.release();
@@ -144,20 +207,20 @@ export const paymentRepository = {
     }
   },
 
-  getPaymentStatus: async (transactionId: string): Promise<string | null> => {
-    log.start(METHOD.GET_PAYMENT_STATUS, { transactionId });
+  getPaymentStatus: async (paymentId: number): Promise<string | null> => {
+    log.start(METHOD.GET_PAYMENT_STATUS, { paymentId });
     let client: PoolClient | null = null;
     try {
       client = await getPool().connect();
-      const result = await client.query(paymentQueries.GET_PAYMENT_STATUS, [transactionId]);
+      const result = await client.query(paymentQueries.GET_PAYMENT_STATUS, [paymentId]);
 
       const status = result.rows.length > 0 ? result.rows[0].status : null;
-      log.end(METHOD.GET_PAYMENT_STATUS, { transactionId, status });
+      log.end(METHOD.GET_PAYMENT_STATUS, { paymentId, status });
 
       return status;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      log.error(METHOD.GET_PAYMENT_STATUS, LOG_MESSAGES.DB_QUERY_ERROR, { error: message, transactionId });
+      log.error(METHOD.GET_PAYMENT_STATUS, LOG_MESSAGES.DB_QUERY_ERROR, { error: message, paymentId });
       throw new DatabaseError(`Failed to get payment status: ${message}`);
     } finally {
       if (client) {

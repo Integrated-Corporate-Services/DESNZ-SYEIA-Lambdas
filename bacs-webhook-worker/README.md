@@ -170,18 +170,20 @@ Structured JSON logging is used throughout. Configure log level via `LOG_LEVEL` 
 
 ## Database Schema
 
-Expected table structure for payments:
+Payments are recorded in the shared `payment` table owned by the backend. The worker:
+
+1. Looks up `invoice` by `invoice_number` (UKSBS `paymentReference`)
+2. Finds the existing `payment` row (`invoice.payment_record_id`, else `application_id`)
+3. Updates that row's `status` (`PAID` → `completed`, `FAILED` → `failed`) and `finished = true`
+
+This requires `updated_at` on `payment`:
 
 ```sql
-CREATE TABLE payments (
-  id SERIAL PRIMARY KEY,
-  transaction_id VARCHAR(255) UNIQUE NOT NULL,
-  amount DECIMAL(15, 2) NOT NULL,
-  status VARCHAR(50) NOT NULL,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+ALTER TABLE payment ADD COLUMN updated_at TIMESTAMPTZ;
 ```
+
+The worker also reads `application` and `payment_webhooks`, and writes
+`application_outbox` when `ENABLE_APPLICATION_OUTBOX=true`.
 
 ## Scripts
 
