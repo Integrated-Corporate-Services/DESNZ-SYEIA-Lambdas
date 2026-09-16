@@ -36,6 +36,7 @@ export function getPool(): Pool {
       max: 10,
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 2000,
+      ssl: config.dbSsl ? { rejectUnauthorized: false } : false,
     });
   }
   return pool;
