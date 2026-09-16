@@ -23,7 +23,6 @@ export const applicationOutboxQueries = {
       NOW(),
       NOW()
     )
-    ON CONFLICT (idempotency_key) DO NOTHING
     RETURNING outbox_id
   `,
 

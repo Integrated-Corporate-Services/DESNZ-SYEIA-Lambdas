@@ -19,25 +19,25 @@ export const applicationOutboxRepository = {
     try {
       const client = await getPool().connect();
       try {
+        const existing = await client.query(applicationOutboxQueries.FIND_EXISTING_BY_IDEMPOTENCY_KEY, [idempotencyKey]);
+        const existingOutboxId = existing.rows[0]?.outbox_id ?? null;
+        if (existingOutboxId) {
+          log.info(METHOD.INSERT_OUTBOX_ROW, LOG_MESSAGES.OUTBOX_ALREADY_RECORDED, {
+            recordId,
+            applicationId,
+            idempotencyKey,
+            outboxId: existingOutboxId,
+          }, LOG_EVENTS.OUTBOX_DUPLICATE);
+          log.end(METHOD.INSERT_OUTBOX_ROW, { recordId, outboxId: existingOutboxId });
+          return existingOutboxId;
+        }
+
         const result = await client.query(applicationOutboxQueries.INSERT_BACS_PAYMENT_EVENT, [
           applicationId,
           eventType,
           JSON.stringify(payload),
           idempotencyKey,
         ]);
-
-        if (result.rows.length === 0) {
-          const existing = await client.query(applicationOutboxQueries.FIND_EXISTING_BY_IDEMPOTENCY_KEY, [idempotencyKey]);
-          const outboxId = existing.rows[0]?.outbox_id ?? null;
-          log.info(METHOD.INSERT_OUTBOX_ROW, LOG_MESSAGES.OUTBOX_ALREADY_RECORDED, {
-            recordId,
-            applicationId,
-            idempotencyKey,
-            outboxId,
-          }, LOG_EVENTS.OUTBOX_DUPLICATE);
-          log.end(METHOD.INSERT_OUTBOX_ROW, { recordId, outboxId });
-          return outboxId;
-        }
 
         const outboxId = result.rows[0]?.outbox_id ?? null;
         log.info(METHOD.INSERT_OUTBOX_ROW, LOG_MESSAGES.OUTBOX_EVENT_INSERTED, {

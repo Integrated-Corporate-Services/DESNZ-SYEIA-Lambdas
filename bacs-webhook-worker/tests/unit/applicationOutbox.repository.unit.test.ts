@@ -46,26 +46,26 @@ describe('applicationOutboxRepository.insertOutboxRow', () => {
   });
 
   it('inserts a new row and returns the generated outbox_id', async () => {
-    mockClient.query.mockResolvedValueOnce({ rows: [{ outbox_id: 'outbox-1' }] });
+    mockClient.query
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ outbox_id: 'outbox-1' }] });
 
     const result = await applicationOutboxRepository.insertOutboxRow(buildParams(), 'record-1');
 
     expect(result).toBe('outbox-1');
-    expect(mockClient.query).toHaveBeenCalledTimes(1);
-    const [, params] = mockClient.query.mock.calls[0];
+    expect(mockClient.query).toHaveBeenCalledTimes(2);
+    const [, params] = mockClient.query.mock.calls[1];
     expect(params).toEqual(['app-1', 'BACS_PAYMENT_EVENT', JSON.stringify(buildParams().payload), 'idempotency-key-1']);
     expect(mockClient.release).toHaveBeenCalled();
   });
 
-  it('returns the existing outbox_id without a duplicate insert on an idempotency conflict', async () => {
-    mockClient.query
-      .mockResolvedValueOnce({ rows: [] })
-      .mockResolvedValueOnce({ rows: [{ outbox_id: 'existing-outbox-1' }] });
+  it('returns the existing outbox_id without inserting when the idempotency key is already recorded', async () => {
+    mockClient.query.mockResolvedValueOnce({ rows: [{ outbox_id: 'existing-outbox-1' }] });
 
     const result = await applicationOutboxRepository.insertOutboxRow(buildParams(), 'record-1');
 
     expect(result).toBe('existing-outbox-1');
-    expect(mockClient.query).toHaveBeenCalledTimes(2);
+    expect(mockClient.query).toHaveBeenCalledTimes(1);
   });
 
   it('throws a DatabaseError and releases the client when the insert query fails', async () => {
