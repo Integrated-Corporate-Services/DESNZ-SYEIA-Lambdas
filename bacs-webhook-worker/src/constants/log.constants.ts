@@ -58,7 +58,7 @@ export const LOG_MESSAGES = {
   PAYMENT_ROW_LOOKUP_FAILED:
     'cannot update payment — no payment row found for this application_id',
   PAYMENT_STATUS_UNMAPPED:
-    'cannot update payment — unrecognised UKSBS status (expected PAID or FAILED)',
+    'cannot update payment — unrecognised UKSBS status (expected PAID, SUCCESS, COMPLETED, or FAILED)',
 
   // Database messages
   DB_CONNECT_ERROR: 'database connection error',

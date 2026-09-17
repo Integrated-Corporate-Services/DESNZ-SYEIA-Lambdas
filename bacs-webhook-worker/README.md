@@ -170,19 +170,17 @@ Structured JSON logging is used throughout. Configure log level via `LOG_LEVEL` 
 
 ## Database Schema
 
-Payments are recorded in the shared `payment` table owned by the backend. The worker:
+Payments are recorded in the shared `payment` table owned by the backend. This
+worker does not migrate or add columns to `payment`. It only updates columns
+that already exist (`status`, `finished`).
 
 1. Looks up `invoice` by `invoice_number` (UKSBS `paymentReference`) to get `application_id`
-2. Updates `payment.status` for that `application_id` (`PAID` → `completed`, `FAILED` → `failed`) and `finished = true`
-
-This requires `updated_at` on `payment`:
-
-```sql
-ALTER TABLE payment ADD COLUMN updated_at TIMESTAMPTZ;
-```
+2. Updates the latest `payment` row for that `application_id` (highest `id`):
+   `PAID` / `SUCCESS` / `COMPLETED` → `completed`, `FAILED` → `failed`, and `finished = true`
 
 The worker also reads `application` and `payment_webhooks`, and writes
-`application_outbox` when `ENABLE_APPLICATION_OUTBOX=true`.
+`application_outbox` when `ENABLE_APPLICATION_OUTBOX=true`. Duplicate outbox
+inserts are treated as already recorded (lookup by `idempotency_key`, then insert).
 
 ## Scripts
 

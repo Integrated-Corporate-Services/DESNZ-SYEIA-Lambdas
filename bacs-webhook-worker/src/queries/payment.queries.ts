@@ -9,9 +9,14 @@ export const paymentQueries = {
   UPDATE_PAYMENT_STATUS_BY_APPLICATION_ID: `
     UPDATE payment
        SET status = $2,
-           finished = true,
-           updated_at = NOW()
-     WHERE application_id = $1
+           finished = true
+     WHERE id = (
+       SELECT id
+         FROM payment
+        WHERE application_id = $1
+        ORDER BY id DESC
+        LIMIT 1
+     )
      RETURNING id, application_id, status
   `,
 
