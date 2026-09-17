@@ -172,9 +172,8 @@ Structured JSON logging is used throughout. Configure log level via `LOG_LEVEL` 
 
 Payments are recorded in the shared `payment` table owned by the backend. The worker:
 
-1. Looks up `invoice` by `invoice_number` (UKSBS `paymentReference`)
-2. Finds the existing `payment` row (`invoice.payment_record_id`, else `application_id`)
-3. Updates that row's `status` (`PAID` → `completed`, `FAILED` → `failed`) and `finished = true`
+1. Looks up `invoice` by `invoice_number` (UKSBS `paymentReference`) to get `application_id`
+2. Updates `payment.status` for that `application_id` (`PAID` → `completed`, `FAILED` → `failed`) and `finished = true`
 
 This requires `updated_at` on `payment`:
 

@@ -4,7 +4,6 @@ jest.mock('../../src/repositories/payment.repository', () => ({
     markWebhookProcessed: jest.fn().mockResolvedValue(undefined),
     getPaymentStatus: jest.fn().mockResolvedValue(null),
     findApplicationByInvoiceNumber: jest.fn().mockResolvedValue(null),
-    findPaymentForInvoice: jest.fn().mockResolvedValue(null),
     findDesnzReferenceByApplicationId: jest.fn().mockResolvedValue(null),
   },
 }));
@@ -137,27 +136,26 @@ describe('workerService', () => {
       expect(result.errors).toHaveLength(1);
     });
 
-    it('updates the existing payment status from the invoice lookup', async () => {
+    it('updates payment.status using application_id from the invoice', async () => {
       (paymentRepository.findApplicationByInvoiceNumber as jest.Mock).mockResolvedValue({
         applicationId: '11111111-1111-1111-1111-111111111111',
         invoiceNumber: 'txn-123',
         paymentMethod: 'BACS',
-        paymentRecordId: 42,
       });
-      (paymentRepository.findPaymentForInvoice as jest.Mock).mockResolvedValue({
+      (paymentRepository.updatePaymentStatus as jest.Mock).mockResolvedValue({
         id: 42,
         applicationId: '11111111-1111-1111-1111-111111111111',
-        status: 'pending',
+        status: 'completed',
       });
 
       const result = await workerService.processRecords([sqsRecord(validEnvelopeBody(), 'msg-4')]);
 
       expect(result.failed).toBe(0);
-      expect(paymentRepository.findPaymentForInvoice).toHaveBeenCalledWith(
-        42,
+      expect(paymentRepository.findApplicationByInvoiceNumber).toHaveBeenCalledWith('txn-123');
+      expect(paymentRepository.updatePaymentStatus).toHaveBeenCalledWith(
         '11111111-1111-1111-1111-111111111111',
+        'completed',
       );
-      expect(paymentRepository.updatePaymentStatus).toHaveBeenCalledWith(42, 'completed');
     });
 
     it('maps FAILED webhooks to payment.status = failed', async () => {
@@ -165,12 +163,11 @@ describe('workerService', () => {
         applicationId: '11111111-1111-1111-1111-111111111111',
         invoiceNumber: 'txn-123',
         paymentMethod: 'BACS',
-        paymentRecordId: 42,
       });
-      (paymentRepository.findPaymentForInvoice as jest.Mock).mockResolvedValue({
+      (paymentRepository.updatePaymentStatus as jest.Mock).mockResolvedValue({
         id: 42,
         applicationId: '11111111-1111-1111-1111-111111111111',
-        status: 'pending',
+        status: 'failed',
       });
 
       const body = validEnvelopeBody({
@@ -191,7 +188,10 @@ describe('workerService', () => {
       const result = await workerService.processRecords([sqsRecord(body, 'msg-6')]);
 
       expect(result.failed).toBe(0);
-      expect(paymentRepository.updatePaymentStatus).toHaveBeenCalledWith(42, 'failed');
+      expect(paymentRepository.updatePaymentStatus).toHaveBeenCalledWith(
+        '11111111-1111-1111-1111-111111111111',
+        'failed',
+      );
     });
 
     it('skips the payment write when no invoice matches but still marks the webhook processed', async () => {
@@ -200,24 +200,25 @@ describe('workerService', () => {
       const result = await workerService.processRecords([sqsRecord(validEnvelopeBody(), 'msg-5')]);
 
       expect(result.failed).toBe(0);
-      expect(paymentRepository.findPaymentForInvoice).not.toHaveBeenCalled();
       expect(paymentRepository.updatePaymentStatus).not.toHaveBeenCalled();
       expect(paymentRepository.markWebhookProcessed).toHaveBeenCalledWith('webhook-1', 'bacs-webhook-worker');
     });
 
-    it('skips the payment write when the invoice has no matching payment row', async () => {
+    it('skips when invoice exists but no payment row is updated', async () => {
       (paymentRepository.findApplicationByInvoiceNumber as jest.Mock).mockResolvedValue({
         applicationId: '11111111-1111-1111-1111-111111111111',
         invoiceNumber: 'txn-123',
         paymentMethod: 'BACS',
-        paymentRecordId: null,
       });
-      (paymentRepository.findPaymentForInvoice as jest.Mock).mockResolvedValue(null);
+      (paymentRepository.updatePaymentStatus as jest.Mock).mockResolvedValue(null);
 
       const result = await workerService.processRecords([sqsRecord(validEnvelopeBody(), 'msg-7')]);
 
       expect(result.failed).toBe(0);
-      expect(paymentRepository.updatePaymentStatus).not.toHaveBeenCalled();
+      expect(paymentRepository.updatePaymentStatus).toHaveBeenCalledWith(
+        '11111111-1111-1111-1111-111111111111',
+        'completed',
+      );
       expect(paymentRepository.markWebhookProcessed).toHaveBeenCalledWith('webhook-1', 'bacs-webhook-worker');
     });
   });

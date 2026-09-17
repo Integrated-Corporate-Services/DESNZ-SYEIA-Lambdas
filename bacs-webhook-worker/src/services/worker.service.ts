@@ -276,20 +276,14 @@ async function processPayment(payment: ProcessablePayment, recordId: string): Pr
         invoiceNumber: payment.transactionId,
       }, LOG_EVENTS.PAYMENT_SKIPPED);
     } else {
-      const existingPayment = await paymentRepository.findPaymentForInvoice(
-        invoiceLookup.paymentRecordId,
-        invoiceLookup.applicationId,
-      );
-      if (!existingPayment) {
+      const updated = await paymentRepository.updatePaymentStatus(invoiceLookup.applicationId, mappedStatus);
+      if (!updated) {
         log.warn(METHOD.PROCESS_PAYMENT, LOG_MESSAGES.PAYMENT_ROW_LOOKUP_FAILED, {
           recordId,
           webhookId: payment.webhookId,
           invoiceNumber: invoiceLookup.invoiceNumber,
           applicationId: invoiceLookup.applicationId,
-          paymentRecordId: invoiceLookup.paymentRecordId,
         }, LOG_EVENTS.PAYMENT_NOT_FOUND);
-      } else {
-        await paymentRepository.updatePaymentStatus(existingPayment.id, mappedStatus);
       }
     }
   }

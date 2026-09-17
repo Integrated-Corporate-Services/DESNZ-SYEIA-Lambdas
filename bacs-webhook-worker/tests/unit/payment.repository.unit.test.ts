@@ -63,35 +63,19 @@ describe('payment repository pool', () => {
 });
 
 describe('updatePaymentStatus', () => {
-  test('updates payment.status by id and releases the client', async () => {
+  test('updates payment.status by application_id and releases the client', async () => {
     const { pg, paymentRepository } = await loadRepository();
     pg.__client.query.mockResolvedValue({
       rows: [{ id: 42, application_id: 'app-1', status: 'completed' }],
     });
 
-    const updated = await paymentRepository.updatePaymentStatus(42, 'completed');
+    const updated = await paymentRepository.updatePaymentStatus('app-1', 'completed');
 
     expect(updated).toEqual({ id: 42, applicationId: 'app-1', status: 'completed' });
     const [sql, params] = pg.__client.query.mock.calls[0];
     expect(sql).toContain('UPDATE payment');
-    expect(sql).toContain('SET status = $2');
-    expect(params).toEqual([42, 'completed']);
+    expect(sql).toContain('WHERE application_id = $1');
+    expect(params).toEqual(['app-1', 'completed']);
     expect(pg.__client.release).toHaveBeenCalled();
-  });
-});
-
-describe('findPaymentForInvoice', () => {
-  test('looks up by payment_record_id first', async () => {
-    const { pg, paymentRepository } = await loadRepository();
-    pg.__client.query.mockResolvedValue({
-      rows: [{ id: 42, application_id: 'app-1', status: 'pending' }],
-    });
-
-    const found = await paymentRepository.findPaymentForInvoice(42, 'app-1');
-
-    expect(found).toEqual({ id: 42, applicationId: 'app-1', status: 'pending' });
-    const [sql, params] = pg.__client.query.mock.calls[0];
-    expect(sql).toContain('FROM payment');
-    expect(params).toEqual([42, 'app-1']);
   });
 });

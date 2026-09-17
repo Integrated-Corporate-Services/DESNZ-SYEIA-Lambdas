@@ -56,7 +56,7 @@ export const LOG_MESSAGES = {
   PAYMENT_INVOICE_LOOKUP_FAILED:
     'cannot update payment — no invoice found for this payment reference (invoice_number)',
   PAYMENT_ROW_LOOKUP_FAILED:
-    'cannot update payment — no payment row found for this invoice / application',
+    'cannot update payment — no payment row found for this application_id',
   PAYMENT_STATUS_UNMAPPED:
     'cannot update payment — unrecognised UKSBS status (expected PAID or FAILED)',
 
