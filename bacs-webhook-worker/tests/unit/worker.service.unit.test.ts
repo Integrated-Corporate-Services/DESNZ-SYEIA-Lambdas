@@ -16,6 +16,7 @@ jest.mock('../../src/services/applicationOutbox.service', () => ({
 
 import { workerService } from '../../src/services/worker.service';
 import { paymentRepository } from '../../src/repositories/payment.repository';
+import { applicationOutboxService } from '../../src/services/applicationOutbox.service';
 
 const APPLICATION_ID = '11111111-1111-1111-1111-111111111111';
 
@@ -162,6 +163,10 @@ describe('workerService', () => {
         APPLICATION_ID,
         'completed',
       );
+      expect(applicationOutboxService.recordBacsPaymentEvent).toHaveBeenCalledWith(
+        expect.objectContaining({ status: 'completed' }),
+        'msg-4',
+      );
     });
 
     it('maps FAILED webhooks to payment.status = failed', async () => {
@@ -218,6 +223,32 @@ describe('workerService', () => {
         'completed',
       );
       expect(paymentRepository.markWebhookProcessed).not.toHaveBeenCalled();
+    });
+
+    it('fails the record when the UKSBS status is unmapped so it is not acknowledged or emitted', async () => {
+      const body = validEnvelopeBody({
+        payload: {
+          event: {
+            eventId: 'event-1',
+            eventType: 'PAYMENT_STATUS_UPDATED',
+            eventVersion: '1',
+            occurredAt: '2026-01-01T00:00:00.000Z',
+            source: 'UKSBS',
+          },
+          callback: { deliveryId: 'delivery-1', attemptNumber: 1 },
+          payment: { paymentReference: 'txn-123' },
+          detail: { status: 'PENDING', amount: 100, currency: 'GBP' },
+        },
+      });
+
+      const result = await workerService.processRecords([sqsRecord(body, 'msg-8')]);
+
+      expect(result.failed).toBe(1);
+      expect(result.errors[0].recordId).toBe('msg-8');
+      expect(paymentRepository.findApplicationByInvoiceNumber).not.toHaveBeenCalled();
+      expect(paymentRepository.updatePaymentStatus).not.toHaveBeenCalled();
+      expect(paymentRepository.markWebhookProcessed).not.toHaveBeenCalled();
+      expect(applicationOutboxService.recordBacsPaymentEvent).not.toHaveBeenCalled();
     });
   });
 });

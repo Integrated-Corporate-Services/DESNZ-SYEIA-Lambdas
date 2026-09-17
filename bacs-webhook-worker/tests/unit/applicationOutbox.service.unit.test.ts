@@ -130,13 +130,44 @@ describe('applicationOutboxService.recordBacsPaymentEvent', () => {
       payment: {
         amount: payment.amount,
         currency: payment.currency,
-        status: payment.status,
+        status: 'completed',
         bacsReference: payment.bacsReference,
         paymentReference: 'INV01/NWL00045',
         paymentDate: payment.paymentDate,
         receivedAt: payment.receivedAt,
       },
     });
+  });
+
+  it('maps FAILED webhook status onto payment.status = failed in the outbox payload', async () => {
+    mockedFindApplicationByInvoiceNumber.mockResolvedValue({
+      applicationId: 'app-1',
+      invoiceNumber: 'INV01/NWL00045',
+      paymentMethod: 'BACS',
+    });
+    mockedFindDesnzReferenceByApplicationId.mockResolvedValue('DESNZ-1');
+    mockedInsertOutboxRow.mockResolvedValue('outbox-1');
+
+    await applicationOutboxService.recordBacsPaymentEvent(buildPayment({ status: 'FAILED' }), 'record-1');
+
+    const [insertParams] = mockedInsertOutboxRow.mock.calls[0];
+    expect(insertParams.payload.payment.status).toBe('failed');
+  });
+
+  it('skips outbox insert when the status cannot be mapped', async () => {
+    mockedFindApplicationByInvoiceNumber.mockResolvedValue({
+      applicationId: 'app-1',
+      invoiceNumber: 'INV01/NWL00045',
+      paymentMethod: 'BACS',
+    });
+
+    const result = await applicationOutboxService.recordBacsPaymentEvent(
+      buildPayment({ status: 'PENDING' }),
+      'record-1',
+    );
+
+    expect(result).toBeNull();
+    expect(mockedInsertOutboxRow).not.toHaveBeenCalled();
   });
 
   it('propagates a repository failure instead of swallowing it', async () => {
