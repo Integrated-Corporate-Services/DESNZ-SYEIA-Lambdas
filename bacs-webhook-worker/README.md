@@ -178,6 +178,11 @@ that already exist (`status`, `finished`).
 2. Updates `payment` where `application_id` matches that invoice:
    `PAID` / `SUCCESS` / `COMPLETED` → `completed`, `FAILED` → `failed`, and `finished = true`
 
+This is not the GOV.UK Pay path. The pay-callback-reconciler looks up
+`payment.payment_id` (GOV.UK Pay id). BACS webhooks do not send that id, and
+BACS payment rows are created with `payment_id` null. `application_id` already
+exists on the backend `payment` table; this worker does not add it.
+
 If the invoice or payment row is not found yet, the worker fails the SQS record
 so the message can retry. It does not mark the webhook processed in that case.
 

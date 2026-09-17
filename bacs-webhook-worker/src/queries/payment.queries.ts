@@ -6,6 +6,9 @@ export const paymentQueries = {
      LIMIT 1
   `,
 
+  // Backend-owned public.payment already has application_id (UUID NOT NULL).
+  // BACS rows are created with payment_id = null, so this cannot use the
+  // GOV.UK Pay reconciler lookup (WHERE payment_id = $1).
   UPDATE_PAYMENT_STATUS_BY_APPLICATION_ID: `
     UPDATE payment
        SET status = $2,
