@@ -175,7 +175,7 @@ worker does not migrate or add columns to `payment`. It only updates columns
 that already exist (`status`, `finished`).
 
 1. Looks up `invoice` by `invoice_number` (UKSBS `paymentReference`) to get `application_id`
-2. Updates the latest `payment` row for that `application_id` (highest `id`):
+2. Updates `payment` where `application_id` matches that invoice:
    `PAID` / `SUCCESS` / `COMPLETED` → `completed`, `FAILED` → `failed`, and `finished = true`
 
 The worker also reads `application` and `payment_webhooks`, and writes

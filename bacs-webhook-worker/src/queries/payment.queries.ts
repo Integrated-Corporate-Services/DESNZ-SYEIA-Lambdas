@@ -10,13 +10,7 @@ export const paymentQueries = {
     UPDATE payment
        SET status = $2,
            finished = true
-     WHERE id = (
-       SELECT id
-         FROM payment
-        WHERE application_id = $1
-        ORDER BY id DESC
-        LIMIT 1
-     )
+     WHERE application_id = $1
      RETURNING id, application_id, status
   `,
 
