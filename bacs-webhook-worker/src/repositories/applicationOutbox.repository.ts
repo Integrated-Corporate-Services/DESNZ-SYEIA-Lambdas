@@ -1,4 +1,3 @@
-import { PoolClient } from 'pg';
 import { getPool } from './payment.repository';
 import { createLogger } from '../util/logger';
 import { LOG_MESSAGES, LOG_CHILD_DOMAIN, LOG_EVENTS } from '../constants/log.constants';
@@ -12,30 +11,11 @@ const METHOD = {
   INSERT_OUTBOX_ROW: 'insertOutboxRow',
 } as const;
 
-const UNIQUE_VIOLATION = '23505';
-
-function isUniqueViolation(error: unknown): boolean {
-  return Boolean(
-    error
-    && typeof error === 'object'
-    && 'code' in error
-    && (error as { code: unknown }).code === UNIQUE_VIOLATION,
-  );
-}
-
-async function findExistingOutboxId(client: PoolClient, idempotencyKey: string): Promise<string | null> {
-  const existing = await client.query(applicationOutboxQueries.FIND_EXISTING_BY_IDEMPOTENCY_KEY, [idempotencyKey]);
-  return existing.rows[0]?.outbox_id ?? null;
-}
-
-function logDuplicate(recordId: string, applicationId: string, idempotencyKey: string, outboxId: string | null): void {
-  log.info(METHOD.INSERT_OUTBOX_ROW, LOG_MESSAGES.OUTBOX_ALREADY_RECORDED, {
-    recordId,
-    applicationId,
-    idempotencyKey,
-    outboxId,
-  }, LOG_EVENTS.OUTBOX_DUPLICATE);
-}
+const TRANSACTION = {
+  BEGIN: 'BEGIN',
+  COMMIT: 'COMMIT',
+  ROLLBACK: 'ROLLBACK',
+} as const;
 
 export const applicationOutboxRepository = {
   insertOutboxRow: async (params: InsertBacsPaymentOutboxParams, recordId: string): Promise<string | null> => {
@@ -45,39 +25,51 @@ export const applicationOutboxRepository = {
     try {
       const client = await getPool().connect();
       try {
-        const existingId = await findExistingOutboxId(client, idempotencyKey);
-        if (existingId) {
-          logDuplicate(recordId, applicationId, idempotencyKey, existingId);
-          log.end(METHOD.INSERT_OUTBOX_ROW, { recordId, outboxId: existingId });
-          return existingId;
-        }
+        await client.query(TRANSACTION.BEGIN);
+        await client.query(applicationOutboxQueries.LOCK_IDEMPOTENCY_KEY, [idempotencyKey]);
 
-        try {
-          const result = await client.query(applicationOutboxQueries.INSERT_BACS_PAYMENT_EVENT, [
-            applicationId,
-            eventType,
-            JSON.stringify(payload),
-            idempotencyKey,
-          ]);
-
-          const outboxId = result.rows[0]?.outbox_id ?? null;
-          log.info(METHOD.INSERT_OUTBOX_ROW, LOG_MESSAGES.OUTBOX_EVENT_INSERTED, {
+        const existing = await client.query(applicationOutboxQueries.FIND_EXISTING_BY_IDEMPOTENCY_KEY, [idempotencyKey]);
+        const existingOutboxId = existing.rows[0]?.outbox_id ?? null;
+        if (existingOutboxId) {
+          await client.query(TRANSACTION.COMMIT);
+          log.info(METHOD.INSERT_OUTBOX_ROW, LOG_MESSAGES.OUTBOX_ALREADY_RECORDED, {
             recordId,
             applicationId,
-            eventType,
-            outboxId,
-          }, LOG_EVENTS.OUTBOX_INSERTED);
-          log.end(METHOD.INSERT_OUTBOX_ROW, { recordId, outboxId });
-          return outboxId;
-        } catch (error) {
-          if (isUniqueViolation(error)) {
-            const outboxId = await findExistingOutboxId(client, idempotencyKey);
-            logDuplicate(recordId, applicationId, idempotencyKey, outboxId);
-            log.end(METHOD.INSERT_OUTBOX_ROW, { recordId, outboxId });
-            return outboxId;
-          }
-          throw error;
+            idempotencyKey,
+            outboxId: existingOutboxId,
+          }, LOG_EVENTS.OUTBOX_DUPLICATE);
+          log.end(METHOD.INSERT_OUTBOX_ROW, { recordId, outboxId: existingOutboxId });
+          return existingOutboxId;
         }
+
+        const result = await client.query(applicationOutboxQueries.INSERT_BACS_PAYMENT_EVENT, [
+          applicationId,
+          eventType,
+          JSON.stringify(payload),
+          idempotencyKey,
+        ]);
+        await client.query(TRANSACTION.COMMIT);
+
+        const outboxId = result.rows[0]?.outbox_id ?? null;
+        log.info(METHOD.INSERT_OUTBOX_ROW, LOG_MESSAGES.OUTBOX_EVENT_INSERTED, {
+          recordId,
+          applicationId,
+          eventType,
+          outboxId,
+        }, LOG_EVENTS.OUTBOX_INSERTED);
+        log.end(METHOD.INSERT_OUTBOX_ROW, { recordId, outboxId });
+        return outboxId;
+      } catch (error) {
+        try {
+          await client.query(TRANSACTION.ROLLBACK);
+        } catch (rollbackError) {
+          log.warn(METHOD.INSERT_OUTBOX_ROW, LOG_MESSAGES.DB_ROLLBACK_FAILED, {
+            recordId,
+            applicationId,
+            error: rollbackError instanceof Error ? rollbackError.message : String(rollbackError),
+          });
+        }
+        throw error;
       } finally {
         client.release();
       }

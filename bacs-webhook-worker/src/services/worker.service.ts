@@ -2,7 +2,7 @@ import type { SQSRecord } from 'aws-lambda';
 import { createLogger, getCorrelationId, setCorrelationId } from '../util/logger';
 import { LOG_MESSAGES, LOG_CHILD_DOMAIN, LOG_EVENTS } from '../constants/log.constants';
 import type { WorkerSummary, BacsWebhookRelayEnvelope, UkSbsWebhookPayload, ProcessablePayment } from '../types';
-import { ValidationError } from '../errors/worker.errors';
+import { PaymentProcessingError, ValidationError } from '../errors/worker.errors';
 import { paymentRepository } from '../repositories/payment.repository';
 import { applicationOutboxService } from './applicationOutbox.service';
 import { mapUksbsStatusToPaymentStatus } from '../util/paymentStatus.mapper';
@@ -275,16 +275,22 @@ async function processPayment(payment: ProcessablePayment, recordId: string): Pr
         webhookId: payment.webhookId,
         invoiceNumber: payment.transactionId,
       }, LOG_EVENTS.PAYMENT_SKIPPED);
-    } else {
-      const updated = await paymentRepository.updatePaymentStatus(invoiceLookup.applicationId, mappedStatus);
-      if (!updated) {
-        log.warn(METHOD.PROCESS_PAYMENT, LOG_MESSAGES.PAYMENT_ROW_LOOKUP_FAILED, {
-          recordId,
-          webhookId: payment.webhookId,
-          invoiceNumber: invoiceLookup.invoiceNumber,
-          applicationId: invoiceLookup.applicationId,
-        }, LOG_EVENTS.PAYMENT_NOT_FOUND);
-      }
+      throw new PaymentProcessingError(
+        `No invoice found for payment reference ${payment.transactionId}`,
+      );
+    }
+
+    const updated = await paymentRepository.updatePaymentStatus(invoiceLookup.applicationId, mappedStatus);
+    if (!updated) {
+      log.warn(METHOD.PROCESS_PAYMENT, LOG_MESSAGES.PAYMENT_ROW_LOOKUP_FAILED, {
+        recordId,
+        webhookId: payment.webhookId,
+        invoiceNumber: invoiceLookup.invoiceNumber,
+        applicationId: invoiceLookup.applicationId,
+      }, LOG_EVENTS.PAYMENT_NOT_FOUND);
+      throw new PaymentProcessingError(
+        `No payment row found for application_id ${invoiceLookup.applicationId}`,
+      );
     }
   }
 

@@ -178,9 +178,12 @@ that already exist (`status`, `finished`).
 2. Updates `payment` where `application_id` matches that invoice:
    `PAID` / `SUCCESS` / `COMPLETED` → `completed`, `FAILED` → `failed`, and `finished = true`
 
+If the invoice or payment row is not found yet, the worker fails the SQS record
+so the message can retry. It does not mark the webhook processed in that case.
+
 The worker also reads `application` and `payment_webhooks`, and writes
 `application_outbox` when `ENABLE_APPLICATION_OUTBOX=true`. Duplicate outbox
-inserts are treated as already recorded (lookup by `idempotency_key`, then insert).
+inserts are serialised with a per-key advisory lock, then lookup-or-insert.
 
 ## Scripts
 
