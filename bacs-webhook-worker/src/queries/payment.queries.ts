@@ -1,3 +1,5 @@
+import { PAYMENT_TABLE_PROVIDER } from '../util/paymentStatus.mapper';
+
 export const paymentQueries = {
   FIND_APPLICATION_BY_INVOICE_NUMBER: `
     SELECT application_id, invoice_number, payment_method
@@ -9,11 +11,14 @@ export const paymentQueries = {
   // Backend-owned public.payment already has application_id (UUID NOT NULL).
   // BACS rows are created with payment_id = null, so this cannot use the
   // GOV.UK Pay reconciler lookup (WHERE payment_id = $1).
+  // Restrict to provider = bacs so a GOV.UK Pay row on the same application
+  // is not overwritten.
   UPDATE_PAYMENT_STATUS_BY_APPLICATION_ID: `
     UPDATE payment
        SET status = $2,
            finished = true
      WHERE application_id = $1
+       AND LOWER(provider) = '${PAYMENT_TABLE_PROVIDER.BACS}'
      RETURNING id, application_id, status
   `,
 

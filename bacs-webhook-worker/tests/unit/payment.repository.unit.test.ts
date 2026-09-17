@@ -75,6 +75,7 @@ describe('updatePaymentStatus', () => {
     const [sql, params] = pg.__client.query.mock.calls[0];
     expect(sql).toContain('UPDATE payment');
     expect(sql).toContain('WHERE application_id = $1');
+    expect(sql).toContain("LOWER(provider) = 'bacs'");
     expect(sql).not.toContain('WHERE id =');
     expect(sql).not.toContain('ORDER BY id DESC');
     expect(sql).not.toContain('updated_at');

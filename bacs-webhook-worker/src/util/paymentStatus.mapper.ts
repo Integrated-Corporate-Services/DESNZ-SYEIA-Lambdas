@@ -3,6 +3,10 @@ export const PAYMENT_TABLE_STATUS = {
   FAILED: 'failed',
 } as const;
 
+export const PAYMENT_TABLE_PROVIDER = {
+  BACS: 'bacs',
+} as const;
+
 /**
  * Map UKSBS webhook detail.status onto the shared `payment.status` values
  * used by the backend (`pending` / `completed` / `failed`).
