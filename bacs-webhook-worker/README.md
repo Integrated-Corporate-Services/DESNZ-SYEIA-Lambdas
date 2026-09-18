@@ -170,29 +170,18 @@ Structured JSON logging is used throughout. Configure log level via `LOG_LEVEL` 
 
 ## Database Schema
 
-Payments are recorded in the shared `payment` table owned by the backend. This
-worker does not migrate or add columns to `payment`. It only updates columns
-that already exist (`status`, `finished`).
+Expected table structure for payments:
 
-1. Looks up `invoice` by `invoice_number` (UKSBS `paymentReference`) to get `application_id`
-2. Updates `payment` where `application_id` matches that invoice **and** `provider` is `bacs`:
-   `PAID` / `SUCCESS` / `COMPLETED` → `completed`, `FAILED` → `failed`, and `finished = true`
-
-This is not the GOV.UK Pay path. The pay-callback-reconciler looks up
-`payment.payment_id` (GOV.UK Pay id). BACS webhooks do not send that id, and
-BACS payment rows are created with `payment_id` null. `application_id` already
-exists on the backend `payment` table; this worker does not add it. The
-`provider = bacs` filter stops a BACS webhook overwriting a GOV.UK Pay row on
-the same application.
-
-If the invoice or BACS payment row is not found yet, or the UKSBS status is not
-`PAID` / `SUCCESS` / `COMPLETED` / `FAILED`, the worker fails the SQS record so
-the message can retry or DLQ. It does not mark the webhook processed in that
-case. Outbox payloads use the mapped payment status (`completed` / `failed`).
-
-The worker also reads `application` and `payment_webhooks`, and writes
-`application_outbox` when `ENABLE_APPLICATION_OUTBOX=true`. Duplicate outbox
-inserts are serialised with a per-key advisory lock, then lookup-or-insert.
+```sql
+CREATE TABLE payments (
+  id SERIAL PRIMARY KEY,
+  transaction_id VARCHAR(255) UNIQUE NOT NULL,
+  amount DECIMAL(15, 2) NOT NULL,
+  status VARCHAR(50) NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
 
 ## Scripts
 
