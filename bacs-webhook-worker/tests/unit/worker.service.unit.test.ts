@@ -1,6 +1,6 @@
 jest.mock('../../src/repositories/payment.repository', () => ({
   paymentRepository: {
-    recordPayment: jest.fn().mockResolvedValue(undefined),
+    updatePaymentStatus: jest.fn().mockResolvedValue(undefined),
     markWebhookProcessed: jest.fn().mockResolvedValue(undefined),
     getPaymentStatus: jest.fn().mockResolvedValue(null),
     findApplicationByInvoiceNumber: jest.fn().mockResolvedValue(null),
@@ -15,6 +15,25 @@ jest.mock('../../src/services/applicationOutbox.service', () => ({
 }));
 
 import { workerService } from '../../src/services/worker.service';
+import { paymentRepository } from '../../src/repositories/payment.repository';
+import { applicationOutboxService } from '../../src/services/applicationOutbox.service';
+
+const APPLICATION_ID = '11111111-1111-1111-1111-111111111111';
+
+function sqsRecord(body: string, messageId: string) {
+  return {
+    messageId,
+    receiptHandle: `handle-${messageId}`,
+    body,
+    attributes: {} as any,
+    messageAttributes: {},
+    md5OfBody: '',
+    md5OfMessageAttributes: '',
+    eventSource: 'aws:sqs',
+    eventSourceARN: 'arn:aws:sqs:...',
+    awsRegion: 'us-east-1',
+  };
+}
 
 function validEnvelopeBody(overrides: Record<string, unknown> = {}): string {
   return JSON.stringify({
@@ -52,6 +71,21 @@ function validEnvelopeBody(overrides: Record<string, unknown> = {}): string {
 }
 
 describe('workerService', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (paymentRepository.findApplicationByInvoiceNumber as jest.Mock).mockResolvedValue({
+      applicationId: APPLICATION_ID,
+      invoiceNumber: 'txn-123',
+      paymentMethod: 'BACS',
+    });
+    (paymentRepository.updatePaymentStatus as jest.Mock).mockResolvedValue({
+      id: 42,
+      applicationId: APPLICATION_ID,
+      status: 'completed',
+    });
+    (paymentRepository.markWebhookProcessed as jest.Mock).mockResolvedValue(undefined);
+  });
+
   describe('processRecords', () => {
     it('should process valid records successfully', async () => {
       const records = [
@@ -118,6 +152,103 @@ describe('workerService', () => {
 
       expect(result.failed).toBeGreaterThan(0);
       expect(result.errors).toHaveLength(1);
+    });
+
+    it('updates payment.status using application_id from the invoice', async () => {
+      const result = await workerService.processRecords([sqsRecord(validEnvelopeBody(), 'msg-4')]);
+
+      expect(result.failed).toBe(0);
+      expect(paymentRepository.findApplicationByInvoiceNumber).toHaveBeenCalledWith('txn-123');
+      expect(paymentRepository.updatePaymentStatus).toHaveBeenCalledWith(
+        APPLICATION_ID,
+        'completed',
+      );
+      expect(applicationOutboxService.recordBacsPaymentEvent).toHaveBeenCalledWith(
+        expect.objectContaining({ status: 'completed' }),
+        'msg-4',
+      );
+    });
+
+    it('maps FAILED webhooks to payment.status = failed', async () => {
+      (paymentRepository.updatePaymentStatus as jest.Mock).mockResolvedValue({
+        id: 42,
+        applicationId: APPLICATION_ID,
+        status: 'failed',
+      });
+
+      const body = validEnvelopeBody({
+        payload: {
+          event: {
+            eventId: 'event-1',
+            eventType: 'PAYMENT_STATUS_UPDATED',
+            eventVersion: '1',
+            occurredAt: '2026-01-01T00:00:00.000Z',
+            source: 'UKSBS',
+          },
+          callback: { deliveryId: 'delivery-1', attemptNumber: 1 },
+          payment: { paymentReference: 'txn-123' },
+          detail: { status: 'FAILED', amount: 100, currency: 'GBP' },
+        },
+      });
+
+      const result = await workerService.processRecords([sqsRecord(body, 'msg-6')]);
+
+      expect(result.failed).toBe(0);
+      expect(paymentRepository.updatePaymentStatus).toHaveBeenCalledWith(
+        APPLICATION_ID,
+        'failed',
+      );
+    });
+
+    it('fails the record when no invoice matches so SQS can retry', async () => {
+      (paymentRepository.findApplicationByInvoiceNumber as jest.Mock).mockResolvedValue(null);
+
+      const result = await workerService.processRecords([sqsRecord(validEnvelopeBody(), 'msg-5')]);
+
+      expect(result.failed).toBe(1);
+      expect(result.errors[0].recordId).toBe('msg-5');
+      expect(paymentRepository.updatePaymentStatus).not.toHaveBeenCalled();
+      expect(paymentRepository.markWebhookProcessed).not.toHaveBeenCalled();
+    });
+
+    it('fails the record when invoice exists but no payment row is updated so SQS can retry', async () => {
+      (paymentRepository.updatePaymentStatus as jest.Mock).mockResolvedValue(null);
+
+      const result = await workerService.processRecords([sqsRecord(validEnvelopeBody(), 'msg-7')]);
+
+      expect(result.failed).toBe(1);
+      expect(result.errors[0].recordId).toBe('msg-7');
+      expect(paymentRepository.updatePaymentStatus).toHaveBeenCalledWith(
+        APPLICATION_ID,
+        'completed',
+      );
+      expect(paymentRepository.markWebhookProcessed).not.toHaveBeenCalled();
+    });
+
+    it('fails the record when the UKSBS status is unmapped so it is not acknowledged or emitted', async () => {
+      const body = validEnvelopeBody({
+        payload: {
+          event: {
+            eventId: 'event-1',
+            eventType: 'PAYMENT_STATUS_UPDATED',
+            eventVersion: '1',
+            occurredAt: '2026-01-01T00:00:00.000Z',
+            source: 'UKSBS',
+          },
+          callback: { deliveryId: 'delivery-1', attemptNumber: 1 },
+          payment: { paymentReference: 'txn-123' },
+          detail: { status: 'PENDING', amount: 100, currency: 'GBP' },
+        },
+      });
+
+      const result = await workerService.processRecords([sqsRecord(body, 'msg-8')]);
+
+      expect(result.failed).toBe(1);
+      expect(result.errors[0].recordId).toBe('msg-8');
+      expect(paymentRepository.findApplicationByInvoiceNumber).not.toHaveBeenCalled();
+      expect(paymentRepository.updatePaymentStatus).not.toHaveBeenCalled();
+      expect(paymentRepository.markWebhookProcessed).not.toHaveBeenCalled();
+      expect(applicationOutboxService.recordBacsPaymentEvent).not.toHaveBeenCalled();
     });
   });
 });

@@ -1,10 +1,12 @@
-jest.mock('pg', () => ({
-  Pool: jest.fn(() => ({
-    query: jest.fn(),
-    connect: jest.fn(),
+jest.mock('pg', () => {
+  const client = { query: jest.fn().mockResolvedValue({ rows: [] }), release: jest.fn() };
+  const pool = {
+    query: jest.fn().mockResolvedValue({ rows: [] }),
+    connect: jest.fn().mockResolvedValue(client),
     end: jest.fn(),
-  })),
-}));
+  };
+  return { Pool: jest.fn(() => pool), __client: client };
+});
 
 jest.mock('../../src/config/env.config', () => ({
   envConfig: { get: jest.fn() },
@@ -22,39 +24,62 @@ const BASE_CONFIG = {
   logLevel: 'info' as const,
 };
 
-async function createPoolWith(dbSsl: boolean) {
+async function loadRepository(dbSsl = true) {
   jest.resetModules();
 
   const { envConfig } = await import('../../src/config/env.config');
   (envConfig.get as jest.Mock).mockReturnValue({ ...BASE_CONFIG, dbSsl });
 
-  const { Pool } = await import('pg');
-  const { getPool } = await import('../../src/repositories/payment.repository');
-  getPool();
+  const pg = (await import('pg')) as unknown as { Pool: jest.Mock; __client: { query: jest.Mock; release: jest.Mock } };
+  const repository = await import('../../src/repositories/payment.repository');
 
-  return Pool as unknown as jest.Mock;
+  return { pg, ...repository };
 }
 
 describe('payment repository pool', () => {
   test('requests TLS when dbSsl is enabled', async () => {
-    const Pool = await createPoolWith(true);
+    const { pg, getPool } = await loadRepository(true);
+    getPool();
 
-    expect(Pool).toHaveBeenCalledWith(
+    expect(pg.Pool).toHaveBeenCalledWith(
       expect.objectContaining({ ssl: { rejectUnauthorized: false } }),
     );
   });
 
   test('connects without TLS when dbSsl is disabled', async () => {
-    const Pool = await createPoolWith(false);
+    const { pg, getPool } = await loadRepository(false);
+    getPool();
 
-    expect(Pool).toHaveBeenCalledWith(expect.objectContaining({ ssl: false }));
+    expect(pg.Pool).toHaveBeenCalledWith(expect.objectContaining({ ssl: false }));
   });
 
   test('reuses a single pool across calls', async () => {
-    const Pool = await createPoolWith(true);
-    const { getPool } = await import('../../src/repositories/payment.repository');
+    const { pg, getPool } = await loadRepository();
+    getPool();
     getPool();
 
-    expect(Pool).toHaveBeenCalledTimes(1);
+    expect(pg.Pool).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('updatePaymentStatus', () => {
+  test('updates payment.status by application_id and releases the client', async () => {
+    const { pg, paymentRepository } = await loadRepository();
+    pg.__client.query.mockResolvedValue({
+      rows: [{ id: 42, application_id: 'app-1', status: 'completed' }],
+    });
+
+    const updated = await paymentRepository.updatePaymentStatus('app-1', 'completed');
+
+    expect(updated).toEqual({ id: 42, applicationId: 'app-1', status: 'completed' });
+    const [sql, params] = pg.__client.query.mock.calls[0];
+    expect(sql).toContain('UPDATE payment');
+    expect(sql).toContain('WHERE application_id = $1');
+    expect(sql).toContain("LOWER(provider) = 'bacs'");
+    expect(sql).not.toContain('WHERE id =');
+    expect(sql).not.toContain('ORDER BY id DESC');
+    expect(sql).not.toContain('updated_at');
+    expect(params).toEqual(['app-1', 'completed']);
+    expect(pg.__client.release).toHaveBeenCalled();
   });
 });

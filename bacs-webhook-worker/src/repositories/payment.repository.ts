@@ -10,7 +10,7 @@ const log = createLogger('payment.repository.ts', LOG_CHILD_DOMAIN.PAYMENT_REPOS
 const METHOD = {
   CONNECT: 'connect',
   DISCONNECT: 'disconnect',
-  RECORD_PAYMENT: 'recordPayment',
+  UPDATE_PAYMENT_STATUS: 'updatePaymentStatus',
   GET_PAYMENT_STATUS: 'getPaymentStatus',
   MARK_WEBHOOK_PROCESSED: 'markWebhookProcessed',
   FIND_APPLICATION_BY_INVOICE_NUMBER: 'findApplicationByInvoiceNumber',
@@ -21,6 +21,12 @@ export interface InvoiceApplicationLookup {
   applicationId: string;
   invoiceNumber: string;
   paymentMethod: string | null;
+}
+
+export interface PaymentRowLookup {
+  id: number;
+  applicationId: string;
+  status: string;
 }
 
 let pool: Pool | null = null;
@@ -71,18 +77,34 @@ export const paymentRepository = {
     }
   },
 
-  recordPayment: async (transactionId: string, amount: number, status: string): Promise<void> => {
-    log.start(METHOD.RECORD_PAYMENT, { transactionId, amount, status });
+  updatePaymentStatus: async (applicationId: string, status: string): Promise<PaymentRowLookup | null> => {
+    log.start(METHOD.UPDATE_PAYMENT_STATUS, { applicationId, status });
     let client: PoolClient | null = null;
     try {
       client = await getPool().connect();
-      await client.query(paymentQueries.RECORD_PAYMENT, [transactionId, amount, status]);
-      log.info(METHOD.RECORD_PAYMENT, LOG_MESSAGES.PAYMENT_RECORDED, { transactionId, amount, status }, LOG_EVENTS.PAYMENT_RECORDED);
-      log.end(METHOD.RECORD_PAYMENT, { transactionId });
+      const result = await client.query(paymentQueries.UPDATE_PAYMENT_STATUS_BY_APPLICATION_ID, [applicationId, status]);
+      if (result.rows.length === 0) {
+        log.end(METHOD.UPDATE_PAYMENT_STATUS, { applicationId, updated: false });
+        return null;
+      }
+
+      const row = result.rows[0];
+      const updated: PaymentRowLookup = {
+        id: Number(row.id),
+        applicationId: row.application_id,
+        status: row.status,
+      };
+      log.info(METHOD.UPDATE_PAYMENT_STATUS, LOG_MESSAGES.PAYMENT_RECORDED, {
+        paymentId: updated.id,
+        applicationId: updated.applicationId,
+        status: updated.status,
+      }, LOG_EVENTS.PAYMENT_RECORDED);
+      log.end(METHOD.UPDATE_PAYMENT_STATUS, { applicationId, paymentId: updated.id });
+      return updated;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      log.error(METHOD.RECORD_PAYMENT, LOG_MESSAGES.DB_QUERY_ERROR, { error: message, transactionId });
-      throw new DatabaseError(`Failed to record payment: ${message}`);
+      log.error(METHOD.UPDATE_PAYMENT_STATUS, LOG_MESSAGES.DB_QUERY_ERROR, { error: message, applicationId });
+      throw new DatabaseError(`Failed to update payment status: ${message}`);
     } finally {
       if (client) {
         client.release();
@@ -144,20 +166,20 @@ export const paymentRepository = {
     }
   },
 
-  getPaymentStatus: async (transactionId: string): Promise<string | null> => {
-    log.start(METHOD.GET_PAYMENT_STATUS, { transactionId });
+  getPaymentStatus: async (applicationId: string): Promise<string | null> => {
+    log.start(METHOD.GET_PAYMENT_STATUS, { applicationId });
     let client: PoolClient | null = null;
     try {
       client = await getPool().connect();
-      const result = await client.query(paymentQueries.GET_PAYMENT_STATUS, [transactionId]);
+      const result = await client.query(paymentQueries.GET_PAYMENT_STATUS, [applicationId]);
 
       const status = result.rows.length > 0 ? result.rows[0].status : null;
-      log.end(METHOD.GET_PAYMENT_STATUS, { transactionId, status });
+      log.end(METHOD.GET_PAYMENT_STATUS, { applicationId, status });
 
       return status;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      log.error(METHOD.GET_PAYMENT_STATUS, LOG_MESSAGES.DB_QUERY_ERROR, { error: message, transactionId });
+      log.error(METHOD.GET_PAYMENT_STATUS, LOG_MESSAGES.DB_QUERY_ERROR, { error: message, applicationId });
       throw new DatabaseError(`Failed to get payment status: ${message}`);
     } finally {
       if (client) {

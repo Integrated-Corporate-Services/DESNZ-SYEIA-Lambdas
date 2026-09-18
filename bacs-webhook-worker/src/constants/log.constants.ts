@@ -15,6 +15,8 @@ export const LOG_CHILD_DOMAIN = {
 
 export const LOG_EVENTS = {
   PAYMENT_RECORDED: 'PAYMENT_RECORDED',
+  PAYMENT_SKIPPED: 'PAYMENT_SKIPPED',
+  PAYMENT_NOT_FOUND: 'PAYMENT_NOT_FOUND',
   WEBHOOK_PROCESSED: 'WEBHOOK_PROCESSED',
   RECORD_PROCESSING_FAILED: 'RECORD_PROCESSING_FAILED',
   OUTBOX_INSERTED: 'OUTBOX_INSERTED',
@@ -51,12 +53,19 @@ export const LOG_MESSAGES = {
   // Payment processing messages
   PAYMENT_PROCESSING_START: 'starting payment processing',
   PAYMENT_PROCESSING_COMPLETE: 'payment processing completed',
+  PAYMENT_INVOICE_LOOKUP_FAILED:
+    'cannot update payment — no invoice found for this payment reference (invoice_number)',
+  PAYMENT_ROW_LOOKUP_FAILED:
+    'cannot update payment — no payment row found for this application_id',
+  PAYMENT_STATUS_UNMAPPED:
+    'cannot update payment — unrecognised UKSBS status (expected PAID, SUCCESS, COMPLETED, or FAILED)',
 
   // Database messages
   DB_CONNECT_ERROR: 'database connection error',
   DB_CONNECTED: 'database connection verified',
   DB_QUERY_ERROR: 'database query error',
-  PAYMENT_RECORDED: 'payment recorded in payments table',
+  DB_ROLLBACK_FAILED: 'error rolling back transaction — continuing to throw original error',
+  PAYMENT_RECORDED: 'payment status updated in payment table',
   WEBHOOK_MARKED_PROCESSED: 'webhook marked as processed',
   WEBHOOK_ALREADY_PROCESSED: 'webhook not found or already processed — no rows updated',
 
