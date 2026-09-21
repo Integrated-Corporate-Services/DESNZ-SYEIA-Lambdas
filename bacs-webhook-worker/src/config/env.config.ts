@@ -67,6 +67,20 @@ async function resolveDbCredentials(): Promise<{ username: string; password: str
   return cachedCredentials;
 }
 
+function resolveDbSsl(): boolean {
+  if (process.env.PGSSLMODE === 'disable') {
+    return false;
+  }
+
+  if (process.env.PGSSLMODE === 'require') {
+    return true;
+  }
+
+  // HOST_NAME is only set when pointing at RDS, which rejects unencrypted
+  // connections. Local Postgres has no TLS, so SSL stays off without it.
+  return Boolean(process.env.HOST_NAME);
+}
+
 export const envConfig = {
   load: async (): Promise<Config> => {
     if (config) return config;
@@ -90,7 +104,7 @@ export const envConfig = {
           dbUser: credentials.username,
           dbPassword: credentials.password,
           dbName: process.env.DB_NAME ?? '',
-          dbSsl: process.env.DB_SSL !== 'false',
+          dbSsl: resolveDbSsl(),
           sqsQueueUrl: process.env.SQS_QUEUE_URL ?? '',
           environment: env,
           logLevel: (process.env.LOG_LEVEL as Config['logLevel'] | undefined) ?? 'info',
