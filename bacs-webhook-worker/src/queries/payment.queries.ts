@@ -7,7 +7,7 @@ export const paymentQueries = {
   `,
 
   FIND_APPLICATION_BY_INVOICE_NUMBER: `
-    SELECT application_id, invoice_number, payment_method
+    SELECT application_id, invoice_number, payment_method, amount_pence
       FROM invoice
      WHERE invoice_number = $1
      LIMIT 1
@@ -19,11 +19,16 @@ export const paymentQueries = {
 
   MARK_WEBHOOK_PROCESSED: `
     UPDATE payment_webhooks
-    SET 
-      status = 'processed',
+    SET
+      status = 'PROCESSED',
       updated_at = NOW(),
       updated_by = $2
     WHERE webhook_id = $1
-      AND status != 'processed'
+      AND status != 'PROCESSED'
   `,
+
+  // Used only when MARK_WEBHOOK_PROCESSED updates zero rows, to tell apart
+  // "already processed" (row exists, idempotent retry - fine) from
+  // "webhook_id doesn't exist" (bad data - should fail loudly).
+  FIND_WEBHOOK_BY_ID: 'SELECT webhook_id, status FROM payment_webhooks WHERE webhook_id = $1',
 };

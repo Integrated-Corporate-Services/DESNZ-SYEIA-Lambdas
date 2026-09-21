@@ -102,6 +102,24 @@ function buildContext(): Context {
 }
 
 describe('handler batchItemFailures', () => {
+<<<<<<< Updated upstream
+=======
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (paymentRepository.findApplicationByInvoiceNumber as jest.Mock).mockResolvedValue({
+      applicationId: '11111111-1111-1111-1111-111111111111',
+      invoiceNumber: 'txn-123',
+      paymentMethod: 'BACS',
+      amountPence: 100,
+    });
+    (paymentRepository.updatePaymentStatus as jest.Mock).mockResolvedValue({
+      id: 42,
+      applicationId: '11111111-1111-1111-1111-111111111111',
+      status: 'success',
+    });
+    (paymentRepository.markWebhookProcessed as jest.Mock).mockResolvedValue(undefined);
+  });
+>>>>>>> Stashed changes
   it('returns only the failing record messageId when the batch has a mix of success and failure', async () => {
     const event: SQSEvent = {
       Records: [

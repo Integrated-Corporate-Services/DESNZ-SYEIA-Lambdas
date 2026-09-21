@@ -2,7 +2,7 @@ import { Pool, PoolClient } from 'pg';
 import { createLogger } from '../util/logger';
 import { envConfig } from '../config/env.config';
 import { LOG_MESSAGES, LOG_CHILD_DOMAIN, LOG_EVENTS } from '../constants/log.constants';
-import { DatabaseError } from '../errors/worker.errors';
+import { DatabaseError, WebhookNotFoundError } from '../errors/worker.errors';
 import { paymentQueries } from '../queries/payment.queries';
 
 const log = createLogger('payment.repository.ts', LOG_CHILD_DOMAIN.PAYMENT_REPOSITORY);
@@ -21,6 +21,7 @@ export interface InvoiceApplicationLookup {
   applicationId: string;
   invoiceNumber: string;
   paymentMethod: string | null;
+  amountPence: number | null;
 }
 
 let pool: Pool | null = null;
@@ -106,6 +107,7 @@ export const paymentRepository = {
         applicationId: row.application_id,
         invoiceNumber: row.invoice_number,
         paymentMethod: row.payment_method ?? null,
+        amountPence: row.amount_pence === null || row.amount_pence === undefined ? null : Number(row.amount_pence),
       };
       log.end(METHOD.FIND_APPLICATION_BY_INVOICE_NUMBER, { invoiceNumber, applicationId: lookup.applicationId });
 
@@ -173,17 +175,34 @@ export const paymentRepository = {
       const result = await client.query(paymentQueries.MARK_WEBHOOK_PROCESSED, [webhookId, processedBy]);
 
       if (result.rowCount === 0) {
-        log.warn(METHOD.MARK_WEBHOOK_PROCESSED, LOG_MESSAGES.WEBHOOK_ALREADY_PROCESSED, { webhookId });
+        // Zero rows updated means either (a) this webhook was already marked
+        // PROCESSED (a harmless idempotent SQS retry) or (b) webhookId simply
+        // doesn't exist in payment_webhooks (bad data, should fail loudly).
+        // Tell them apart with a lookup rather than silently treating both the same.
+        const existing = await client.query(paymentQueries.FIND_WEBHOOK_BY_ID, [webhookId]);
+
+        if (existing.rows.length === 0) {
+          log.error(METHOD.MARK_WEBHOOK_PROCESSED, LOG_MESSAGES.WEBHOOK_NOT_FOUND, { webhookId }, LOG_EVENTS.WEBHOOK_NOT_FOUND);
+          throw new WebhookNotFoundError(`No payment_webhooks row found for webhookId ${webhookId}`);
+        }
+
+        log.warn(METHOD.MARK_WEBHOOK_PROCESSED, LOG_MESSAGES.WEBHOOK_ALREADY_PROCESSED, {
+          webhookId,
+          currentStatus: existing.rows[0].status,
+        });
       } else {
         log.info(METHOD.MARK_WEBHOOK_PROCESSED, LOG_MESSAGES.WEBHOOK_MARKED_PROCESSED, {
           webhookId,
-          status: 'processed',
+          status: 'PROCESSED',
           rowsUpdated: result.rowCount,
         }, LOG_EVENTS.WEBHOOK_PROCESSED);
       }
 
       log.end(METHOD.MARK_WEBHOOK_PROCESSED, { webhookId, rowsUpdated: result.rowCount });
     } catch (error) {
+      if (error instanceof WebhookNotFoundError) {
+        throw error;
+      }
       const message = error instanceof Error ? error.message : String(error);
       log.error(METHOD.MARK_WEBHOOK_PROCESSED, LOG_MESSAGES.DB_QUERY_ERROR, { error: message, webhookId });
       throw new DatabaseError(`Failed to mark webhook as processed: ${message}`);

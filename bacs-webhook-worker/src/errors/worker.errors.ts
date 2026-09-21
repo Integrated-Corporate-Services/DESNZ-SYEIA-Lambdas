@@ -29,3 +29,10 @@ export class PaymentProcessingError extends WorkerError {
     this.name = 'PaymentProcessingError';
   }
 }
+
+export class WebhookNotFoundError extends WorkerError {
+  constructor(message: string) {
+    super(message, 'WEBHOOK_NOT_FOUND', 404);
+    this.name = 'WebhookNotFoundError';
+  }
+}

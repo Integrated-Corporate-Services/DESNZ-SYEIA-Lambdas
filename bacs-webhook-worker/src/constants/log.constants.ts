@@ -22,6 +22,8 @@ export const LOG_EVENTS = {
   OUTBOX_FAILED: 'OUTBOX_FAILED',
   OUTBOX_SKIPPED: 'OUTBOX_SKIPPED',
   INVOCATION_FAILED: 'INVOCATION_FAILED',
+  WEBHOOK_NOT_FOUND: 'WEBHOOK_NOT_FOUND',
+  PAYMENT_AMOUNT_MISMATCH: 'PAYMENT_AMOUNT_MISMATCH',
 } as const;
 
 export type LogMarker = (typeof LOG_MARKERS)[keyof typeof LOG_MARKERS];
@@ -51,6 +53,17 @@ export const LOG_MESSAGES = {
   // Payment processing messages
   PAYMENT_PROCESSING_START: 'starting payment processing',
   PAYMENT_PROCESSING_COMPLETE: 'payment processing completed',
+<<<<<<< Updated upstream
+=======
+  PAYMENT_INVOICE_LOOKUP_FAILED:
+    'cannot update payment — no invoice found for this payment reference (invoice_number)',
+  PAYMENT_ROW_LOOKUP_FAILED:
+    'cannot update payment — no payment row found for this application_id',
+  PAYMENT_STATUS_UNMAPPED:
+    'cannot update payment — unrecognised UKSBS status (expected PAID, SUCCESS, COMPLETED, or FAILED)',
+  PAYMENT_AMOUNT_MISMATCH:
+    'webhook detail.amount does not match invoice.amount_pence — proceeding anyway, but this may indicate a data anomaly',
+>>>>>>> Stashed changes
 
   // Database messages
   DB_CONNECT_ERROR: 'database connection error',
@@ -58,7 +71,8 @@ export const LOG_MESSAGES = {
   DB_QUERY_ERROR: 'database query error',
   PAYMENT_RECORDED: 'payment recorded in payments table',
   WEBHOOK_MARKED_PROCESSED: 'webhook marked as processed',
-  WEBHOOK_ALREADY_PROCESSED: 'webhook not found or already processed — no rows updated',
+  WEBHOOK_ALREADY_PROCESSED: 'webhook already processed — no rows updated (idempotent retry)',
+  WEBHOOK_NOT_FOUND: 'no payment_webhooks row found for this webhookId — cannot mark as processed',
 
   // SQS messages (worker does not publish, kept for parity/future use)
   SQS_SEND_ERROR: 'failed to send SQS message',

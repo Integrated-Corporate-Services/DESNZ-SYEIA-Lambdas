@@ -225,7 +225,7 @@ function validateAndTransform(envelope: BacsWebhookRelayEnvelope, recordId: stri
     paymentId: envelope.paymentId,
     transactionId: uksbsPayload.payment.paymentReference,
     amount: uksbsPayload.detail.amount,
-    status: uksbsPayload.detail.status.toUpperCase(),
+    status: uksbsPayload.detail.status,
     currency: uksbsPayload.detail.currency || 'GBP',
     bacsReference: uksbsPayload.detail.bacsReference,
     paymentDate: uksbsPayload.detail.paymentDate,
@@ -259,11 +259,68 @@ async function processPayment(payment: ProcessablePayment, recordId: string): Pr
     status: payment.status,
   });
 
+<<<<<<< Updated upstream
   await paymentRepository.recordPayment(payment.transactionId, payment.amount, payment.status);
 
   await paymentRepository.markWebhookProcessed(payment.webhookId, 'bacs-webhook-worker');
 
   await applicationOutboxService.recordBacsPaymentEvent(payment, recordId);
+=======
+  const mappedStatus = mapUksbsStatusToPaymentStatus(payment.status);
+  if (!mappedStatus) {
+    log.warn(METHOD.PROCESS_PAYMENT, LOG_MESSAGES.PAYMENT_STATUS_UNMAPPED, {
+      recordId,
+      webhookId: payment.webhookId,
+      uksbsStatus: payment.status,
+    }, LOG_EVENTS.PAYMENT_SKIPPED);
+    throw new PaymentProcessingError(
+      `Unrecognised UKSBS status ${payment.status}`,
+    );
+  }
+
+  const invoiceLookup = await paymentRepository.findApplicationByInvoiceNumber(payment.transactionId);
+  if (!invoiceLookup) {
+    log.warn(METHOD.PROCESS_PAYMENT, LOG_MESSAGES.PAYMENT_INVOICE_LOOKUP_FAILED, {
+      recordId,
+      webhookId: payment.webhookId,
+      invoiceNumber: payment.transactionId,
+    }, LOG_EVENTS.PAYMENT_SKIPPED);
+    throw new PaymentProcessingError(
+      `No invoice found for payment reference ${payment.transactionId}`,
+    );
+  }
+
+  if (invoiceLookup.amountPence !== null && invoiceLookup.amountPence !== payment.amount) {
+    log.warn(METHOD.PROCESS_PAYMENT, LOG_MESSAGES.PAYMENT_AMOUNT_MISMATCH, {
+      recordId,
+      webhookId: payment.webhookId,
+      invoiceNumber: invoiceLookup.invoiceNumber,
+      webhookAmount: payment.amount,
+      invoiceAmountPence: invoiceLookup.amountPence,
+    }, LOG_EVENTS.PAYMENT_AMOUNT_MISMATCH);
+  }
+
+  const updated = await paymentRepository.updatePaymentStatus(invoiceLookup.applicationId, mappedStatus);
+  if (!updated) {
+    log.warn(METHOD.PROCESS_PAYMENT, LOG_MESSAGES.PAYMENT_ROW_LOOKUP_FAILED, {
+      recordId,
+      webhookId: payment.webhookId,
+      invoiceNumber: invoiceLookup.invoiceNumber,
+      applicationId: invoiceLookup.applicationId,
+    }, LOG_EVENTS.PAYMENT_NOT_FOUND);
+    throw new PaymentProcessingError(
+      `No payment row found for application_id ${invoiceLookup.applicationId}`,
+    );
+  }
+
+  await paymentRepository.markWebhookProcessed(payment.webhookId, 'bacs-webhook-worker');
+
+  await applicationOutboxService.recordBacsPaymentEvent(
+    { ...payment, status: mappedStatus },
+    invoiceLookup,
+    recordId,
+  );
+>>>>>>> Stashed changes
 
   log.info(METHOD.PROCESS_PAYMENT, LOG_MESSAGES.PAYMENT_PROCESSING_COMPLETE, {
     recordId,
