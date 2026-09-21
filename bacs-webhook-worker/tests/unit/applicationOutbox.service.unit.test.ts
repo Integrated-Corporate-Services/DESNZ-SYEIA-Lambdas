@@ -117,12 +117,8 @@ describe('applicationOutboxService.recordBacsPaymentEvent', () => {
       payment: {
         amount: payment.amount,
         currency: payment.currency,
-<<<<<<< Updated upstream
-        status: payment.status,
-=======
         // Verbatim passthrough - buildPayment()'s default status is 'PAID'.
         status: 'PAID',
->>>>>>> Stashed changes
         bacsReference: payment.bacsReference,
         paymentReference: 'INV01/NWL00045',
         paymentDate: payment.paymentDate,
@@ -131,8 +127,6 @@ describe('applicationOutboxService.recordBacsPaymentEvent', () => {
     });
   });
 
-<<<<<<< Updated upstream
-=======
   it('passes an arbitrary recognised status through verbatim in the outbox payload', async () => {
     mockedFindDesnzReferenceByApplicationId.mockResolvedValue('DESNZ-1');
     mockedInsertOutboxRow.mockResolvedValue('outbox-1');
@@ -158,7 +152,6 @@ describe('applicationOutboxService.recordBacsPaymentEvent', () => {
     expect(mockedInsertOutboxRow).not.toHaveBeenCalled();
   });
 
->>>>>>> Stashed changes
   it('propagates a repository failure instead of swallowing it', async () => {
     mockedFindDesnzReferenceByApplicationId.mockResolvedValue('DESNZ-1');
     mockedInsertOutboxRow.mockRejectedValue(new Error('Failed to insert application_outbox event: connection lost'));

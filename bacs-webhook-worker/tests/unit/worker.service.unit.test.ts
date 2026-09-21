@@ -1,6 +1,6 @@
 jest.mock('../../src/repositories/payment.repository', () => ({
   paymentRepository: {
-    recordPayment: jest.fn().mockResolvedValue(undefined),
+    updatePaymentStatus: jest.fn().mockResolvedValue(undefined),
     markWebhookProcessed: jest.fn().mockResolvedValue(undefined),
     getPaymentStatus: jest.fn().mockResolvedValue(null),
     findApplicationByInvoiceNumber: jest.fn().mockResolvedValue(null),
@@ -15,6 +15,25 @@ jest.mock('../../src/services/applicationOutbox.service', () => ({
 }));
 
 import { workerService } from '../../src/services/worker.service';
+import { paymentRepository } from '../../src/repositories/payment.repository';
+import { applicationOutboxService } from '../../src/services/applicationOutbox.service';
+
+const APPLICATION_ID = '11111111-1111-1111-1111-111111111111';
+
+function sqsRecord(body: string, messageId: string) {
+  return {
+    messageId,
+    receiptHandle: `handle-${messageId}`,
+    body,
+    attributes: {} as any,
+    messageAttributes: {},
+    md5OfBody: '',
+    md5OfMessageAttributes: '',
+    eventSource: 'aws:sqs',
+    eventSourceARN: 'arn:aws:sqs:...',
+    awsRegion: 'us-east-1',
+  };
+}
 
 function validEnvelopeBody(overrides: Record<string, unknown> = {}): string {
   return JSON.stringify({
@@ -52,8 +71,6 @@ function validEnvelopeBody(overrides: Record<string, unknown> = {}): string {
 }
 
 describe('workerService', () => {
-<<<<<<< Updated upstream
-=======
   beforeEach(() => {
     jest.clearAllMocks();
     (paymentRepository.findApplicationByInvoiceNumber as jest.Mock).mockResolvedValue({
@@ -70,7 +87,6 @@ describe('workerService', () => {
     (paymentRepository.markWebhookProcessed as jest.Mock).mockResolvedValue(undefined);
   });
 
->>>>>>> Stashed changes
   describe('processRecords', () => {
     it('should process valid records successfully', async () => {
       const records = [
@@ -138,8 +154,6 @@ describe('workerService', () => {
       expect(result.failed).toBeGreaterThan(0);
       expect(result.errors).toHaveLength(1);
     });
-<<<<<<< Updated upstream
-=======
 
     it('updates payment.status verbatim (as received in the webhook) using application_id from the invoice', async () => {
       const result = await workerService.processRecords([sqsRecord(validEnvelopeBody(), 'msg-4')]);
@@ -265,7 +279,5 @@ describe('workerService', () => {
       expect(paymentRepository.markWebhookProcessed).not.toHaveBeenCalled();
       expect(applicationOutboxService.recordBacsPaymentEvent).not.toHaveBeenCalled();
     });
->>>>>>> Stashed changes
   });
 });
-

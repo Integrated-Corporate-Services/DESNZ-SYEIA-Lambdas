@@ -6,6 +6,7 @@ interface Config {
   dbUser: string;
   dbPassword: string;
   dbName: string;
+  dbSsl: boolean;
   sqsQueueUrl: string;
   environment: 'dev' | 'uat' | 'prod';
   logLevel: 'debug' | 'info' | 'warn' | 'error';
@@ -89,6 +90,7 @@ export const envConfig = {
           dbUser: credentials.username,
           dbPassword: credentials.password,
           dbName: process.env.DB_NAME ?? '',
+          dbSsl: process.env.DB_SSL !== 'false',
           sqsQueueUrl: process.env.SQS_QUEUE_URL ?? '',
           environment: env,
           logLevel: (process.env.LOG_LEVEL as Config['logLevel'] | undefined) ?? 'info',

@@ -16,7 +16,7 @@ jest.mock('../../src/config/env.config', () => ({
 
 jest.mock('../../src/repositories/payment.repository', () => ({
   paymentRepository: {
-    recordPayment: jest.fn().mockResolvedValue(undefined),
+    updatePaymentStatus: jest.fn().mockResolvedValue(undefined),
     markWebhookProcessed: jest.fn().mockResolvedValue(undefined),
     getPaymentStatus: jest.fn().mockResolvedValue(null),
     findApplicationByInvoiceNumber: jest.fn().mockResolvedValue(null),
@@ -31,6 +31,7 @@ jest.mock('../../src/services/applicationOutbox.service', () => ({
 }));
 
 import { handler } from '../../handler';
+import { paymentRepository } from '../../src/repositories/payment.repository';
 import type { SQSEvent, SQSRecord, Context } from 'aws-lambda';
 
 function validEnvelopeBody(overrides: Record<string, unknown> = {}): string {
@@ -102,8 +103,6 @@ function buildContext(): Context {
 }
 
 describe('handler batchItemFailures', () => {
-<<<<<<< Updated upstream
-=======
   beforeEach(() => {
     jest.clearAllMocks();
     (paymentRepository.findApplicationByInvoiceNumber as jest.Mock).mockResolvedValue({
@@ -119,7 +118,6 @@ describe('handler batchItemFailures', () => {
     });
     (paymentRepository.markWebhookProcessed as jest.Mock).mockResolvedValue(undefined);
   });
->>>>>>> Stashed changes
   it('returns only the failing record messageId when the batch has a mix of success and failure', async () => {
     const event: SQSEvent = {
       Records: [

@@ -2,9 +2,10 @@ import type { SQSRecord } from 'aws-lambda';
 import { createLogger, getCorrelationId, setCorrelationId } from '../util/logger';
 import { LOG_MESSAGES, LOG_CHILD_DOMAIN, LOG_EVENTS } from '../constants/log.constants';
 import type { WorkerSummary, BacsWebhookRelayEnvelope, UkSbsWebhookPayload, ProcessablePayment } from '../types';
-import { ValidationError } from '../errors/worker.errors';
+import { ValidationError, PaymentProcessingError } from '../errors/worker.errors';
 import { paymentRepository } from '../repositories/payment.repository';
 import { applicationOutboxService } from './applicationOutbox.service';
+import { mapUksbsStatusToPaymentStatus } from '../util/paymentStatus.mapper';
 
 const log = createLogger('worker.service.ts', LOG_CHILD_DOMAIN.WORKER_SERVICE);
 
@@ -259,13 +260,6 @@ async function processPayment(payment: ProcessablePayment, recordId: string): Pr
     status: payment.status,
   });
 
-<<<<<<< Updated upstream
-  await paymentRepository.recordPayment(payment.transactionId, payment.amount, payment.status);
-
-  await paymentRepository.markWebhookProcessed(payment.webhookId, 'bacs-webhook-worker');
-
-  await applicationOutboxService.recordBacsPaymentEvent(payment, recordId);
-=======
   const mappedStatus = mapUksbsStatusToPaymentStatus(payment.status);
   if (!mappedStatus) {
     log.warn(METHOD.PROCESS_PAYMENT, LOG_MESSAGES.PAYMENT_STATUS_UNMAPPED, {
@@ -320,7 +314,6 @@ async function processPayment(payment: ProcessablePayment, recordId: string): Pr
     invoiceLookup,
     recordId,
   );
->>>>>>> Stashed changes
 
   log.info(METHOD.PROCESS_PAYMENT, LOG_MESSAGES.PAYMENT_PROCESSING_COMPLETE, {
     recordId,

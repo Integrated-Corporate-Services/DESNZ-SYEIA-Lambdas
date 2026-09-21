@@ -4,6 +4,7 @@ import { applicationOutboxRepository } from '../repositories/applicationOutbox.r
 import { createLogger } from '../util/logger';
 import { LOG_MESSAGES, LOG_CHILD_DOMAIN, LOG_EVENTS } from '../constants/log.constants';
 import { BACS_PAYMENT_EVENT_TYPE } from '../constants/applicationOutbox.constants';
+import { mapUksbsStatusToPaymentStatus } from '../util/paymentStatus.mapper';
 import type { ProcessablePayment } from '../types';
 import type { BacsPaymentOutboxPayload } from '../types/applicationOutbox.types';
 
@@ -29,6 +30,7 @@ function buildBacsPaymentOutboxPayload(
   desnzReference: string | null,
   invoiceNumber: string,
   payment: ProcessablePayment,
+  mappedStatus: string,
 ): BacsPaymentOutboxPayload {
   return {
     applicationId,
@@ -38,7 +40,7 @@ function buildBacsPaymentOutboxPayload(
     payment: {
       amount: payment.amount,
       currency: payment.currency,
-      status: payment.status,
+      status: mappedStatus,
       bacsReference: payment.bacsReference ?? null,
       paymentReference: invoiceNumber,
       paymentDate: payment.paymentDate ?? null,
@@ -89,6 +91,17 @@ export const applicationOutboxService = {
 
     const applicationId = invoiceLookup.applicationId;
 
+    const mappedStatus = mapUksbsStatusToPaymentStatus(payment.status);
+    if (!mappedStatus) {
+      log.warn(METHOD.RECORD_BACS_PAYMENT_EVENT, LOG_MESSAGES.PAYMENT_STATUS_UNMAPPED, {
+        recordId,
+        webhookId: payment.webhookId,
+        uksbsStatus: payment.status,
+      }, LOG_EVENTS.OUTBOX_SKIPPED);
+      log.end(METHOD.RECORD_BACS_PAYMENT_EVENT, { recordId, outboxId: null });
+      return null;
+    }
+
     const desnzReference = await paymentRepository.findDesnzReferenceByApplicationId(applicationId);
     if (!desnzReference) {
       // Downstream outbox consumers (e.g. Salesforce sync) expect desnzReference
@@ -102,8 +115,14 @@ export const applicationOutboxService = {
       return null;
     }
 
-    const idempotencyKey = buildIdempotencyKey(applicationId, payment.transactionId, payment.webhookId, payment.status);
-    const payload = buildBacsPaymentOutboxPayload(applicationId, desnzReference, invoiceLookup.invoiceNumber, payment);
+    const idempotencyKey = buildIdempotencyKey(applicationId, payment.transactionId, payment.webhookId, mappedStatus);
+    const payload = buildBacsPaymentOutboxPayload(
+      applicationId,
+      desnzReference,
+      invoiceLookup.invoiceNumber,
+      payment,
+      mappedStatus,
+    );
 
     const outboxId = await applicationOutboxRepository.insertOutboxRow(
       { applicationId, eventType: BACS_PAYMENT_EVENT_TYPE, payload, idempotencyKey },
