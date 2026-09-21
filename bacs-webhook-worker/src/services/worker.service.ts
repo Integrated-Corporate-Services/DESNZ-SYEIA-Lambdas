@@ -45,14 +45,11 @@ export const workerService = {
 async function processRecord(record: SQSRecord): Promise<{ success: boolean; message?: string }> {
   log.start(METHOD.PROCESS_RECORD, { recordId: record.messageId });
 
-  // Preserve the Lambda's correlation_id to restore after processing this message
   const lambdaCorrelationId = getCorrelationId();
 
   try {
-    // Parse envelope from relay
     const envelope = parsePayload(record.body, record.messageId);
 
-    // Use the envelope's correlation_id (set by relay lambda) for cross-service traceability
     if (envelope.correlationId) {
       setCorrelationId(envelope.correlationId);
       log.info(METHOD.PROCESS_RECORD, LOG_MESSAGES.RECORD_CORRELATION_ID_ADOPTED, {
@@ -62,10 +59,8 @@ async function processRecord(record: SQSRecord): Promise<{ success: boolean; mes
       });
     }
 
-    // Validate and transform to internal format
     const payment = validateAndTransform(envelope, record.messageId);
 
-    // Process the payment
     await processPayment(payment, record.messageId);
 
     log.info(METHOD.PROCESS_RECORD, LOG_MESSAGES.RECORD_PROCESSED, {
@@ -84,7 +79,6 @@ async function processRecord(record: SQSRecord): Promise<{ success: boolean; mes
     log.end(METHOD.PROCESS_RECORD, { recordId: record.messageId, outcome: 'failed' });
     return { success: false, message };
   } finally {
-    // Restore the Lambda's invocation-level correlation_id
     setCorrelationId(lambdaCorrelationId);
   }
 }
@@ -106,7 +100,6 @@ function parsePayload(body: string | null, recordId: string): BacsWebhookRelayEn
 
     const env = envelope as Record<string, unknown>;
 
-    // Validate envelope structure - all required fields
     if (env.schemaVersion !== '1') {
       throw new ValidationError('Invalid or missing schemaVersion');
     }
@@ -146,7 +139,6 @@ function parsePayload(body: string | null, recordId: string): BacsWebhookRelayEn
       throw new ValidationError('Missing or invalid payload');
     }
 
-    // Safe cast after validation
     const parsed = env as unknown as BacsWebhookRelayEnvelope;
     log.info(METHOD.PARSE_PAYLOAD, LOG_MESSAGES.ENVELOPE_PARSED, {
       recordId,
@@ -179,7 +171,6 @@ function validateAndTransform(envelope: BacsWebhookRelayEnvelope, recordId: stri
 
   const { payload } = envelope;
 
-  // Validate envelope metadata
   const requiredEnvFields = ['webhookId', 'paymentId', 'eventType', 'receivedAt'];
   const missingEnv = requiredEnvFields.filter((key) => !envelope[key as keyof BacsWebhookRelayEnvelope]);
 
@@ -191,10 +182,8 @@ function validateAndTransform(envelope: BacsWebhookRelayEnvelope, recordId: stri
     throw new ValidationError(`Missing envelope fields: ${missingEnv.join(', ')}`);
   }
 
-  // Cast to UKSBS payload structure
   const uksbsPayload = payload as unknown as UkSbsWebhookPayload;
 
-  // Validate UKSBS payment reference
   if (!uksbsPayload.payment?.paymentReference) {
     log.error(METHOD.VALIDATE_AND_TRANSFORM, LOG_MESSAGES.INVALID_PAYLOAD, {
       recordId,
@@ -203,7 +192,6 @@ function validateAndTransform(envelope: BacsWebhookRelayEnvelope, recordId: stri
     throw new ValidationError('Missing payment.paymentReference in UKSBS webhook');
   }
 
-  // Validate UKSBS amount
   if (uksbsPayload.detail?.amount == null || typeof uksbsPayload.detail.amount !== 'number' || Number.isNaN(uksbsPayload.detail.amount)) {
     log.error(METHOD.VALIDATE_AND_TRANSFORM, LOG_MESSAGES.INVALID_PAYLOAD, {
       recordId,
@@ -212,7 +200,6 @@ function validateAndTransform(envelope: BacsWebhookRelayEnvelope, recordId: stri
     throw new ValidationError('Missing or invalid detail.amount in UKSBS webhook');
   }
 
-  // Validate UKSBS status
   if (!uksbsPayload.detail?.status) {
     log.error(METHOD.VALIDATE_AND_TRANSFORM, LOG_MESSAGES.INVALID_PAYLOAD, {
       recordId,
@@ -323,4 +310,3 @@ async function processPayment(payment: ProcessablePayment, recordId: string): Pr
   });
   log.end(METHOD.PROCESS_PAYMENT, { recordId, transactionId: payment.transactionId });
 }
-

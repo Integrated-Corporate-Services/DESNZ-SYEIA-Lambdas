@@ -14,11 +14,6 @@ const METHOD = {
   RECORD_BACS_PAYMENT_EVENT: 'recordBacsPaymentEvent',
 } as const;
 
-export function isApplicationOutboxEnabled(): boolean {
-  // Enabled by default - set ENABLE_APPLICATION_OUTBOX=false to explicitly opt out.
-  return process.env.ENABLE_APPLICATION_OUTBOX !== 'false';
-}
-
 function buildIdempotencyKey(applicationId: string, transactionId: string, webhookId: string, status: string): string {
   return createHash('sha256')
     .update(`${BACS_PAYMENT_EVENT_TYPE}|${applicationId}|${transactionId}|${webhookId}|${status}`)
@@ -50,11 +45,6 @@ function buildBacsPaymentOutboxPayload(
 }
 
 export const applicationOutboxService = {
-  /**
-   * `invoiceLookup` is the same lookup worker.service.ts's processPayment()
-   * already fetched (and required to be non-null) before calling this - reused
-   * here rather than re-querying the invoice table a second time per webhook.
-   */
   recordBacsPaymentEvent: async (
     payment: ProcessablePayment,
     invoiceLookup: InvoiceApplicationLookup,
@@ -65,12 +55,6 @@ export const applicationOutboxService = {
       webhookId: payment.webhookId,
       paymentId: payment.paymentId,
     });
-
-    if (!isApplicationOutboxEnabled()) {
-      log.info(METHOD.RECORD_BACS_PAYMENT_EVENT, LOG_MESSAGES.OUTBOX_DISABLED, { recordId }, LOG_EVENTS.OUTBOX_SKIPPED);
-      log.end(METHOD.RECORD_BACS_PAYMENT_EVENT, { recordId, outboxId: null });
-      return null;
-    }
 
     if (!payment.paymentId) {
       log.warn(METHOD.RECORD_BACS_PAYMENT_EVENT, LOG_MESSAGES.OUTBOX_MISSING_APPLICATION_ID, {
@@ -104,9 +88,6 @@ export const applicationOutboxService = {
 
     const desnzReference = await paymentRepository.findDesnzReferenceByApplicationId(applicationId);
     if (!desnzReference) {
-      // Downstream outbox consumers (e.g. Salesforce sync) expect desnzReference
-      // populated - an event with it null is unusable to them, so skip the
-      // insert entirely rather than writing a row they can't act on.
       log.warn(METHOD.RECORD_BACS_PAYMENT_EVENT, LOG_MESSAGES.OUTBOX_DESNZ_REF_LOOKUP_FAILED, {
         recordId,
         applicationId,

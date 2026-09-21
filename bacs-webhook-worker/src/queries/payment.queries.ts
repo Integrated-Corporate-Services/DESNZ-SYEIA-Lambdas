@@ -8,11 +8,6 @@ export const paymentQueries = {
      LIMIT 1
   `,
 
-  // Backend-owned public.payment already has application_id (UUID NOT NULL).
-  // BACS rows are created with payment_id = null, so this cannot use the
-  // GOV.UK Pay reconciler lookup (WHERE payment_id = $1).
-  // Restrict to provider = bacs so a GOV.UK Pay row on the same application
-  // is not overwritten.
   UPDATE_PAYMENT_STATUS_BY_APPLICATION_ID: `
     UPDATE payment
        SET status = $2,
@@ -36,8 +31,5 @@ export const paymentQueries = {
       AND status != 'PROCESSED'
   `,
 
-  // Used only when MARK_WEBHOOK_PROCESSED updates zero rows, to tell apart
-  // "already processed" (row exists, idempotent retry - fine) from
-  // "webhook_id doesn't exist" (bad data - should fail loudly).
   FIND_WEBHOOK_BY_ID: 'SELECT webhook_id, status FROM payment_webhooks WHERE webhook_id = $1',
 };

@@ -48,18 +48,8 @@ function buildInvoiceLookup(overrides: Partial<InvoiceApplicationLookup> = {}): 
 
 describe('applicationOutboxService.recordBacsPaymentEvent', () => {
   beforeEach(() => {
-    process.env.ENABLE_APPLICATION_OUTBOX = 'true';
     mockedFindDesnzReferenceByApplicationId.mockReset();
     mockedInsertOutboxRow.mockReset();
-  });
-
-  it('skips and returns null when the outbox feature flag is disabled', async () => {
-    process.env.ENABLE_APPLICATION_OUTBOX = 'false';
-
-    const result = await applicationOutboxService.recordBacsPaymentEvent(buildPayment(), buildInvoiceLookup(), 'record-1');
-
-    expect(result).toBeNull();
-    expect(mockedInsertOutboxRow).not.toHaveBeenCalled();
   });
 
   it('skips and returns null when the payment has no paymentId', async () => {
@@ -117,7 +107,6 @@ describe('applicationOutboxService.recordBacsPaymentEvent', () => {
       payment: {
         amount: payment.amount,
         currency: payment.currency,
-        // Verbatim passthrough - buildPayment()'s default status is 'PAID'.
         status: 'PAID',
         bacsReference: payment.bacsReference,
         paymentReference: 'INV01/NWL00045',

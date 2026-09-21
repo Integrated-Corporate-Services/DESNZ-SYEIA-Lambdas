@@ -23,7 +23,6 @@ async function resolveDbCredentials(): Promise<{ username: string; password: str
 
   const raw = process.env.DB_CREDENTIALS?.trim();
   if (!raw) {
-    // Fall back to individual env vars if DB_CREDENTIALS is not set
     const user = process.env.DB_USER ?? '';
     const password = process.env.DB_PASSWORD ?? '';
     if (!user || !password) {
@@ -33,7 +32,6 @@ async function resolveDbCredentials(): Promise<{ username: string; password: str
     return cachedCredentials;
   }
 
-  // Check if DB_CREDENTIALS is a Secrets Manager ARN
   if (raw.startsWith('arn:aws:secretsmanager:')) {
     const client = new SecretsManagerClient({
       region: process.env.AWS_REGION || process.env.REGION || 'eu-west-2',
@@ -58,7 +56,6 @@ async function resolveDbCredentials(): Promise<{ username: string; password: str
     return cachedCredentials;
   }
 
-  // Otherwise, treat it as JSON credentials directly
   const parsed = JSON.parse(raw) as { username?: string; password?: string };
   if (!parsed.username || !parsed.password) {
     throw new Error("DB_CREDENTIALS JSON must contain 'username' and 'password'");
@@ -76,8 +73,6 @@ function resolveDbSsl(): boolean {
     return true;
   }
 
-  // HOST_NAME is only set when pointing at RDS, which rejects unencrypted
-  // connections. Local Postgres has no TLS, so SSL stays off without it.
   return Boolean(process.env.HOST_NAME);
 }
 
@@ -85,7 +80,6 @@ export const envConfig = {
   load: async (): Promise<Config> => {
     if (config) return config;
 
-    // Coalesce concurrent loads into a single promise
     if (configLoadPromise) {
       return configLoadPromise;
     }

@@ -160,7 +160,6 @@ describe('workerService', () => {
 
       expect(result.failed).toBe(0);
       expect(paymentRepository.findApplicationByInvoiceNumber).toHaveBeenCalledWith('txn-123');
-      // Envelope's detail.status is 'success' (lowercase) - passed through unchanged, not translated.
       expect(paymentRepository.updatePaymentStatus).toHaveBeenCalledWith(
         APPLICATION_ID,
         'success',

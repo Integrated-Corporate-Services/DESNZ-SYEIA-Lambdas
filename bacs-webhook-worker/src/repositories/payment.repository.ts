@@ -198,10 +198,6 @@ export const paymentRepository = {
       const result = await client.query(paymentQueries.MARK_WEBHOOK_PROCESSED, [webhookId, processedBy]);
 
       if (result.rowCount === 0) {
-        // Zero rows updated means either (a) this webhook was already marked
-        // PROCESSED (a harmless idempotent SQS retry) or (b) webhookId simply
-        // doesn't exist in payment_webhooks (bad data, should fail loudly).
-        // Tell them apart with a lookup rather than silently treating both the same.
         const existing = await client.query(paymentQueries.FIND_WEBHOOK_BY_ID, [webhookId]);
 
         if (existing.rows.length === 0) {

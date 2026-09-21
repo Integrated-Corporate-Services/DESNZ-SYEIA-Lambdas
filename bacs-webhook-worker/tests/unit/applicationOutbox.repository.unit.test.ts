@@ -41,26 +41,11 @@ function buildParams(overrides: Partial<InsertBacsPaymentOutboxParams> = {}): In
 type QueryStubs = {
   existingOutboxId?: string | null;
   insertedOutboxId?: string | null;
-  rejectOn?: 'lock' | 'lookup' | 'insert' | 'rollback';
+  rejectOn?: 'lookup' | 'insert';
 };
 
-/**
- * Routes on the SQL text rather than call order, so the assertions stay valid
- * regardless of how many transaction statements surround the two real queries.
- */
 function stubQueries({ existingOutboxId = null, insertedOutboxId = 'outbox-1', rejectOn }: QueryStubs = {}) {
   mockClient.query.mockImplementation((sql: string) => {
-    if (sql === 'ROLLBACK') {
-      return rejectOn === 'rollback'
-        ? Promise.reject(new Error('rollback failed'))
-        : Promise.resolve({ rows: [] });
-    }
-    if (sql === 'BEGIN' || sql === 'COMMIT') {
-      return Promise.resolve({ rows: [] });
-    }
-    if (sql.includes('pg_advisory_xact_lock')) {
-      return rejectOn === 'lock' ? Promise.reject(new Error('lock failed')) : Promise.resolve({ rows: [{}] });
-    }
     if (sql.includes('SELECT outbox_id')) {
       return rejectOn === 'lookup'
         ? Promise.reject(new Error('lookup failed'))
@@ -73,10 +58,6 @@ function stubQueries({ existingOutboxId = null, insertedOutboxId = 'outbox-1', r
     }
     throw new Error(`unexpected query: ${sql}`);
   });
-}
-
-function sqlCalls(): string[] {
-  return mockClient.query.mock.calls.map(([sql]) => String(sql).trim());
 }
 
 function paramsFor(fragment: string): unknown[] | undefined {
@@ -103,75 +84,34 @@ describe('applicationOutboxRepository.insertOutboxRow', () => {
       JSON.stringify(buildParams().payload),
       'idempotency-key-1',
     ]);
-    expect(sqlCalls()).toContain('COMMIT');
-    expect(sqlCalls()).not.toContain('ROLLBACK');
     expect(mockClient.release).toHaveBeenCalled();
   });
 
-  it('serialises on the idempotency key inside a transaction before reading', async () => {
-    stubQueries();
-
-    await applicationOutboxRepository.insertOutboxRow(buildParams(), 'record-1');
-
-    const calls = sqlCalls();
-    const lockIndex = calls.findIndex((sql) => sql.includes('pg_advisory_xact_lock'));
-    const lookupIndex = calls.findIndex((sql) => sql.includes('SELECT outbox_id'));
-    const insertIndex = calls.findIndex((sql) => sql.includes('INSERT INTO application_outbox'));
-
-    expect(calls[0]).toBe('BEGIN');
-    expect(lockIndex).toBeGreaterThan(0);
-    expect(lookupIndex).toBeGreaterThan(lockIndex);
-    expect(insertIndex).toBeGreaterThan(lookupIndex);
-    expect(paramsFor('pg_advisory_xact_lock')).toEqual(['idempotency-key-1']);
-  });
-
-  it('returns the existing outbox_id without inserting when the idempotency key is already recorded', async () => {
-    stubQueries({ existingOutboxId: 'existing-outbox-1' });
+  it('returns the existing outbox_id without a second insert when the idempotency key already exists', async () => {
+    stubQueries({ insertedOutboxId: null, existingOutboxId: 'existing-outbox-1' });
 
     const result = await applicationOutboxRepository.insertOutboxRow(buildParams(), 'record-1');
 
     expect(result).toBe('existing-outbox-1');
-    expect(sqlCalls().some((sql) => sql.includes('INSERT INTO application_outbox'))).toBe(false);
-    expect(sqlCalls()).toContain('COMMIT');
+    expect(paramsFor('SELECT outbox_id')).toEqual(['idempotency-key-1']);
   });
 
-  it('rolls back and throws a DatabaseError when the insert query fails', async () => {
+  it('throws a DatabaseError when the insert query fails', async () => {
     stubQueries({ rejectOn: 'insert' });
 
     await expect(
       applicationOutboxRepository.insertOutboxRow(buildParams(), 'record-1'),
     ).rejects.toThrow('Failed to insert application_outbox event: connection lost');
 
-    expect(sqlCalls().some((sql) => sql.includes('INSERT INTO application_outbox'))).toBe(true);
-    expect(sqlCalls()).toContain('ROLLBACK');
-    expect(sqlCalls()).not.toContain('COMMIT');
     expect(mockClient.release).toHaveBeenCalled();
   });
 
-  it('rolls back and throws a DatabaseError when the idempotency lookup fails', async () => {
-    stubQueries({ rejectOn: 'lookup' });
+  it('throws a DatabaseError when the fallback lookup fails after a conflict', async () => {
+    stubQueries({ insertedOutboxId: null, rejectOn: 'lookup' });
 
     await expect(
       applicationOutboxRepository.insertOutboxRow(buildParams(), 'record-1'),
     ).rejects.toThrow('Failed to insert application_outbox event: lookup failed');
-
-    expect(sqlCalls()).toContain('ROLLBACK');
-    expect(mockClient.release).toHaveBeenCalled();
-  });
-
-  it('still throws the original error when the rollback itself fails', async () => {
-    stubQueries({ rejectOn: 'insert' });
-    mockClient.query.mockImplementation((sql: string) => {
-      if (sql === 'ROLLBACK') return Promise.reject(new Error('rollback failed'));
-      if (sql === 'BEGIN' || sql === 'COMMIT') return Promise.resolve({ rows: [] });
-      if (sql.includes('pg_advisory_xact_lock')) return Promise.resolve({ rows: [{}] });
-      if (sql.includes('SELECT outbox_id')) return Promise.resolve({ rows: [] });
-      return Promise.reject(new Error('connection lost'));
-    });
-
-    await expect(
-      applicationOutboxRepository.insertOutboxRow(buildParams(), 'record-1'),
-    ).rejects.toThrow('Failed to insert application_outbox event: connection lost');
 
     expect(mockClient.release).toHaveBeenCalled();
   });

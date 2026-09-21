@@ -31,20 +31,17 @@ export const LOG_EVENTS = {
 export type LogMarker = (typeof LOG_MARKERS)[keyof typeof LOG_MARKERS];
 
 export const LOG_MESSAGES = {
-  // Handler messages
   HANDLER_INVOCATION_START: 'invocation start',
   HANDLER_INVOCATION_COMPLETE: 'invocation complete',
   HANDLER_INVOCATION_FAILED: 'invocation failed',
   NO_RECORDS: 'no SQS records in event — nothing to do',
 
-  // Batch / record messages
   SQS_RECORDS_RECEIVED: 'received SQS messages from queue',
   RECORD_CORRELATION_ID_ADOPTED: 'adopted envelope correlationId for traceability',
   RECORD_PROCESSED: 'record processed successfully',
   RECORD_FAILED: 'record processing failed — leaving message for retry/DLQ',
   BATCH_COMPLETE: 'batch complete',
 
-  // Payload parsing / validation messages
   ENVELOPE_PARSED: 'parsed relay envelope from message body',
   ENVELOPE_PARSE_FAILED: 'failed to parse message body as relay envelope',
   PAYLOAD_VALIDATED: 'validated envelope structure',
@@ -52,7 +49,6 @@ export const LOG_MESSAGES = {
   INVALID_PAYLOAD: 'invalid webhook payload',
   MISSING_FIELD: 'missing required field',
 
-  // Payment processing messages
   PAYMENT_PROCESSING_START: 'starting payment processing',
   PAYMENT_PROCESSING_COMPLETE: 'payment processing completed',
   PAYMENT_INVOICE_LOOKUP_FAILED:
@@ -64,7 +60,6 @@ export const LOG_MESSAGES = {
   PAYMENT_AMOUNT_MISMATCH:
     'webhook detail.amount does not match invoice.amount_pence — proceeding anyway, but this may indicate a data anomaly',
 
-  // Database messages
   DB_CONNECT_ERROR: 'database connection error',
   DB_CONNECTED: 'database connection verified',
   DB_QUERY_ERROR: 'database query error',
@@ -74,12 +69,9 @@ export const LOG_MESSAGES = {
   WEBHOOK_ALREADY_PROCESSED: 'webhook already processed — no rows updated (idempotent retry)',
   WEBHOOK_NOT_FOUND: 'no payment_webhooks row found for this webhookId — cannot mark as processed',
 
-  // SQS messages (worker does not publish, kept for parity/future use)
   SQS_SEND_ERROR: 'failed to send SQS message',
   SQS_PROCESS_ERROR: 'failed to process SQS message',
 
-  // Application outbox messages
-  OUTBOX_DISABLED: 'application outbox writes disabled — skipping (ENABLE_APPLICATION_OUTBOX is not "true")',
   OUTBOX_MISSING_APPLICATION_ID: 'cannot write outbox event — payment has no applicationId (paymentId)',
   OUTBOX_INVOICE_LOOKUP_FAILED:
     'cannot write outbox event — no invoice found for this payment reference (invoice_number)',

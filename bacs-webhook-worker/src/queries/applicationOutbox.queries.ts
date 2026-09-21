@@ -23,6 +23,7 @@ export const applicationOutboxQueries = {
       NOW(),
       NOW()
     )
+    ON CONFLICT (event_type, idempotency_key) DO NOTHING
     RETURNING outbox_id
   `,
 
@@ -31,12 +32,5 @@ export const applicationOutboxQueries = {
       FROM ${APPLICATION_OUTBOX_TABLE}
      WHERE idempotency_key = $1
      LIMIT 1
-  `,
-
-  // idempotency_key has no unique constraint (idx_outbox_idempotency is not
-  // unique), so ON CONFLICT cannot target it. This transaction-scoped advisory
-  // lock serialises concurrent deliveries of the same key instead.
-  LOCK_IDEMPOTENCY_KEY: `
-    SELECT pg_advisory_xact_lock(hashtext($1))
   `,
 };
