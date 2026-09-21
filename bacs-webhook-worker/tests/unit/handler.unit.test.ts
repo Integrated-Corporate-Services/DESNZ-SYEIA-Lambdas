@@ -109,11 +109,12 @@ describe('handler batchItemFailures', () => {
       applicationId: '11111111-1111-1111-1111-111111111111',
       invoiceNumber: 'txn-123',
       paymentMethod: 'BACS',
+      amountPence: 100,
     });
     (paymentRepository.updatePaymentStatus as jest.Mock).mockResolvedValue({
       id: 42,
       applicationId: '11111111-1111-1111-1111-111111111111',
-      status: 'completed',
+      status: 'success',
     });
     (paymentRepository.markWebhookProcessed as jest.Mock).mockResolvedValue(undefined);
   });

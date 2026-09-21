@@ -1,25 +1,9 @@
-export const PAYMENT_TABLE_STATUS = {
-  COMPLETED: 'completed',
-  FAILED: 'failed',
-} as const;
-
 export const PAYMENT_TABLE_PROVIDER = {
   BACS: 'bacs',
 } as const;
 
-/**
- * Map UKSBS webhook detail.status onto the shared `payment.status` values
- * used by the backend (`pending` / `completed` / `failed`).
- */
+const RECOGNISED_UKSBS_STATUSES = new Set(['PAID', 'SUCCESS', 'COMPLETED', 'FAILED']);
+
 export function mapUksbsStatusToPaymentStatus(uksbsStatus: string): string | null {
-  switch (uksbsStatus.toUpperCase()) {
-    case 'PAID':
-    case 'SUCCESS':
-    case 'COMPLETED':
-      return PAYMENT_TABLE_STATUS.COMPLETED;
-    case 'FAILED':
-      return PAYMENT_TABLE_STATUS.FAILED;
-    default:
-      return null;
-  }
+  return RECOGNISED_UKSBS_STATUSES.has(uksbsStatus.toUpperCase()) ? uksbsStatus : null;
 }

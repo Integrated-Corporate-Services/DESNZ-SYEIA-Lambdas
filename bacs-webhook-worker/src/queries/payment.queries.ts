@@ -2,17 +2,12 @@ import { PAYMENT_TABLE_PROVIDER } from '../util/paymentStatus.mapper';
 
 export const paymentQueries = {
   FIND_APPLICATION_BY_INVOICE_NUMBER: `
-    SELECT application_id, invoice_number, payment_method
+    SELECT application_id, invoice_number, payment_method, amount_pence
       FROM invoice
      WHERE invoice_number = $1
      LIMIT 1
   `,
 
-  // Backend-owned public.payment already has application_id (UUID NOT NULL).
-  // BACS rows are created with payment_id = null, so this cannot use the
-  // GOV.UK Pay reconciler lookup (WHERE payment_id = $1).
-  // Restrict to provider = bacs so a GOV.UK Pay row on the same application
-  // is not overwritten.
   UPDATE_PAYMENT_STATUS_BY_APPLICATION_ID: `
     UPDATE payment
        SET status = $2,
@@ -28,11 +23,13 @@ export const paymentQueries = {
 
   MARK_WEBHOOK_PROCESSED: `
     UPDATE payment_webhooks
-    SET 
-      status = 'processed',
+    SET
+      status = 'PROCESSED',
       updated_at = NOW(),
       updated_by = $2
     WHERE webhook_id = $1
-      AND status != 'processed'
+      AND status != 'PROCESSED'
   `,
+
+  FIND_WEBHOOK_BY_ID: 'SELECT webhook_id, status FROM payment_webhooks WHERE webhook_id = $1',
 };

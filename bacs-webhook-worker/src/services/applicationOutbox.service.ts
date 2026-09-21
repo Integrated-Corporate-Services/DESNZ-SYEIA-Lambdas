@@ -1,5 +1,5 @@
 import { createHash } from 'crypto';
-import { paymentRepository } from '../repositories/payment.repository';
+import { paymentRepository, type InvoiceApplicationLookup } from '../repositories/payment.repository';
 import { applicationOutboxRepository } from '../repositories/applicationOutbox.repository';
 import { createLogger } from '../util/logger';
 import { LOG_MESSAGES, LOG_CHILD_DOMAIN, LOG_EVENTS } from '../constants/log.constants';
@@ -13,10 +13,6 @@ const log = createLogger('applicationOutbox.service.ts', LOG_CHILD_DOMAIN.OUTBOX
 const METHOD = {
   RECORD_BACS_PAYMENT_EVENT: 'recordBacsPaymentEvent',
 } as const;
-
-export function isApplicationOutboxEnabled(): boolean {
-  return process.env.ENABLE_APPLICATION_OUTBOX === 'true';
-}
 
 function buildIdempotencyKey(applicationId: string, transactionId: string, webhookId: string, status: string): string {
   return createHash('sha256')
@@ -49,35 +45,21 @@ function buildBacsPaymentOutboxPayload(
 }
 
 export const applicationOutboxService = {
-  recordBacsPaymentEvent: async (payment: ProcessablePayment, recordId: string): Promise<string | null> => {
+  recordBacsPaymentEvent: async (
+    payment: ProcessablePayment,
+    invoiceLookup: InvoiceApplicationLookup,
+    recordId: string,
+  ): Promise<string | null> => {
     log.start(METHOD.RECORD_BACS_PAYMENT_EVENT, {
       recordId,
       webhookId: payment.webhookId,
       paymentId: payment.paymentId,
     });
 
-    if (!isApplicationOutboxEnabled()) {
-      log.info(METHOD.RECORD_BACS_PAYMENT_EVENT, LOG_MESSAGES.OUTBOX_DISABLED, { recordId }, LOG_EVENTS.OUTBOX_SKIPPED);
-      log.end(METHOD.RECORD_BACS_PAYMENT_EVENT, { recordId, outboxId: null });
-      return null;
-    }
-
     if (!payment.paymentId) {
       log.warn(METHOD.RECORD_BACS_PAYMENT_EVENT, LOG_MESSAGES.OUTBOX_MISSING_APPLICATION_ID, {
         recordId,
         webhookId: payment.webhookId,
-      }, LOG_EVENTS.OUTBOX_SKIPPED);
-      log.end(METHOD.RECORD_BACS_PAYMENT_EVENT, { recordId, outboxId: null });
-      return null;
-    }
-
-    const invoiceLookup = await paymentRepository.findApplicationByInvoiceNumber(payment.transactionId);
-    if (!invoiceLookup) {
-      log.warn(METHOD.RECORD_BACS_PAYMENT_EVENT, LOG_MESSAGES.OUTBOX_INVOICE_LOOKUP_FAILED, {
-        recordId,
-        webhookId: payment.webhookId,
-        paymentId: payment.paymentId,
-        invoiceNumber: payment.transactionId,
       }, LOG_EVENTS.OUTBOX_SKIPPED);
       log.end(METHOD.RECORD_BACS_PAYMENT_EVENT, { recordId, outboxId: null });
       return null;
@@ -106,7 +88,12 @@ export const applicationOutboxService = {
 
     const desnzReference = await paymentRepository.findDesnzReferenceByApplicationId(applicationId);
     if (!desnzReference) {
-      log.warn(METHOD.RECORD_BACS_PAYMENT_EVENT, LOG_MESSAGES.OUTBOX_DESNZ_REF_LOOKUP_FAILED, { recordId, applicationId });
+      log.warn(METHOD.RECORD_BACS_PAYMENT_EVENT, LOG_MESSAGES.OUTBOX_DESNZ_REF_LOOKUP_FAILED, {
+        recordId,
+        applicationId,
+      }, LOG_EVENTS.OUTBOX_SKIPPED);
+      log.end(METHOD.RECORD_BACS_PAYMENT_EVENT, { recordId, outboxId: null });
+      return null;
     }
 
     const idempotencyKey = buildIdempotencyKey(applicationId, payment.transactionId, payment.webhookId, mappedStatus);

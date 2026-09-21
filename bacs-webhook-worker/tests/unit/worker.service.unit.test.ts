@@ -77,11 +77,12 @@ describe('workerService', () => {
       applicationId: APPLICATION_ID,
       invoiceNumber: 'txn-123',
       paymentMethod: 'BACS',
+      amountPence: 100,
     });
     (paymentRepository.updatePaymentStatus as jest.Mock).mockResolvedValue({
       id: 42,
       applicationId: APPLICATION_ID,
-      status: 'completed',
+      status: 'success',
     });
     (paymentRepository.markWebhookProcessed as jest.Mock).mockResolvedValue(undefined);
   });
@@ -154,26 +155,41 @@ describe('workerService', () => {
       expect(result.errors).toHaveLength(1);
     });
 
-    it('updates payment.status using application_id from the invoice', async () => {
+    it('updates payment.status verbatim (as received in the webhook) using application_id from the invoice', async () => {
       const result = await workerService.processRecords([sqsRecord(validEnvelopeBody(), 'msg-4')]);
 
       expect(result.failed).toBe(0);
       expect(paymentRepository.findApplicationByInvoiceNumber).toHaveBeenCalledWith('txn-123');
       expect(paymentRepository.updatePaymentStatus).toHaveBeenCalledWith(
         APPLICATION_ID,
-        'completed',
+        'success',
       );
       expect(applicationOutboxService.recordBacsPaymentEvent).toHaveBeenCalledWith(
-        expect.objectContaining({ status: 'completed' }),
+        expect.objectContaining({ status: 'success' }),
+        expect.objectContaining({ applicationId: APPLICATION_ID }),
         'msg-4',
       );
     });
 
-    it('maps FAILED webhooks to payment.status = failed', async () => {
+    it('logs a warning but still processes the payment when the webhook amount does not match the invoice', async () => {
+      (paymentRepository.findApplicationByInvoiceNumber as jest.Mock).mockResolvedValue({
+        applicationId: APPLICATION_ID,
+        invoiceNumber: 'txn-123',
+        paymentMethod: 'BACS',
+        amountPence: 999999,
+      });
+
+      const result = await workerService.processRecords([sqsRecord(validEnvelopeBody(), 'msg-amount-mismatch')]);
+
+      expect(result.failed).toBe(0);
+      expect(paymentRepository.updatePaymentStatus).toHaveBeenCalledWith(APPLICATION_ID, 'success');
+    });
+
+    it('passes FAILED webhooks through verbatim to payment.status', async () => {
       (paymentRepository.updatePaymentStatus as jest.Mock).mockResolvedValue({
         id: 42,
         applicationId: APPLICATION_ID,
-        status: 'failed',
+        status: 'FAILED',
       });
 
       const body = validEnvelopeBody({
@@ -196,7 +212,7 @@ describe('workerService', () => {
       expect(result.failed).toBe(0);
       expect(paymentRepository.updatePaymentStatus).toHaveBeenCalledWith(
         APPLICATION_ID,
-        'failed',
+        'FAILED',
       );
     });
 
@@ -220,9 +236,21 @@ describe('workerService', () => {
       expect(result.errors[0].recordId).toBe('msg-7');
       expect(paymentRepository.updatePaymentStatus).toHaveBeenCalledWith(
         APPLICATION_ID,
-        'completed',
+        'success',
       );
       expect(paymentRepository.markWebhookProcessed).not.toHaveBeenCalled();
+    });
+
+    it('fails the record when markWebhookProcessed rejects (e.g. webhookId not found) so SQS can retry', async () => {
+      (paymentRepository.markWebhookProcessed as jest.Mock).mockRejectedValue(
+        new Error('No payment_webhooks row found for webhookId webhook-1'),
+      );
+
+      const result = await workerService.processRecords([sqsRecord(validEnvelopeBody(), 'msg-not-found')]);
+
+      expect(result.failed).toBe(1);
+      expect(result.errors[0].recordId).toBe('msg-not-found');
+      expect(applicationOutboxService.recordBacsPaymentEvent).not.toHaveBeenCalled();
     });
 
     it('fails the record when the UKSBS status is unmapped so it is not acknowledged or emitted', async () => {
@@ -252,4 +280,3 @@ describe('workerService', () => {
     });
   });
 });
-
