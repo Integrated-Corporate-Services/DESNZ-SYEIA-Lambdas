@@ -1,7 +1,7 @@
 import { databasePoolConfig } from '../config/databasePool.config';
 import { createLogger } from '../util/logger';
 import { TABLES } from '../constants/database.constants';
-import { WEBHOOK_STATUS, RELAY_UPDATED_BY } from '../constants/status.constants';
+import { WEBHOOK_STATUS, RELAY_UPDATED_BY, RELAY_ELIGIBLE_CREATED_BY } from '../constants/status.constants';
 import { LOG_CHILD_DOMAIN } from '../constants/log.constants';
 import type { PaymentWebhookRow } from '../types';
 
@@ -18,10 +18,10 @@ export const SQL_SELECT_PENDING_FOR_RELAY = `
          enqueued_at, created_by, updated_by, correlation_id,
          created_at, updated_at
     FROM ${TABLES.PAYMENT_WEBHOOKS}
-   WHERE enqueued_at IS NULL
-     AND LOWER(status) = $1
+   WHERE LOWER(status) = $1
+     AND created_by = $2
    ORDER BY created_at ASC
-   LIMIT $2
+   LIMIT $3
    FOR UPDATE SKIP LOCKED
 `;
 
@@ -30,7 +30,7 @@ export async function selectPendingForRelay(limit: number): Promise<PaymentWebho
 
   const { rows } = await databasePoolConfig.query<PaymentWebhookRow>(
     SQL_SELECT_PENDING_FOR_RELAY,
-    [WEBHOOK_STATUS.PENDING, limit],
+    [WEBHOOK_STATUS.PENDING, RELAY_ELIGIBLE_CREATED_BY, limit],
   );
 
   log.end(METHOD.SELECT_PENDING_FOR_RELAY, { count: rows.length });
@@ -39,11 +39,12 @@ export async function selectPendingForRelay(limit: number): Promise<PaymentWebho
 
 export const SQL_UPDATE_AFTER_RELAY = `
   UPDATE ${TABLES.PAYMENT_WEBHOOKS}
-     SET enqueued_at = NOW(),
+     SET status      = $1,
+         enqueued_at = NOW(),
          updated_at  = NOW(),
-         updated_by  = $1
-   WHERE webhook_id  = $2
-     AND enqueued_at IS NULL
+         updated_by  = $2
+   WHERE webhook_id    = $3
+     AND LOWER(status) = $4
 `;
 
 export async function updateAfterRelay(webhookId: string): Promise<number> {
@@ -51,7 +52,7 @@ export async function updateAfterRelay(webhookId: string): Promise<number> {
 
   const result = await databasePoolConfig.query(
     SQL_UPDATE_AFTER_RELAY,
-    [RELAY_UPDATED_BY, webhookId],
+    [WEBHOOK_STATUS.ENQUEUED, RELAY_UPDATED_BY, webhookId, WEBHOOK_STATUS.PENDING],
   );
 
   log.end(METHOD.UPDATE_AFTER_RELAY, { webhookId, rowCount: result.rowCount ?? 0 });
