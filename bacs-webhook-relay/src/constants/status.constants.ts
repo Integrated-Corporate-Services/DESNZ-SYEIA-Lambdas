@@ -2,7 +2,7 @@ export const SOURCE_BACS = 'BACS';
 
 export const WEBHOOK_STATUS = {
   PENDING: 'pending',
-  QUEUED: 'queued',
+  ENQUEUED: 'ENQUEUED',
   PROCESSING: 'processing',
   SUCCESS: 'success',
   FAILED: 'failed',
@@ -13,6 +13,8 @@ export const WEBHOOK_STATUS = {
 export type WebhookStatus = (typeof WEBHOOK_STATUS)[keyof typeof WEBHOOK_STATUS];
 
 export const RELAY_UPDATED_BY = 'bacs-webhook-relay';
+
+export const RELAY_ELIGIBLE_CREATED_BY = 'BACS-webhook-receiver';
 
 export const RELAY_OUTCOME = {
   ENQUEUED: 'enqueued',
