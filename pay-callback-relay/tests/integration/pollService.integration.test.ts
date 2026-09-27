@@ -3,19 +3,17 @@
 import { pollAndEnqueueWebhooks } from '../../src/services/pollService';
 import { ensurePoolInitialized, getPool } from '../../src/database/pool';
 import { SQSClient, ReceiveMessageCommand, DeleteMessageCommand } from '@aws-sdk/client-sqs';
-import { TABLE_PAYMENT_WEBHOOKS, STATUS_PROCESSING } from '../../src/constants';
+import { TABLE_PAYMENT_WEBHOOKS, STATUS_PROCESSING, WEBHOOK_CREATED_BY } from '../../src/constants';
 
 describe('pollAndEnqueueWebhooks integration', () => {
   const sqs = new SQSClient({ region: process.env.AWS_REGION, endpoint: process.env.AWS_ENDPOINT_URL });
   const SQS_QUEUE_URL = process.env.SQS_QUEUE_URL;
   let webhookId: string;
+  let excludedWebhookId: string;
   let pool: ReturnType<typeof getPool>;
   const paymentId = 'pay_test_1777277750706_new';
 
-  beforeAll(async () => {
-    await ensurePoolInitialized();
-    pool = getPool();
-    webhookId = 'test-webhook-' + Date.now();
+  const insertWebhook = async (id: string, createdBy: string) => {
     const webhookPayload = {
       resource: {
         payment_id: paymentId,
@@ -27,25 +25,36 @@ describe('pollAndEnqueueWebhooks integration', () => {
       resource_id: paymentId,
       created_date: new Date().toISOString(),
       resource_type: 'payment',
-      webhook_message_id: webhookId,
+      webhook_message_id: id,
     };
     await pool.query(
       `INSERT INTO ${TABLE_PAYMENT_WEBHOOKS}
         (webhook_id, payment_id, event_type, status, raw_payload, created_by, enqueued_at)
        VALUES ($1, $2, $3, $4, $5::jsonb, $6, NULL)`,
       [
-        webhookId,
+        id,
         paymentId,
         'card_payment_succeeded',
         STATUS_PROCESSING,
         JSON.stringify(webhookPayload),
-        'integration-test',
+        createdBy,
       ]
     );
+  };
+
+  beforeAll(async () => {
+    await ensurePoolInitialized();
+    pool = getPool();
+    webhookId = 'test-webhook-' + Date.now();
+    excludedWebhookId = 'test-webhook-excluded-' + Date.now();
+    await insertWebhook(webhookId, WEBHOOK_CREATED_BY);
+    await insertWebhook(excludedWebhookId, 'BACS-webhook-receiver');
   });
 
   afterAll(async () => {
-    await pool.query(`DELETE FROM ${TABLE_PAYMENT_WEBHOOKS} WHERE webhook_id = $1`, [webhookId]);
+    await pool.query(`DELETE FROM ${TABLE_PAYMENT_WEBHOOKS} WHERE webhook_id = ANY($1)`, [
+      [webhookId, excludedWebhookId],
+    ]);
     await pool.end();
   });
 
@@ -71,5 +80,16 @@ describe('pollAndEnqueueWebhooks integration', () => {
       [webhookId]
     );
     expect(dbRes.rows[0].enqueued_at).not.toBeNull();
+  });
+
+  it('should not enqueue webhooks created by a different source', async () => {
+    const result = await pollAndEnqueueWebhooks();
+    const excludedResult = result.results.find((r) => r.webhookId === excludedWebhookId);
+    expect(excludedResult).toBeUndefined();
+    const dbRes = await pool.query(
+      `SELECT enqueued_at FROM ${TABLE_PAYMENT_WEBHOOKS} WHERE webhook_id = $1`,
+      [excludedWebhookId]
+    );
+    expect(dbRes.rows[0].enqueued_at).toBeNull();
   });
 });
