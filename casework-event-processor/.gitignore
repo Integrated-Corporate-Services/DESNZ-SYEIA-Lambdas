@@ -1,0 +1,9 @@
+node_modules/
+dist/
+*.zip
+handler.js
+handler.js.map
+index.js
+index.js.map
+src/**/*.js
+src/**/*.js.map
