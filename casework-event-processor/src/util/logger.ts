@@ -1,9 +1,5 @@
 import winston from 'winston';
 
-/**
- * Create Winston logger with consistent formatting
- * @param tag - Component tag for log identification
- */
 export function createLogger(tag: string): winston.Logger {
   return winston.createLogger({
     level: process.env.LOG_LEVEL || 'info',

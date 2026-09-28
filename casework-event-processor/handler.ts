@@ -6,17 +6,12 @@ import type { CaseworkSqsMessage } from './src/types';
 
 const logger = createLogger('handler');
 
-/**
- * SQS Lambda handler with ReportBatchItemFailures
- * Triggered by casework-events-queue
- * Batch size: 10 messages
- */
 export const handler: SQSHandler = async (event, context) => {
   context.callbackWaitsForEmptyEventLoop = false;
   validateEnvironment();
 
   const pool = await getPool();
-  void pool; // reserved for workerService.processEvent once implemented
+  void pool;
 
   logger.info('Worker Lambda invoked', {
     awsRequestId: context.awsRequestId,
@@ -39,16 +34,9 @@ export const handler: SQSHandler = async (event, context) => {
         eventType: message.eventType,
       });
 
-      /*const result = await workerService.processEvent(
-        message.eventId,
-        message.correlationId,
-        pool,
-      );*/
-
       logger.info('Worker: message processed', {
         messageId,
         eventId: message.eventId,
-        /*outcome: result.outcome,*/
       });
     } catch (error) {
       if (error instanceof RetryableProcessingError) {

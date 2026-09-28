@@ -1,15 +1,9 @@
-/**
- * Environment Configuration
- * Centralizes all environment variable access
- */
-
 import { Pool } from 'pg';
 import {
   GetSecretValueCommand,
   SecretsManagerClient,
 } from '@aws-sdk/client-secrets-manager';
 
-/** Map AWS Dev env names onto the names this Lambda already expects. */
 function applyEnvAliases(): void {
   if (!process.env.AWS_REGION && process.env.REGION) {
     process.env.AWS_REGION = process.env.REGION;
@@ -131,7 +125,6 @@ export function shouldUseDbSsl(): boolean {
   return Boolean(process.env.HOST_NAME);
 }
 
-/** Reuse one Pool across warm Lambda invocations. */
 export async function getPool(): Promise<Pool> {
   if (cachedPool) {
     return cachedPool;

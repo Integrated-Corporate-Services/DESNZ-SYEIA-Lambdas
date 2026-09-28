@@ -7,9 +7,6 @@ const logger = createLogger('sqs.repository');
 
 let _sqsClient: SQSClient | null = null;
 
-/**
- * Get singleton SQS client
- */
 function getSqsClient(): SQSClient {
   if (!_sqsClient) {
     _sqsClient = new SQSClient({
@@ -30,14 +27,7 @@ function getSqsClient(): SQSClient {
   return _sqsClient;
 }
 
-/**
- * SQS Repository
- * Handles fatal message publishing
- */
 class SqsRepository {
-  /**
-   * Publish fatal message to DLQ
-   */
   async publishFatalMessage(msg: FatalSqsMessage): Promise<void> {
     const fatalQueueUrl = getFatalQueueUrl();
     if (!fatalQueueUrl) {
