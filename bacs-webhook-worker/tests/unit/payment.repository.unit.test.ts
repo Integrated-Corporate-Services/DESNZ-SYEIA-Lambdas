@@ -83,3 +83,32 @@ describe('updatePaymentStatus', () => {
     expect(pg.__client.release).toHaveBeenCalled();
   });
 });
+
+describe('findApplicationDetailsByApplicationId', () => {
+  test('maps desnz_ref and type to desnzReference and formType for a populated row', async () => {
+    const { pg, paymentRepository } = await loadRepository();
+    pg.__client.query.mockResolvedValue({
+      rows: [{ desnz_ref: 'NWL00045', type: 'NWL' }],
+    });
+
+    const details = await paymentRepository.findApplicationDetailsByApplicationId('app-1');
+
+    expect(details).toEqual({ desnzReference: 'NWL00045', formType: 'NWL' });
+    const [sql, params] = pg.__client.query.mock.calls[0];
+    expect(sql).toContain('SELECT desnz_ref, type');
+    expect(sql).toContain('FROM application');
+    expect(sql).toContain('WHERE application_id = $1');
+    expect(params).toEqual(['app-1']);
+    expect(pg.__client.release).toHaveBeenCalled();
+  });
+
+  test('returns nulls for both fields when no application row is found', async () => {
+    const { pg, paymentRepository } = await loadRepository();
+    pg.__client.query.mockResolvedValue({ rows: [] });
+
+    const details = await paymentRepository.findApplicationDetailsByApplicationId('missing-app');
+
+    expect(details).toEqual({ desnzReference: null, formType: null });
+    expect(pg.__client.release).toHaveBeenCalled();
+  });
+});

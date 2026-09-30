@@ -20,7 +20,7 @@ jest.mock('../../src/repositories/payment.repository', () => ({
     markWebhookProcessed: jest.fn().mockResolvedValue(undefined),
     getPaymentStatus: jest.fn().mockResolvedValue(null),
     findApplicationByInvoiceNumber: jest.fn().mockResolvedValue(null),
-    findDesnzReferenceByApplicationId: jest.fn().mockResolvedValue(null),
+    findApplicationDetailsByApplicationId: jest.fn().mockResolvedValue({ desnzReference: null, formType: null }),
   },
 }));
 

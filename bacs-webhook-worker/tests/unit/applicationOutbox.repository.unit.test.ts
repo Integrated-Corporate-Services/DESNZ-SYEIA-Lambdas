@@ -22,7 +22,8 @@ function buildParams(overrides: Partial<InsertBacsPaymentOutboxParams> = {}): In
     payload: {
       applicationId: 'app-1',
       event_type: 'BACS_PAYMENT_EVENT',
-      desnzReference: 'DESNZ-1',
+      formType: 'NWL',
+      desnzReference: 'NWL00045',
       invoiceNumber: 'INV01/NWL00045',
       payment: {
         amount: 100,
