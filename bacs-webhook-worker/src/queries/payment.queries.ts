@@ -17,7 +17,7 @@ export const paymentQueries = {
      RETURNING id, application_id, status
   `,
 
-  FIND_DESNZ_REF_BY_APPLICATION_ID: 'SELECT desnz_ref FROM application WHERE application_id = $1',
+  FIND_APPLICATION_DETAILS_BY_APPLICATION_ID: 'SELECT desnz_ref, type FROM application WHERE application_id = $1',
 
   GET_PAYMENT_STATUS: 'SELECT status FROM payment WHERE application_id = $1 ORDER BY id DESC LIMIT 1',
 

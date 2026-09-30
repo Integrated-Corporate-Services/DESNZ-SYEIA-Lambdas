@@ -11,6 +11,7 @@ export interface BacsPaymentOutboxPaymentDetails {
 export interface BacsPaymentOutboxPayload {
   applicationId: string;
   event_type: string;
+  formType: string | null;
   desnzReference: string | null;
   invoiceNumber: string;
   payment: BacsPaymentOutboxPaymentDetails;

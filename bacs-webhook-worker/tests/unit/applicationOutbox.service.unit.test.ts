@@ -1,6 +1,6 @@
 jest.mock('../../src/repositories/payment.repository', () => ({
   paymentRepository: {
-    findDesnzReferenceByApplicationId: jest.fn(),
+    findApplicationDetailsByApplicationId: jest.fn(),
   },
 }));
 
@@ -14,9 +14,9 @@ import { applicationOutboxService } from '../../src/services/applicationOutbox.s
 import { paymentRepository } from '../../src/repositories/payment.repository';
 import { applicationOutboxRepository } from '../../src/repositories/applicationOutbox.repository';
 import type { ProcessablePayment } from '../../src/types';
-import type { InvoiceApplicationLookup } from '../../src/repositories/payment.repository';
+import type { InvoiceApplicationLookup, ApplicationDetailsLookup } from '../../src/repositories/payment.repository';
 
-const mockedFindDesnzReferenceByApplicationId = paymentRepository.findDesnzReferenceByApplicationId as jest.Mock;
+const mockedFindApplicationDetailsByApplicationId = paymentRepository.findApplicationDetailsByApplicationId as jest.Mock;
 const mockedInsertOutboxRow = applicationOutboxRepository.insertOutboxRow as jest.Mock;
 
 function buildPayment(overrides: Partial<ProcessablePayment> = {}): ProcessablePayment {
@@ -46,9 +46,17 @@ function buildInvoiceLookup(overrides: Partial<InvoiceApplicationLookup> = {}): 
   };
 }
 
+function buildApplicationDetails(overrides: Partial<ApplicationDetailsLookup> = {}): ApplicationDetailsLookup {
+  return {
+    desnzReference: 'NWL00045',
+    formType: 'NWL',
+    ...overrides,
+  };
+}
+
 describe('applicationOutboxService.recordBacsPaymentEvent', () => {
   beforeEach(() => {
-    mockedFindDesnzReferenceByApplicationId.mockReset();
+    mockedFindApplicationDetailsByApplicationId.mockReset();
     mockedInsertOutboxRow.mockReset();
   });
 
@@ -64,7 +72,7 @@ describe('applicationOutboxService.recordBacsPaymentEvent', () => {
   });
 
   it('proceeds when the invoice payment_method is not BACS', async () => {
-    mockedFindDesnzReferenceByApplicationId.mockResolvedValue('DESNZ-1');
+    mockedFindApplicationDetailsByApplicationId.mockResolvedValue(buildApplicationDetails());
     mockedInsertOutboxRow.mockResolvedValue('outbox-1');
 
     const result = await applicationOutboxService.recordBacsPaymentEvent(
@@ -77,7 +85,7 @@ describe('applicationOutboxService.recordBacsPaymentEvent', () => {
   });
 
   it('skips and returns null when no desnz_ref is found for the application', async () => {
-    mockedFindDesnzReferenceByApplicationId.mockResolvedValue(null);
+    mockedFindApplicationDetailsByApplicationId.mockResolvedValue(buildApplicationDetails({ desnzReference: null, formType: null }));
 
     const result = await applicationOutboxService.recordBacsPaymentEvent(buildPayment(), buildInvoiceLookup(), 'record-1');
 
@@ -86,7 +94,7 @@ describe('applicationOutboxService.recordBacsPaymentEvent', () => {
   });
 
   it('builds the expected payload shape and delegates the insert to the repository', async () => {
-    mockedFindDesnzReferenceByApplicationId.mockResolvedValue('DESNZ-1');
+    mockedFindApplicationDetailsByApplicationId.mockResolvedValue(buildApplicationDetails());
     mockedInsertOutboxRow.mockResolvedValue('outbox-1');
 
     const payment = buildPayment();
@@ -102,7 +110,8 @@ describe('applicationOutboxService.recordBacsPaymentEvent', () => {
     expect(insertParams.payload).toEqual({
       applicationId: 'app-1',
       event_type: 'BACS_PAYMENT_EVENT',
-      desnzReference: 'DESNZ-1',
+      formType: 'NWL',
+      desnzReference: 'NWL00045',
       invoiceNumber: 'INV01/NWL00045',
       payment: {
         amount: payment.amount,
@@ -116,8 +125,32 @@ describe('applicationOutboxService.recordBacsPaymentEvent', () => {
     });
   });
 
+  it('passes through the S37 form type from the application table', async () => {
+    mockedFindApplicationDetailsByApplicationId.mockResolvedValue(
+      buildApplicationDetails({ desnzReference: 'S3700046', formType: 'S37' }),
+    );
+    mockedInsertOutboxRow.mockResolvedValue('outbox-1');
+
+    await applicationOutboxService.recordBacsPaymentEvent(buildPayment(), buildInvoiceLookup(), 'record-1');
+
+    const [insertParams] = mockedInsertOutboxRow.mock.calls[0];
+    expect(insertParams.payload.formType).toBe('S37');
+  });
+
+  it('passes formType through as null when the application table has no type recorded', async () => {
+    mockedFindApplicationDetailsByApplicationId.mockResolvedValue(
+      buildApplicationDetails({ desnzReference: 'NWL00045', formType: null }),
+    );
+    mockedInsertOutboxRow.mockResolvedValue('outbox-1');
+
+    await applicationOutboxService.recordBacsPaymentEvent(buildPayment(), buildInvoiceLookup(), 'record-1');
+
+    const [insertParams] = mockedInsertOutboxRow.mock.calls[0];
+    expect(insertParams.payload.formType).toBeNull();
+  });
+
   it('passes an arbitrary recognised status through verbatim in the outbox payload', async () => {
-    mockedFindDesnzReferenceByApplicationId.mockResolvedValue('DESNZ-1');
+    mockedFindApplicationDetailsByApplicationId.mockResolvedValue(buildApplicationDetails());
     mockedInsertOutboxRow.mockResolvedValue('outbox-1');
 
     await applicationOutboxService.recordBacsPaymentEvent(
@@ -142,7 +175,7 @@ describe('applicationOutboxService.recordBacsPaymentEvent', () => {
   });
 
   it('propagates a repository failure instead of swallowing it', async () => {
-    mockedFindDesnzReferenceByApplicationId.mockResolvedValue('DESNZ-1');
+    mockedFindApplicationDetailsByApplicationId.mockResolvedValue(buildApplicationDetails());
     mockedInsertOutboxRow.mockRejectedValue(new Error('Failed to insert application_outbox event: connection lost'));
 
     await expect(

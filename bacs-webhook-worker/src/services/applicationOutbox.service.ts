@@ -23,6 +23,7 @@ function buildIdempotencyKey(applicationId: string, transactionId: string, webho
 function buildBacsPaymentOutboxPayload(
   applicationId: string,
   desnzReference: string | null,
+  formType: string | null,
   invoiceNumber: string,
   payment: ProcessablePayment,
   mappedStatus: string,
@@ -30,6 +31,7 @@ function buildBacsPaymentOutboxPayload(
   return {
     applicationId,
     event_type: BACS_PAYMENT_EVENT_TYPE,
+    formType,
     desnzReference,
     invoiceNumber,
     payment: {
@@ -86,7 +88,7 @@ export const applicationOutboxService = {
       return null;
     }
 
-    const desnzReference = await paymentRepository.findDesnzReferenceByApplicationId(applicationId);
+    const { desnzReference, formType } = await paymentRepository.findApplicationDetailsByApplicationId(applicationId);
     if (!desnzReference) {
       log.warn(METHOD.RECORD_BACS_PAYMENT_EVENT, LOG_MESSAGES.OUTBOX_DESNZ_REF_LOOKUP_FAILED, {
         recordId,
@@ -100,6 +102,7 @@ export const applicationOutboxService = {
     const payload = buildBacsPaymentOutboxPayload(
       applicationId,
       desnzReference,
+      formType,
       invoiceLookup.invoiceNumber,
       payment,
       mappedStatus,

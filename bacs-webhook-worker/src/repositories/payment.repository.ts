@@ -14,7 +14,7 @@ const METHOD = {
   GET_PAYMENT_STATUS: 'getPaymentStatus',
   MARK_WEBHOOK_PROCESSED: 'markWebhookProcessed',
   FIND_APPLICATION_BY_INVOICE_NUMBER: 'findApplicationByInvoiceNumber',
-  FIND_DESNZ_REF_BY_APPLICATION_ID: 'findDesnzReferenceByApplicationId',
+  FIND_APPLICATION_DETAILS_BY_APPLICATION_ID: 'findApplicationDetailsByApplicationId',
 } as const;
 
 export interface InvoiceApplicationLookup {
@@ -22,6 +22,11 @@ export interface InvoiceApplicationLookup {
   invoiceNumber: string;
   paymentMethod: string | null;
   amountPence: number | null;
+}
+
+export interface ApplicationDetailsLookup {
+  desnzReference: string | null;
+  formType: string | null;
 }
 
 export interface PaymentRowLookup {
@@ -146,21 +151,24 @@ export const paymentRepository = {
     }
   },
 
-  findDesnzReferenceByApplicationId: async (applicationId: string): Promise<string | null> => {
-    log.start(METHOD.FIND_DESNZ_REF_BY_APPLICATION_ID, { applicationId });
+  findApplicationDetailsByApplicationId: async (applicationId: string): Promise<ApplicationDetailsLookup> => {
+    log.start(METHOD.FIND_APPLICATION_DETAILS_BY_APPLICATION_ID, { applicationId });
     let client: PoolClient | null = null;
     try {
       client = await getPool().connect();
-      const result = await client.query(paymentQueries.FIND_DESNZ_REF_BY_APPLICATION_ID, [applicationId]);
+      const result = await client.query(paymentQueries.FIND_APPLICATION_DETAILS_BY_APPLICATION_ID, [applicationId]);
 
-      const desnzReference = result.rows.length > 0 ? result.rows[0].desnz_ref : null;
-      log.end(METHOD.FIND_DESNZ_REF_BY_APPLICATION_ID, { applicationId, desnzReference });
+      const details: ApplicationDetailsLookup = {
+        desnzReference: result.rows.length > 0 ? result.rows[0].desnz_ref : null,
+        formType: result.rows.length > 0 ? result.rows[0].type : null,
+      };
+      log.end(METHOD.FIND_APPLICATION_DETAILS_BY_APPLICATION_ID, { applicationId, ...details });
 
-      return desnzReference;
+      return details;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      log.error(METHOD.FIND_DESNZ_REF_BY_APPLICATION_ID, LOG_MESSAGES.DB_QUERY_ERROR, { error: message, applicationId });
-      throw new DatabaseError(`Failed to find desnz reference by application id: ${message}`);
+      log.error(METHOD.FIND_APPLICATION_DETAILS_BY_APPLICATION_ID, LOG_MESSAGES.DB_QUERY_ERROR, { error: message, applicationId });
+      throw new DatabaseError(`Failed to find application details by application id: ${message}`);
     } finally {
       if (client) {
         client.release();
