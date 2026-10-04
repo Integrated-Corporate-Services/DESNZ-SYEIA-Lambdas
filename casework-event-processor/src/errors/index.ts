@@ -12,7 +12,19 @@ export class FatalEventError extends Error {
   }
 }
 
+export class EventError extends Error {
+  constructor(
+    message: string,
+    public readonly code: string,
+    public readonly retryable: boolean,
+  ) {
+    super(message);
+    this.name = 'EventError';
+  }
+}
+
 export function isRetryableError(error: unknown): boolean {
+  if (error instanceof EventError) return true;
   if (error instanceof RetryableProcessingError) return true;
 
   if (error instanceof Error) {
