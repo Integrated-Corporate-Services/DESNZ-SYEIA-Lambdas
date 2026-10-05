@@ -123,9 +123,9 @@ describe('applicationOutboxService.recordBacsPaymentEvent', () => {
         receivedAt: payment.receivedAt,
       },
       paymentVariance: {
-        expectedAmount: 100,
-        receivedAmount: 100,
-        differenceAmount: 0,
+        expectedAmount: '£1.00',
+        receivedAmount: '£1.00',
+        differenceAmount: '£0.00',
         varianceType: 'MATCHED',
       },
     });
@@ -143,9 +143,9 @@ describe('applicationOutboxService.recordBacsPaymentEvent', () => {
 
     const [insertParams] = mockedInsertOutboxRow.mock.calls[0];
     expect(insertParams.payload.paymentVariance).toEqual({
-      expectedAmount: 250,
-      receivedAmount: 250,
-      differenceAmount: 0,
+      expectedAmount: '£2.50',
+      receivedAmount: '£2.50',
+      differenceAmount: '£0.00',
       varianceType: 'MATCHED',
     });
   });
@@ -162,9 +162,9 @@ describe('applicationOutboxService.recordBacsPaymentEvent', () => {
 
     const [insertParams] = mockedInsertOutboxRow.mock.calls[0];
     expect(insertParams.payload.paymentVariance).toEqual({
-      expectedAmount: 250,
-      receivedAmount: 300,
-      differenceAmount: 50,
+      expectedAmount: '£2.50',
+      receivedAmount: '£3.00',
+      differenceAmount: '£0.50',
       varianceType: 'OVERPAID',
     });
   });
@@ -181,9 +181,9 @@ describe('applicationOutboxService.recordBacsPaymentEvent', () => {
 
     const [insertParams] = mockedInsertOutboxRow.mock.calls[0];
     expect(insertParams.payload.paymentVariance).toEqual({
-      expectedAmount: 250,
-      receivedAmount: 200,
-      differenceAmount: -50,
+      expectedAmount: '£2.50',
+      receivedAmount: '£2.00',
+      differenceAmount: '-£0.50',
       varianceType: 'UNDERPAID',
     });
   });
@@ -201,7 +201,7 @@ describe('applicationOutboxService.recordBacsPaymentEvent', () => {
     const [insertParams] = mockedInsertOutboxRow.mock.calls[0];
     expect(insertParams.payload.paymentVariance).toEqual({
       expectedAmount: null,
-      receivedAmount: 200,
+      receivedAmount: '£2.00',
       differenceAmount: null,
       varianceType: null,
     });
