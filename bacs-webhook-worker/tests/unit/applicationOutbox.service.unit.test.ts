@@ -122,6 +122,88 @@ describe('applicationOutboxService.recordBacsPaymentEvent', () => {
         paymentDate: payment.paymentDate,
         receivedAt: payment.receivedAt,
       },
+      paymentVariance: {
+        expectedAmount: 100,
+        receivedAmount: 100,
+        differenceAmount: 0,
+        varianceType: 'MATCHED',
+      },
+    });
+  });
+
+  it('reports MATCHED with a zero difference when the received amount equals the invoice amount_pence', async () => {
+    mockedFindApplicationDetailsByApplicationId.mockResolvedValue(buildApplicationDetails());
+    mockedInsertOutboxRow.mockResolvedValue('outbox-1');
+
+    await applicationOutboxService.recordBacsPaymentEvent(
+      buildPayment({ amount: 250 }),
+      buildInvoiceLookup({ amountPence: 250 }),
+      'record-1',
+    );
+
+    const [insertParams] = mockedInsertOutboxRow.mock.calls[0];
+    expect(insertParams.payload.paymentVariance).toEqual({
+      expectedAmount: 250,
+      receivedAmount: 250,
+      differenceAmount: 0,
+      varianceType: 'MATCHED',
+    });
+  });
+
+  it('reports OVERPAID with a positive difference when the received amount exceeds the invoice amount_pence', async () => {
+    mockedFindApplicationDetailsByApplicationId.mockResolvedValue(buildApplicationDetails());
+    mockedInsertOutboxRow.mockResolvedValue('outbox-1');
+
+    await applicationOutboxService.recordBacsPaymentEvent(
+      buildPayment({ amount: 300 }),
+      buildInvoiceLookup({ amountPence: 250 }),
+      'record-1',
+    );
+
+    const [insertParams] = mockedInsertOutboxRow.mock.calls[0];
+    expect(insertParams.payload.paymentVariance).toEqual({
+      expectedAmount: 250,
+      receivedAmount: 300,
+      differenceAmount: 50,
+      varianceType: 'OVERPAID',
+    });
+  });
+
+  it('reports UNDERPAID with a negative difference when the received amount is less than the invoice amount_pence', async () => {
+    mockedFindApplicationDetailsByApplicationId.mockResolvedValue(buildApplicationDetails());
+    mockedInsertOutboxRow.mockResolvedValue('outbox-1');
+
+    await applicationOutboxService.recordBacsPaymentEvent(
+      buildPayment({ amount: 200 }),
+      buildInvoiceLookup({ amountPence: 250 }),
+      'record-1',
+    );
+
+    const [insertParams] = mockedInsertOutboxRow.mock.calls[0];
+    expect(insertParams.payload.paymentVariance).toEqual({
+      expectedAmount: 250,
+      receivedAmount: 200,
+      differenceAmount: -50,
+      varianceType: 'UNDERPAID',
+    });
+  });
+
+  it('reports a null varianceType and differenceAmount when the invoice has no amount_pence on file', async () => {
+    mockedFindApplicationDetailsByApplicationId.mockResolvedValue(buildApplicationDetails());
+    mockedInsertOutboxRow.mockResolvedValue('outbox-1');
+
+    await applicationOutboxService.recordBacsPaymentEvent(
+      buildPayment({ amount: 200 }),
+      buildInvoiceLookup({ amountPence: null }),
+      'record-1',
+    );
+
+    const [insertParams] = mockedInsertOutboxRow.mock.calls[0];
+    expect(insertParams.payload.paymentVariance).toEqual({
+      expectedAmount: null,
+      receivedAmount: 200,
+      differenceAmount: null,
+      varianceType: null,
     });
   });
 

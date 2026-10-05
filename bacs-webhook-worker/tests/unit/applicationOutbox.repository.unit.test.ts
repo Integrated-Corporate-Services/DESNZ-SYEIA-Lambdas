@@ -34,6 +34,12 @@ function buildParams(overrides: Partial<InsertBacsPaymentOutboxParams> = {}): In
         paymentDate: '2026-01-01',
         receivedAt: '2026-01-01T00:00:00.000Z',
       },
+      paymentVariance: {
+        expectedAmount: 100,
+        receivedAmount: 100,
+        differenceAmount: 0,
+        varianceType: 'MATCHED',
+      },
     },
     ...overrides,
   };
