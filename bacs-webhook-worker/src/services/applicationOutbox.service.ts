@@ -3,10 +3,10 @@ import { paymentRepository, type InvoiceApplicationLookup } from '../repositorie
 import { applicationOutboxRepository } from '../repositories/applicationOutbox.repository';
 import { createLogger } from '../util/logger';
 import { LOG_MESSAGES, LOG_CHILD_DOMAIN, LOG_EVENTS } from '../constants/log.constants';
-import { BACS_PAYMENT_EVENT_TYPE } from '../constants/applicationOutbox.constants';
+import { BACS_PAYMENT_EVENT_TYPE, PAYMENT_VARIANCE_TYPE } from '../constants/applicationOutbox.constants';
 import { mapUksbsStatusToPaymentStatus } from '../util/paymentStatus.mapper';
 import type { ProcessablePayment } from '../types';
-import type { BacsPaymentOutboxPayload } from '../types/applicationOutbox.types';
+import type { BacsPaymentOutboxPayload, BacsPaymentOutboxVariance } from '../types/applicationOutbox.types';
 
 const log = createLogger('applicationOutbox.service.ts', LOG_CHILD_DOMAIN.OUTBOX_SERVICE);
 
@@ -20,11 +20,38 @@ function buildIdempotencyKey(applicationId: string, transactionId: string, webho
     .digest('hex');
 }
 
+function buildPaymentVariance(expectedAmountPence: number | null, receivedAmount: number): BacsPaymentOutboxVariance {
+  if (expectedAmountPence === null) {
+    return {
+      expectedAmount: null,
+      receivedAmount,
+      differenceAmount: null,
+      varianceType: null,
+    };
+  }
+
+  const differenceAmount = receivedAmount - expectedAmountPence;
+  const varianceType =
+    differenceAmount === 0
+      ? PAYMENT_VARIANCE_TYPE.MATCHED
+      : differenceAmount > 0
+        ? PAYMENT_VARIANCE_TYPE.OVERPAID
+        : PAYMENT_VARIANCE_TYPE.UNDERPAID;
+
+  return {
+    expectedAmount: expectedAmountPence,
+    receivedAmount,
+    differenceAmount,
+    varianceType,
+  };
+}
+
 function buildBacsPaymentOutboxPayload(
   applicationId: string,
   desnzReference: string | null,
   formType: string | null,
   invoiceNumber: string,
+  expectedAmountPence: number | null,
   payment: ProcessablePayment,
   mappedStatus: string,
 ): BacsPaymentOutboxPayload {
@@ -43,6 +70,7 @@ function buildBacsPaymentOutboxPayload(
       paymentDate: payment.paymentDate ?? null,
       receivedAt: payment.receivedAt,
     },
+    paymentVariance: buildPaymentVariance(expectedAmountPence, payment.amount),
   };
 }
 
@@ -104,6 +132,7 @@ export const applicationOutboxService = {
       desnzReference,
       formType,
       invoiceLookup.invoiceNumber,
+      invoiceLookup.amountPence,
       payment,
       mappedStatus,
     );

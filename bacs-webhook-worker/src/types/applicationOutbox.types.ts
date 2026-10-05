@@ -8,6 +8,13 @@ export interface BacsPaymentOutboxPaymentDetails {
   receivedAt: string;
 }
 
+export interface BacsPaymentOutboxVariance {
+  expectedAmount: number | null;
+  receivedAmount: number;
+  differenceAmount: number | null;
+  varianceType: 'OVERPAID' | 'UNDERPAID' | 'MATCHED' | null;
+}
+
 export interface BacsPaymentOutboxPayload {
   applicationId: string;
   event_type: string;
@@ -15,6 +22,7 @@ export interface BacsPaymentOutboxPayload {
   desnzReference: string | null;
   invoiceNumber: string;
   payment: BacsPaymentOutboxPaymentDetails;
+  paymentVariance: BacsPaymentOutboxVariance;
 }
 
 export interface InsertBacsPaymentOutboxParams {
