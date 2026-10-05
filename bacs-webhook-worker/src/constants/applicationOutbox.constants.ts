@@ -10,7 +10,6 @@ export const APPLICATION_OUTBOX_STATUS = {
 
 export const APPLICATION_OUTBOX_TABLE = 'application_outbox';
 
-// varianceType is null when there is no invoice.amount_pence on file to compare against.
 export const PAYMENT_VARIANCE_TYPE = {
   OVERPAID: 'OVERPAID',
   UNDERPAID: 'UNDERPAID',
