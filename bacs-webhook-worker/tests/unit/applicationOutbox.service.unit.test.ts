@@ -188,6 +188,25 @@ describe('applicationOutboxService.recordBacsPaymentEvent', () => {
     });
   });
 
+  it('treats a zero invoice amount_pence as a known expected amount, not a missing one', async () => {
+    mockedFindApplicationDetailsByApplicationId.mockResolvedValue(buildApplicationDetails());
+    mockedInsertOutboxRow.mockResolvedValue('outbox-1');
+
+    await applicationOutboxService.recordBacsPaymentEvent(
+      buildPayment({ amount: 0 }),
+      buildInvoiceLookup({ amountPence: 0 }),
+      'record-1',
+    );
+
+    const [insertParams] = mockedInsertOutboxRow.mock.calls[0];
+    expect(insertParams.payload.paymentVariance).toEqual({
+      expectedAmount: '£0.00',
+      receivedAmount: '£0.00',
+      differenceAmount: '£0.00',
+      varianceType: 'MATCHED',
+    });
+  });
+
   it('reports a null varianceType and differenceAmount when the invoice has no amount_pence on file', async () => {
     mockedFindApplicationDetailsByApplicationId.mockResolvedValue(buildApplicationDetails());
     mockedInsertOutboxRow.mockResolvedValue('outbox-1');
