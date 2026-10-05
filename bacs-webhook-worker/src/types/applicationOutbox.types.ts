@@ -9,9 +9,9 @@ export interface BacsPaymentOutboxPaymentDetails {
 }
 
 export interface BacsPaymentOutboxVariance {
-  expectedAmount: number | null;
-  receivedAmount: number;
-  differenceAmount: number | null;
+  expectedAmount: string | null;
+  receivedAmount: string;
+  differenceAmount: string | null;
   varianceType: 'OVERPAID' | 'UNDERPAID' | 'MATCHED' | null;
 }
 

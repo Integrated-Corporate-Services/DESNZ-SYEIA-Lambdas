@@ -20,28 +20,34 @@ function buildIdempotencyKey(applicationId: string, transactionId: string, webho
     .digest('hex');
 }
 
-function buildPaymentVariance(expectedAmountPence: number | null, receivedAmount: number): BacsPaymentOutboxVariance {
+function formatPenceAsPounds(pence: number): string {
+  const sign = pence < 0 ? '-' : '';
+  const pounds = (Math.abs(pence) / 100).toFixed(2);
+  return `${sign}£${pounds}`;
+}
+
+function buildPaymentVariance(expectedAmountPence: number | null, receivedAmountPence: number): BacsPaymentOutboxVariance {
   if (expectedAmountPence === null) {
     return {
       expectedAmount: null,
-      receivedAmount,
+      receivedAmount: formatPenceAsPounds(receivedAmountPence),
       differenceAmount: null,
       varianceType: null,
     };
   }
 
-  const differenceAmount = receivedAmount - expectedAmountPence;
+  const differencePence = receivedAmountPence - expectedAmountPence;
   const varianceType =
-    differenceAmount === 0
+    differencePence === 0
       ? PAYMENT_VARIANCE_TYPE.MATCHED
-      : differenceAmount > 0
+      : differencePence > 0
         ? PAYMENT_VARIANCE_TYPE.OVERPAID
         : PAYMENT_VARIANCE_TYPE.UNDERPAID;
 
   return {
-    expectedAmount: expectedAmountPence,
-    receivedAmount,
-    differenceAmount,
+    expectedAmount: formatPenceAsPounds(expectedAmountPence),
+    receivedAmount: formatPenceAsPounds(receivedAmountPence),
+    differenceAmount: formatPenceAsPounds(differencePence),
     varianceType,
   };
 }
