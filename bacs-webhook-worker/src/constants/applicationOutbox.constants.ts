@@ -9,3 +9,9 @@ export const APPLICATION_OUTBOX_STATUS = {
 } as const;
 
 export const APPLICATION_OUTBOX_TABLE = 'application_outbox';
+
+export const PAYMENT_VARIANCE_TYPE = {
+  OVERPAID: 'OVERPAID',
+  UNDERPAID: 'UNDERPAID',
+  MATCHED: 'MATCHED',
+} as const;

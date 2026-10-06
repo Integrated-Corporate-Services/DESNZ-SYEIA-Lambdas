@@ -3,10 +3,10 @@ import { paymentRepository, type InvoiceApplicationLookup } from '../repositorie
 import { applicationOutboxRepository } from '../repositories/applicationOutbox.repository';
 import { createLogger } from '../util/logger';
 import { LOG_MESSAGES, LOG_CHILD_DOMAIN, LOG_EVENTS } from '../constants/log.constants';
-import { BACS_PAYMENT_EVENT_TYPE } from '../constants/applicationOutbox.constants';
+import { BACS_PAYMENT_EVENT_TYPE, PAYMENT_VARIANCE_TYPE } from '../constants/applicationOutbox.constants';
 import { mapUksbsStatusToPaymentStatus } from '../util/paymentStatus.mapper';
 import type { ProcessablePayment } from '../types';
-import type { BacsPaymentOutboxPayload } from '../types/applicationOutbox.types';
+import type { BacsPaymentOutboxPayload, BacsPaymentOutboxVariance } from '../types/applicationOutbox.types';
 
 const log = createLogger('applicationOutbox.service.ts', LOG_CHILD_DOMAIN.OUTBOX_SERVICE);
 
@@ -20,11 +20,44 @@ function buildIdempotencyKey(applicationId: string, transactionId: string, webho
     .digest('hex');
 }
 
+function formatPenceAsPounds(pence: number): string {
+  const sign = pence < 0 ? '-' : '';
+  const pounds = (Math.abs(pence) / 100).toFixed(2);
+  return `${sign}£${pounds}`;
+}
+
+function buildPaymentVariance(expectedAmountPence: number | null, receivedAmountPence: number): BacsPaymentOutboxVariance {
+  if (expectedAmountPence === null) {
+    return {
+      expectedAmount: null,
+      receivedAmount: formatPenceAsPounds(receivedAmountPence),
+      differenceAmount: null,
+      varianceType: null,
+    };
+  }
+
+  const differencePence = receivedAmountPence - expectedAmountPence;
+  const varianceType =
+    differencePence === 0
+      ? PAYMENT_VARIANCE_TYPE.MATCHED
+      : differencePence > 0
+        ? PAYMENT_VARIANCE_TYPE.OVERPAID
+        : PAYMENT_VARIANCE_TYPE.UNDERPAID;
+
+  return {
+    expectedAmount: formatPenceAsPounds(expectedAmountPence),
+    receivedAmount: formatPenceAsPounds(receivedAmountPence),
+    differenceAmount: formatPenceAsPounds(differencePence),
+    varianceType,
+  };
+}
+
 function buildBacsPaymentOutboxPayload(
   applicationId: string,
   desnzReference: string | null,
   formType: string | null,
   invoiceNumber: string,
+  expectedAmountPence: number | null,
   payment: ProcessablePayment,
   mappedStatus: string,
 ): BacsPaymentOutboxPayload {
@@ -43,6 +76,7 @@ function buildBacsPaymentOutboxPayload(
       paymentDate: payment.paymentDate ?? null,
       receivedAt: payment.receivedAt,
     },
+    paymentVariance: buildPaymentVariance(expectedAmountPence, payment.amount),
   };
 }
 
@@ -104,6 +138,7 @@ export const applicationOutboxService = {
       desnzReference,
       formType,
       invoiceLookup.invoiceNumber,
+      invoiceLookup.amountPence,
       payment,
       mappedStatus,
     );
