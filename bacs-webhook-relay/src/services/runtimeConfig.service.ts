@@ -33,8 +33,10 @@ class RuntimeConfigService {
       });
     }
 
-    log.end(METHOD.LOAD, { batchSize });
-    return { batchSize };
+    const relayEnabled = env.BACS_ENABLED;
+
+    log.end(METHOD.LOAD, { batchSize, relayEnabled });
+    return { batchSize, relayEnabled };
   }
 }
 

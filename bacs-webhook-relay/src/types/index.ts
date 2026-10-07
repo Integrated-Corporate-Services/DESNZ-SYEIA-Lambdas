@@ -29,6 +29,7 @@ export interface BacsWebhookRelayEnvelope {
 
 export interface BacsWebhookRelayConfig {
   batchSize: number;
+  relayEnabled: boolean;
 }
 
 export interface RelayResultItem {

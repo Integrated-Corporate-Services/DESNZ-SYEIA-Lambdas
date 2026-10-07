@@ -58,6 +58,7 @@ export const LOG_MESSAGES = {
 
   RELAY_NO_WEBHOOKS: 'no pending payment_webhooks rows — nothing to do',
   RELAY_WEBHOOKS_SELECTED: 'selected payment_webhooks rows to relay',
+  RELAY_DISABLED_BY_FLAG: 'BACS_ENABLED is not true - leaving pending payment_webhooks rows untouched',
   RELAY_WEBHOOK_ENQUEUED: 'webhook enqueued to partner queue',
   RELAY_CORRELATION_ID_ADOPTED: 'adopted database correlation_id for traceability',
   RELAY_BATCH_COMPLETE: 'batch complete',

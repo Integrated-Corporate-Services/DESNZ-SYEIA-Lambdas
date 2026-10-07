@@ -21,6 +21,14 @@ class RelayService {
     log.start(METHOD.EXECUTE);
 
     const config = await runtimeConfigService.load();
+
+    if (!config.relayEnabled) {
+      log.info(METHOD.EXECUTE, LOG_MESSAGES.RELAY_DISABLED_BY_FLAG);
+      const disabled: RelaySummary = { totalSelected: 0, enqueued: 0, poisoned: 0, failed: 0, items: [] };
+      log.end(METHOD.EXECUTE, disabled);
+      return disabled;
+    }
+
     const rows = await paymentWebhooksRepository.findPending(config.batchSize);
 
     if (rows.length === 0) {
