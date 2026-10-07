@@ -33,8 +33,11 @@ class RuntimeConfigService {
       });
     }
 
-    log.end(METHOD.LOAD, { batchSize });
-    return { batchSize };
+    // BACS_ENABLED env var: only the value "true" enables the relay (unset/anything else = OFF).
+    const relayEnabled = env.BACS_ENABLED;
+
+    log.end(METHOD.LOAD, { batchSize, relayEnabled });
+    return { batchSize, relayEnabled };
   }
 }
 

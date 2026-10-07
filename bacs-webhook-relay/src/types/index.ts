@@ -29,9 +29,8 @@ export interface BacsWebhookRelayEnvelope {
 
 export interface BacsWebhookRelayConfig {
   batchSize: number;
-}
-
-export interface RelayResultItem {
+  relayEnabled: boolean;
+} {
   webhookId: string;
   outcome: RelayOutcome;
   sqsMessageId?: string;

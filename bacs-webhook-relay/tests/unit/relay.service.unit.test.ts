@@ -32,10 +32,20 @@ function row(overrides: Partial<PaymentWebhookRow> = {}): PaymentWebhookRow {
 }
 
 beforeEach(() => {
-  mockedCfg.load.mockResolvedValue({ batchSize: 25 });
+  mockedCfg.load.mockResolvedValue({ batchSize: 25, relayEnabled: true });
 });
 
 describe('RelayService.execute', () => {
+  it('does not read or enqueue anything when BACS_ENABLED is not true', async () => {
+    mockedCfg.load.mockResolvedValue({ batchSize: 25, relayEnabled: false });
+
+    const result = await relayService.execute();
+
+    expect(result).toEqual({ totalSelected: 0, enqueued: 0, poisoned: 0, failed: 0, items: [] });
+    expect(mockedRepo.findPending).not.toHaveBeenCalled();
+    expect(mockedSqs.sendToBacsWebhookRelayQueue).not.toHaveBeenCalled();
+  });
+
   it('returns zero counts when there are no pending rows', async () => {
     mockedRepo.findPending.mockResolvedValue([]);
 
