@@ -70,7 +70,7 @@ class EnvConfig {
       SECRET_CACHE_TTL_MS: Number(process.env.SECRET_CACHE_TTL_MS || CACHE_TTL_DEFAULTS.SECRET_MS),
       SSM_CACHE_TTL_MS: Number(process.env.SSM_CACHE_TTL_MS || CACHE_TTL_DEFAULTS.SSM_MS),
       BACS_WEBHOOK_RELAY_BATCH_SIZE_PARAM: process.env.BACS_WEBHOOK_RELAY_BATCH_SIZE!,
-      BACS_ENABLED: process.env.BACS_ENABLED?.trim().toLowerCase() === 'true',
+      BACS_ENABLED: (process.env.BACS_ENABLED ?? 'true').trim().toLowerCase() === 'true',
       PARTNER_WEBHOOKS_QUEUE_URL: process.env.SQS_QUEUE_URL!,
       PARTNER_WEBHOOKS_DLQ_URL: process.env.PARTNER_WEBHOOKS_DLQ_URL || '',
       SQS_QUEUE_ARN: process.env.SQS_QUEUE_ARN || '',
