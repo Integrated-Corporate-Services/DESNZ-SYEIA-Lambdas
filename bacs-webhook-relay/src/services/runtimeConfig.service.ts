@@ -33,7 +33,21 @@ class RuntimeConfigService {
       });
     }
 
-    const relayEnabled = env.BACS_ENABLED;
+    let relayEnabled = false;
+    const flag = env.BACS_ENABLED;
+    if (/^(true|false)$/i.test(flag)) {
+      relayEnabled = flag.toLowerCase() === 'true';
+    } else {
+      try {
+        const rawFlag = await ssmConfig.getParameter(flag);
+        relayEnabled = rawFlag.trim().toLowerCase() === 'true';
+      } catch (err) {
+        log.warn(METHOD.LOAD, LOG_MESSAGES.SSM_PARAMETER_LOAD_FAILED, {
+          param: flag,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
 
     log.end(METHOD.LOAD, { batchSize, relayEnabled });
     return { batchSize, relayEnabled };
