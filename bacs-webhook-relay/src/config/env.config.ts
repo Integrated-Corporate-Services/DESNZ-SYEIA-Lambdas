@@ -33,7 +33,7 @@ export interface Env {
   SECRET_CACHE_TTL_MS: number;
   SSM_CACHE_TTL_MS: number;
   BACS_WEBHOOK_RELAY_BATCH_SIZE_PARAM: string;
-  BACS_ENABLED: boolean;
+  BACS_ENABLED: string;
   PARTNER_WEBHOOKS_QUEUE_URL: string;
   PARTNER_WEBHOOKS_DLQ_URL: string;
   SQS_QUEUE_ARN: string;
@@ -70,7 +70,7 @@ class EnvConfig {
       SECRET_CACHE_TTL_MS: Number(process.env.SECRET_CACHE_TTL_MS || CACHE_TTL_DEFAULTS.SECRET_MS),
       SSM_CACHE_TTL_MS: Number(process.env.SSM_CACHE_TTL_MS || CACHE_TTL_DEFAULTS.SSM_MS),
       BACS_WEBHOOK_RELAY_BATCH_SIZE_PARAM: process.env.BACS_WEBHOOK_RELAY_BATCH_SIZE!,
-      BACS_ENABLED: (process.env.BACS_ENABLED ?? 'true').trim().toLowerCase() === 'true',
+      BACS_ENABLED: (process.env.BACS_ENABLED ?? 'true').trim(),
       PARTNER_WEBHOOKS_QUEUE_URL: process.env.SQS_QUEUE_URL!,
       PARTNER_WEBHOOKS_DLQ_URL: process.env.PARTNER_WEBHOOKS_DLQ_URL || '',
       SQS_QUEUE_ARN: process.env.SQS_QUEUE_ARN || '',
