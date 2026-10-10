@@ -18,13 +18,13 @@ function validBody(): string {
   return JSON.stringify({
     source: 'aws.partner/salesforce.com/example',
     'detail-type': parserConfig.detailType,
+    id: 'sf-event-1',
     detail: {
-      id: 'sf-event-1',
       payload: {
         Event_Type__c: 'FURTHER_INFORMATION_REQUEST',
         Schema_Version__c: '1',
         Application_Id__c: '550e8400-e29b-41d4-a716-446655440000',
-        Application_Type: 'S37',
+        Application_Type__c: 'S37',
         Correlation_Id__c: 'CORR-123',
         Case_Id__c: '500001',
         CreatedById: '005001',
@@ -81,7 +81,7 @@ describe('event processor handler', () => {
   });
 
   it('creates a request and commits the inbox record in one transaction', async () => {
-    const response = await handler(sqsEvent(validBody()), lambdaContext(), jest.fn());
+    const response = await handler(sqsEvent(validBody()), lambdaContext());
 
     expect(response).toEqual({ batchItemFailures: [] });
     expect(query.mock.calls.map(([sql]) => sql.trim().split(/\s+/)[0])).toEqual([
@@ -120,7 +120,7 @@ describe('event processor handler', () => {
       return { rowCount: 1, rows: [] };
     });
 
-    const response = await handler(sqsEvent(validBody()), lambdaContext(), jest.fn());
+    const response = await handler(sqsEvent(validBody()), lambdaContext());
 
     expect(response).toEqual({ batchItemFailures: [] });
     expect(query).not.toHaveBeenCalledWith(
@@ -131,7 +131,7 @@ describe('event processor handler', () => {
   });
 
   it('returns malformed messages as partial batch failures', async () => {
-    const response = await handler(sqsEvent('{'), lambdaContext(), jest.fn());
+    const response = await handler(sqsEvent('{'), lambdaContext());
 
     expect(response).toEqual({ batchItemFailures: [{ itemIdentifier: 'msg-1' }] });
     expect(connect).not.toHaveBeenCalled();
@@ -145,7 +145,7 @@ describe('event processor handler', () => {
       messageId: 'msg-2',
     });
 
-    const response = await handler(event, lambdaContext(), jest.fn());
+    const response = await handler(event, lambdaContext());
 
     expect(response).toEqual({
       batchItemFailures: [

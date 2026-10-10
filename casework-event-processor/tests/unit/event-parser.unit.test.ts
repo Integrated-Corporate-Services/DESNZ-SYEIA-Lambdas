@@ -10,13 +10,13 @@ function bodyWith(payload: Record<string, unknown> = {}) {
   return JSON.stringify({
     source: 'aws.partner/salesforce.com/example',
     'detail-type': parserConfig.detailType,
+    id: 'sf-event-1',
     detail: {
-      id: 'sf-event-1',
       payload: {
         Event_Type__c: 'FURTHER_INFORMATION_REQUEST',
         Schema_Version__c: '1',
         Application_Id__c: '550e8400-e29b-41d4-a716-446655440000',
-        Application_Type: 'S37',
+        Application_Type__c: 'S37',
         Correlation_Id__c: 'CORR-123',
         Case_Id__c: '500001',
         CreatedById: '005001',
@@ -71,7 +71,7 @@ describe('parseSqsMessage', () => {
   });
 
   it('requires the application type', () => {
-    const body = bodyWith({ Application_Type: undefined });
+    const body = bodyWith({ Application_Type__c: undefined });
 
     expect(() => parseSqsMessage(body, parserConfig)).toThrow(
       expect.objectContaining({ code: 'MISSING_APPLICATION_TYPE' }),

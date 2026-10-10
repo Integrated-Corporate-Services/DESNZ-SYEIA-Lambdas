@@ -24,7 +24,7 @@ export class EventError extends Error {
 }
 
 export function isRetryableError(error: unknown): boolean {
-  if (error instanceof EventError) return true;
+  if (error instanceof EventError) return error.retryable;
   if (error instanceof RetryableProcessingError) return true;
 
   if (error instanceof Error) {

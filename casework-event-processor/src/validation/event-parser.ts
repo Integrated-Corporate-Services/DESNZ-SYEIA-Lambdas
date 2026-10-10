@@ -90,7 +90,7 @@ export function parseSqsMessage(body: string, config: ParserConfig): ParsedFurth
   }
 
   const detail = asRecord(envelope.detail, 'INVALID_EVENT_DETAIL', 'detail is required');
-  const sourceEventId = asString(detail.id, 'MISSING_SOURCE_EVENT_ID', 'detail.id is required');
+  const sourceEventId = asString(envelope.id, 'MISSING_SOURCE_EVENT_ID', 'id is required');
   const detailPayload = asRecord(detail.payload, 'INVALID_DETAIL_PAYLOAD', 'detail.payload is required');
   const eventType = asString(
     detailPayload.Event_Type__c,
@@ -119,9 +119,9 @@ export function parseSqsMessage(body: string, config: ParserConfig): ParsedFurth
     return fail('Application_Id__c must be a UUID', 'INVALID_APPLICATION_ID');
   }
   const applicationType = asString(
-    detailPayload.Application_Type,
+    detailPayload.Application_Type__c,
     'MISSING_APPLICATION_TYPE',
-    'Application_Type is required',
+    'Application_Type__c is required',
   );
   const rawPayload = asString(detailPayload.Payload__c, 'MISSING_PAYLOAD', 'Payload__c is required');
   const payload = parseJsonRecord(rawPayload, 'INVALID_JSON_PAYLOAD', 'Payload__c must contain valid JSON');

@@ -49,6 +49,8 @@ jobs:
               - 'bacs-webhook-relay/**'
             bacs-webhook-worker:
               - 'bacs-webhook-worker/**'
+            casework-event-processor:
+              - 'casework-event-processor/**'
             migration-preflight:
               - 'migration-preflight/**'
             notify-callback-relay:
