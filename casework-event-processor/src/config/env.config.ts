@@ -40,11 +40,6 @@ export function validateEnvironment(): void {
     );
   }
 
-  if (!getFatalQueueUrl()) {
-    throw new Error(
-      'Missing required environment variables: CASEWORK_FATAL_QUEUE_URL (or SQS_DLQ_URL)',
-    );
-  }
 }
 
 let cachedCredentials: { username: string; password: string } | null = null;
