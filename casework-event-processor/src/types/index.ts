@@ -7,11 +7,33 @@ export interface CaseworkEventRow {
   correlation_id: string | null;
 }
 
-export interface CaseworkSqsMessage {
-  eventId: string;
-  eventType: string;
-  correlationId: string | null;
+export const SUPPORTED_EVENT_TYPES = [
+  'FURTHER_INFORMATION_REQUEST',
+] as const;
+
+export type SupportedEventType = (typeof SUPPORTED_EVENT_TYPES)[number];
+
+export interface FurtherInformationRequestPayload {
+  requestId: string;
+  responseDueDate: string;
+  message: string;
+  requestedDocuments?: string[];
 }
+
+export interface ParsedFurtherInformationRequestEvent {
+  sourceEventId: string;
+  eventType: 'FURTHER_INFORMATION_REQUEST';
+  schemaVersion: string;
+  applicationId: string;
+  applicationType: string;
+  correlationId: string | null;
+  caseId: string | null;
+  createdById: string | null;
+  createdDate: Date | null;
+  payload: FurtherInformationRequestPayload;
+}
+
+export type ParsedEvent = ParsedFurtherInformationRequestEvent;
 
 export interface FatalSqsMessage {
   eventId: string;
