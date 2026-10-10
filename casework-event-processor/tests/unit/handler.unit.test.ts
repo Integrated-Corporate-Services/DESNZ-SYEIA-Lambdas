@@ -1,4 +1,4 @@
-import type { Context, SQSEvent, SQSRecord } from 'aws-lambda';
+import type { Context, SQSBatchResponse, SQSEvent, SQSRecord } from 'aws-lambda';
 import type { Pool, PoolClient } from 'pg';
 
 jest.mock('../../src/config/env.config', () => ({
@@ -8,6 +8,8 @@ jest.mock('../../src/config/env.config', () => ({
 
 import { getPool } from '../../src/config/env.config';
 import { handler } from '../../handler';
+
+const invoke = handler as unknown as (event: SQSEvent, context: Context) => Promise<SQSBatchResponse>;
 
 const parserConfig = {
   detailType: 'Casework_Event__e',
@@ -81,7 +83,7 @@ describe('event processor handler', () => {
   });
 
   it('creates a request and commits the inbox record in one transaction', async () => {
-    const response = await handler(sqsEvent(validBody()), lambdaContext());
+    const response = await invoke(sqsEvent(validBody()), lambdaContext());
 
     expect(response).toEqual({ batchItemFailures: [] });
     expect(query.mock.calls.map(([sql]) => sql.trim().split(/\s+/)[0])).toEqual([
@@ -120,7 +122,7 @@ describe('event processor handler', () => {
       return { rowCount: 1, rows: [] };
     });
 
-    const response = await handler(sqsEvent(validBody()), lambdaContext());
+    const response = await invoke(sqsEvent(validBody()), lambdaContext());
 
     expect(response).toEqual({ batchItemFailures: [] });
     expect(query).not.toHaveBeenCalledWith(
@@ -131,7 +133,7 @@ describe('event processor handler', () => {
   });
 
   it('returns malformed messages as partial batch failures', async () => {
-    const response = await handler(sqsEvent('{'), lambdaContext());
+    const response = await invoke(sqsEvent('{'), lambdaContext());
 
     expect(response).toEqual({ batchItemFailures: [{ itemIdentifier: 'msg-1' }] });
     expect(connect).not.toHaveBeenCalled();
@@ -145,7 +147,7 @@ describe('event processor handler', () => {
       messageId: 'msg-2',
     });
 
-    const response = await handler(event, lambdaContext());
+    const response = await invoke(event, lambdaContext());
 
     expect(response).toEqual({
       batchItemFailures: [
