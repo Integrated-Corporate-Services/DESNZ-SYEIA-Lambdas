@@ -128,7 +128,7 @@ async function handleJobError(job, err) {
   const attemptCountAfterClaim = Number(job.attempt_count);
   //const jobId = job.outbox_id;
   const transient = err instanceof TransientError;
-  const retryable = !(err instanceof PermanentError);
+  const retryable = err?.retryable !== false;
   log.error(`[OUTBOX][SERVICE][HANDLE_JOB_ERROR][FAILED] - ${err.message} - outboxId=${job.outbox_id}`, err.stack);
   if (transient) await sleep(100 + Math.random() * 250);
   await markFailure({
