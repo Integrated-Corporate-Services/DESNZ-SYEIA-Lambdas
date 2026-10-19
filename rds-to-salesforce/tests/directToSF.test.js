@@ -1,4 +1,4 @@
-import Ajv from "ajv";
+import Ajv2020 from "ajv/dist/2020.js";
 import fs from "fs";
 import path from "path";
 import { jest } from '@jest/globals';
@@ -27,7 +27,7 @@ function getSampleJob() {
 }
 
 function validateAgainstSchema(data, schema) {
-  const ajv = new Ajv();
+  const ajv = new Ajv2020({ validateFormats: false });
   const validate = ajv.compile(schema);
   return { valid: validate(data), errors: validate.errors };
 }
@@ -42,9 +42,13 @@ describe("processDirect Lambda integration", () => {
     const job = getSampleJob();
     const schema = getSchema();
     const { valid, errors } = validateAgainstSchema(job, schema);
-    expect(valid).toBe(true);
+
     if (!valid) {
-      console.error(errors);
+      console.error("Schema validation errors:");
+      console.error(JSON.stringify(errors, null, 2));
     }
+
+    expect(valid).toBe(true);
+
   });
 });

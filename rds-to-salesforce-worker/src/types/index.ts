@@ -1,6 +1,7 @@
 export interface OutboxSqsMessage {
   outboxId: string;
-  applicationId: string;
+  applicationId: string | null;
+  applicantId?: string | null;
   eventType: string;
   idempotencyKey: string;
   enqueuedAt: string;
@@ -8,7 +9,8 @@ export interface OutboxSqsMessage {
 
 export interface ApplicationOutboxRow {
   outbox_id: string;
-  application_id: string;
+  application_id: string | null;
+  user_id: string | null;
   event_type: string;
   payload_snapshot_json: Record<string, unknown>;
   idempotency_key: string;
