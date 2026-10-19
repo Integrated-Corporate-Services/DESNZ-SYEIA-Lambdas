@@ -77,21 +77,22 @@ export async function markDirectSuccess({ jobId, applicationId, salesforceId }) 
  * @param {number} params.attemptCountAfterClaim
  * @param {string} params.errorMessage
  * @param {number} params.maxRetries
+ * @param {boolean} [params.retryable=true] When false, the job is marked FAILED immediately without retrying
  */
-export async function markFailure({ jobId, attemptCountAfterClaim, errorMessage, maxRetries }) {
+export async function markFailure({ jobId, attemptCountAfterClaim, errorMessage, maxRetries, retryable = true }) {
   const client = await getDbClient();
-  const exhausted = attemptCountAfterClaim >= Number(maxRetries);
+  const exhausted = !retryable || attemptCountAfterClaim >= Number(maxRetries);
   const status = exhausted ? "FAILED" : "PENDING";
   const safeAttemptCount = Number.isFinite(attemptCountAfterClaim) ? attemptCountAfterClaim : 0;
   const backoffSeconds = Math.min(Math.pow(2, Math.max(0, safeAttemptCount - 1)) * 30, 6 * 60 * 60);
   const nextAt = exhausted ? null : new Date(Date.now() + backoffSeconds * 1000).toISOString();
   const params = [jobId, status, String(errorMessage || "").slice(0, 500), nextAt];
-  log.debug("[outboxRepo.js : markFailure] SQL:", SQL_MARK_FAILURE);
-  log.debug("[outboxRepo.js : markFailure] Params:", params);
+  log.debug(`[OUTBOX][REPOSITORY][MARK_FAILURE][STARTED] - status=${status} - outboxId=${jobId}`, params);
   try {
     await client.query(SQL_MARK_FAILURE, params);
+    log.info(`[OUTBOX][REPOSITORY][MARK_FAILURE][SUCCESS] - status=${status} - outboxId=${jobId}`);
   } catch (e) {
-    log.error("[outboxRepo.js : markFailure] Error:", e && (e.stack || e.message || e));
+    log.error(`[OUTBOX][REPOSITORY][MARK_FAILURE][FAILED] - ${e && (e.message || e)} - outboxId=${jobId}`, e && e.stack);
     throw e;
   } finally {
     client.release();
