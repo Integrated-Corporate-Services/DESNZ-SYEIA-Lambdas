@@ -48,8 +48,7 @@ describe("processDirect Lambda integration", () => {
       console.error(JSON.stringify(errors, null, 2));
     }
 
-expect(valid).toBe(true);
+    expect(valid).toBe(true);
 
-    }
   });
 });
