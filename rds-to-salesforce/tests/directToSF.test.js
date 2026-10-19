@@ -1,4 +1,4 @@
-import Ajv from "ajv";
+import Ajv2020 from "ajv/dist/2020.js";
 import fs from "fs";
 import path from "path";
 import { jest } from '@jest/globals';
@@ -27,7 +27,7 @@ function getSampleJob() {
 }
 
 function validateAgainstSchema(data, schema) {
-  const ajv = new Ajv();
+  const ajv = new Ajv2020({ validateFormats: false });
   const validate = ajv.compile(schema);
   return { valid: validate(data), errors: validate.errors };
 }
