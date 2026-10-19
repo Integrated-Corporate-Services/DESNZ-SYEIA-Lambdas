@@ -42,9 +42,14 @@ describe("processDirect Lambda integration", () => {
     const job = getSampleJob();
     const schema = getSchema();
     const { valid, errors } = validateAgainstSchema(job, schema);
-    expect(valid).toBe(true);
+
     if (!valid) {
-      console.error(errors);
+      console.error("Schema validation errors:");
+      console.error(JSON.stringify(errors, null, 2));
+    }
+
+expect(valid).toBe(true);
+
     }
   });
 });
