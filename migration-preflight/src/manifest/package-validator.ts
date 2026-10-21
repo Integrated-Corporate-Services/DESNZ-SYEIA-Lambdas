@@ -1,9 +1,11 @@
 import { S3Store } from '../aws/stores';
 import { MigrationError } from '../errors/migration-error';
 import { Manifest } from './manifest';
+
 export function packageFiles(manifest: Manifest) {
   return [manifest.casesFile, ...manifest.documents];
 }
+
 export function validatePackageKeys(manifest: Manifest, prefix: string): void {
   const files = packageFiles(manifest);
   if (new Set(files.map((file) => file.key)).size !== files.length)

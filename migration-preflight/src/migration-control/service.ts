@@ -10,6 +10,7 @@ import { MigrationRequest, PreflightResult } from '../types';
 import { ExecutionAlreadyExistsError, S3Store, WorkflowStarter } from '../aws/stores';
 import { BatchRepository } from './repository';
 import { AppConfig } from '../config/config';
+
 export class MigrationBatchService {
   constructor(
     private readonly config: AppConfig,
@@ -18,6 +19,7 @@ export class MigrationBatchService {
     private readonly batches: BatchRepository,
     private readonly files: FileMetadataRepository
   ) {}
+
   async runPreflight(request: MigrationRequest): Promise<PreflightResult> {
     const batchId: string | null = request.migrationBatchId;
     let currentKey = request.manifestKey;
