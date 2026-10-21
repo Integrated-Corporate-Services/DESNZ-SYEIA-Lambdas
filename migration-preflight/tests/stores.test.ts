@@ -1,3 +1,4 @@
+import { Readable } from 'stream';
 import { AwsS3Store, s3ChecksumToHex } from '../src/aws/stores';
 import { MigrationError } from '../src/errors/migration-error';
 
@@ -5,7 +6,7 @@ describe('AwsS3Store.getText', () => {
   it('returns a non-retryable MigrationError when the manifest is too large', async () => {
     const client = {
       send: jest.fn().mockResolvedValue({
-        Body: { toArray: async () => [Buffer.from('too-large')] },
+        Body: Readable.from([Buffer.from('too-large')]),
       }),
     };
     const result = new AwsS3Store(client as never).getText('bucket', 'key', 4);

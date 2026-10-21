@@ -124,3 +124,40 @@ describe('normaliseEvent direct S3', () => {
     ).toThrow('Event is not a migration manifest');
   });
 });
+
+describe('event edge cases', () => {
+  it('preserves literal EventBridge plus signs', () => {
+    expect(
+      normaliseEvent(
+        {
+          source: 'aws.s3',
+          'detail-type': 'Object Created',
+          detail: {
+            bucket: { name: config.migrationBucket },
+            object: { key: 'migrations/BATCH+one/manifest.json' },
+          },
+        },
+        config,
+        { awsRequestId: 'id' }
+      ).migrationBatchId
+    ).toBe('BATCH+one');
+  });
+  it('ignores null events safely', () => {
+    expect(() => normaliseEvent(null, config, { awsRequestId: 'id' })).toThrow(
+      'Event must be an object'
+    );
+  });
+  it('rejects a corrupt classic S3 encoding safely', () => {
+    expect(() =>
+      normaliseEvent(
+        {
+          Records: [
+            { s3: { bucket: { name: config.migrationBucket }, object: { key: '%invalid' } } },
+          ],
+        },
+        config,
+        { awsRequestId: 'id' }
+      )
+    ).toThrow('Invalid encoded S3 object key');
+  });
+});
