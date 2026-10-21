@@ -5,7 +5,6 @@ import { createDatabasePool } from './db/database';
 import { MigrationError } from './errors/migration-error';
 import { normaliseEvent } from './events/normalise-event';
 import { createLogger, withMigrationContext } from './logging/logger';
-import { FileMetadataRepository } from './migration-control/file-metadata.repository';
 import { BatchRepository } from './migration-control/repository';
 import { MigrationBatchService } from './migration-control/service';
 import { PreflightResult } from './types';
@@ -27,7 +26,7 @@ export function createMigrationPreflightHandler(
     s3: new AwsS3Store(),
     workflow: new AwsWorkflowStarter(config.wf1StateMachineArn),
     getDb: database,
-  }
+  },
 ) {
   return async (event: unknown, context: { awsRequestId: string }): Promise<PreflightResult> => {
     try {
@@ -43,7 +42,6 @@ export function createMigrationPreflightHandler(
         deps.s3,
         deps.workflow,
         batches,
-        new FileMetadataRepository(await deps.getDb(), config.dbSchema)
       ).runPreflight(request);
       requestLogger.info({ outcome: result.outcome }, 'migration.preflight.completed');
       return result;
@@ -51,7 +49,7 @@ export function createMigrationPreflightHandler(
       if (error instanceof MigrationError && !error.retryable) {
         logger.warn(
           { code: error.code, retryable: error.retryable },
-          'migration.preflight.rejected'
+          'migration.preflight.rejected',
         );
         return {
           outcome: error.code === 'UNSUPPORTED_EVENT' ? 'SKIPPED' : 'PREFLIGHT_FAILED',

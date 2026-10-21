@@ -1,4 +1,3 @@
-import { FileMetadataRepository } from './file-metadata.repository';
 import {
   packageFiles,
   validatePackageKeys,
@@ -17,28 +16,17 @@ export class MigrationBatchService {
     private readonly s3: S3Store,
     private readonly workflow: WorkflowStarter,
     private readonly batches: BatchRepository,
-    private readonly files: FileMetadataRepository
   ) {}
 
   async runPreflight(request: MigrationRequest): Promise<PreflightResult> {
     const batchId: string | null = request.migrationBatchId;
     let currentKey = request.manifestKey;
-    let mayRecordFailure = true;
+    let mayRecordFailure = false;
     try {
-      if (batchId)
-        await this.files.register(
-          batchId,
-          request.bucket,
-          currentKey,
-          'MANIFEST',
-          undefined,
-          undefined,
-          false
-        );
       const raw = await this.s3.getText(
         request.bucket,
         request.manifestKey,
-        this.config.manifestMaxBytes
+        this.config.manifestMaxBytes,
       );
       const { manifest, sha256 } = parseManifest(raw);
 
@@ -57,29 +45,18 @@ export class MigrationBatchService {
         request.correlationId,
         this.config.staleAfterSeconds,
         manifest.expectedCaseCount,
-        manifest.expectedDocumentCount
+        manifest.expectedDocumentCount,
+        request.bucket,
+        manifest.casesFile.key,
+        manifest.documents,
       );
       if (!claim) return this.notClaimed(manifest.migrationBatchId, request.correlationId);
 
       mayRecordFailure = true;
-      await this.files.register(
-        manifest.migrationBatchId,
-        request.bucket,
-        request.manifestKey,
-        'MANIFEST'
-      );
       validatePackageKeys(manifest, request.prefix);
       const files = packageFiles(manifest);
       for (const file of files) {
         currentKey = file.key;
-        await this.files.register(
-          manifest.migrationBatchId,
-          request.bucket,
-          file.key,
-          file === manifest.casesFile ? 'CASES' : 'DOCUMENT',
-          file.sizeBytes,
-          file.checksum
-        );
         await validatePackageFile(this.s3, request.bucket, file);
       }
       currentKey = request.manifestKey;
@@ -95,12 +72,20 @@ export class MigrationBatchService {
         });
       } catch (error) {
         if (error instanceof ExecutionAlreadyExistsError) {
-          await this.batches.markStarted(manifest.migrationBatchId, request.correlationId, null);
+          if (
+            !(await this.batches.markStarted(
+              manifest.migrationBatchId,
+              request.correlationId,
+              null,
+            ))
+          ) {
+            return this.notClaimed(manifest.migrationBatchId, request.correlationId);
+          }
           return this.result(
             'ALREADY_STARTED',
             manifest.migrationBatchId,
             request.correlationId,
-            'WF1_STARTED'
+            'WF1_STARTED',
           );
         }
         throw error;
@@ -115,16 +100,13 @@ export class MigrationBatchService {
         manifest.migrationBatchId,
         request.correlationId,
         'WF1_STARTED',
-        arn
+        arn,
       );
     } catch (error) {
       const failure = MigrationError.from(error);
       if (batchId && mayRecordFailure) {
-        await this.files
-          .fail(batchId, request.bucket, currentKey, failure.code, failure.message)
-          .catch(() => undefined);
         await this.batches
-          .recordFailure(batchId, request.correlationId, failure.code, failure.message)
+          .recordFailure(batchId, request.correlationId, failure.code, failure.message, currentKey)
           .catch(() => undefined);
       }
       throw error;
@@ -139,7 +121,7 @@ export class MigrationBatchService {
         batchId,
         correlationId,
         'WF1_STARTED',
-        existing.step_function_execution_arn
+        existing.step_function_execution_arn,
       );
     }
     if (existing?.preflight_status === 'PREFLIGHT_FAILED') {
@@ -153,7 +135,7 @@ export class MigrationBatchService {
     migrationBatchId: string,
     correlationId: string,
     preflightStatus: PreflightResult['preflightStatus'],
-    stepFunctionExecutionArn: string | null = null
+    stepFunctionExecutionArn: string | null = null,
   ): PreflightResult {
     return {
       outcome,

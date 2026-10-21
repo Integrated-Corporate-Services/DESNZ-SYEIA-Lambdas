@@ -8,7 +8,7 @@ export class BatchRepository {
 
   constructor(
     private readonly db: Pool,
-    schema: string
+    schema: string,
   ) {
     this.schema = assertSafeSqlIdent(schema);
   }
@@ -21,7 +21,10 @@ export class BatchRepository {
     correlationId: string,
     staleAfterSeconds: number,
     expectedCaseCount: number,
-    expectedDocumentCount: number
+    expectedDocumentCount: number,
+    sourceBucket: string,
+    casesFileKey: string,
+    documents: ReadonlyArray<{ key: string; sizeBytes: number; checksum?: string }>,
   ): Promise<MigrationBatch | null> {
     const result = await this.db.query<MigrationBatch>(MIGRATION_BATCH_QUERIES.admit(this.schema), [
       batchId,
@@ -32,6 +35,9 @@ export class BatchRepository {
       staleAfterSeconds,
       expectedCaseCount,
       expectedDocumentCount,
+      sourceBucket,
+      casesFileKey,
+      JSON.stringify(documents),
     ]);
     return result.rows[0] ?? null;
   }
@@ -64,13 +70,15 @@ export class BatchRepository {
     batchId: string,
     correlationId: string,
     code: string,
-    reason: string
+    reason: string,
+    fileKey: string | null = null,
   ): Promise<void> {
     await this.db.query(MIGRATION_BATCH_QUERIES.recordFailure(this.schema), [
       batchId,
       correlationId,
       code,
       reason.slice(0, 2000),
+      fileKey,
     ]);
   }
 }
