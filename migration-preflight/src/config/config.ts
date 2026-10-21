@@ -10,6 +10,7 @@ export interface AppConfig {
   manifestMaxBytes: number;
   staleAfterSeconds: number;
   dbSchema: string;
+  workflowConfig?: Record<string, unknown>;
 }
 
 function required(name: string): string {
@@ -49,6 +50,7 @@ export function loadConfig(): AppConfig {
     throw new Error('Invalid numeric configuration: size or claim timeout must be positive');
   }
   return {
+    workflowConfig: loadWorkflowConfig(process.env.MIGRATION_WORKFLOW_CONFIG_JSON),
     migrationBucket: required('MIGRATION_LANDING_BUCKET'),
     wf1StateMachineArn: required('MIGRATION_STATE_MACHINE_ARN'),
     dbSecretArn: required('DB_CREDENTIALS'),
@@ -61,4 +63,31 @@ export function loadConfig(): AppConfig {
     staleAfterSeconds,
     dbSchema: assertSafeSqlIdent(process.env.DB_SCHEMA ?? 'migration_control'),
   };
+}
+
+export function loadWorkflowConfig(raw?: string): Record<string, unknown> | undefined {
+  if (!raw) return undefined;
+  let value: Record<string, unknown>;
+  try {
+    value = JSON.parse(raw);
+  } catch {
+    throw new Error('Invalid MIGRATION_WORKFLOW_CONFIG_JSON');
+  }
+  if (!value || typeof value !== 'object' || Array.isArray(value))
+    throw new Error('Invalid MIGRATION_WORKFLOW_CONFIG_JSON');
+  const names = [
+    'ecsClusterArn',
+    'runtimeTaskDefinitionArn',
+    'runtimeContainerName',
+    'approvalHandlerArn',
+  ];
+  if (
+    names.some((name) => typeof value[name] !== 'string' || !value[name]) ||
+    !value.networkConfiguration ||
+    typeof value.networkConfiguration !== 'object'
+  )
+    throw new Error(
+      'MIGRATION_WORKFLOW_CONFIG_JSON requires ECS, approval and network configuration'
+    );
+  return Object.fromEntries([...names, 'networkConfiguration'].map((name) => [name, value[name]]));
 }

@@ -23,14 +23,23 @@ export class AwsS3Store implements S3Store {
         new GetObjectCommand({ Bucket: bucket, Key: key, ChecksumMode: 'ENABLED' })
       );
     } catch (error) {
-      if (isNotFound(error)) throw new MigrationError('MANIFEST_NOT_FOUND', 'Manifest is missing');
+      if (isNotFound(error))
+        throw new MigrationError('MANIFEST_NOT_FOUND', 'Manifest is missing', true);
       throw error;
     }
-    const body = await (output.Body as Readable).toArray();
-    const result = Buffer.concat(body);
-    if (result.length > maxBytes) {
-      throw new MigrationError('INVALID_MANIFEST', 'Manifest exceeds configured maximum size');
+    const body: Buffer[] = [];
+    let size = 0;
+    const stream = output.Body as Readable;
+    for await (const part of stream) {
+      const chunk = Buffer.isBuffer(part) ? part : Buffer.from(part);
+      size += chunk.length;
+      if (size > maxBytes) {
+        stream.destroy();
+        throw new MigrationError('INVALID_MANIFEST', 'Manifest exceeds configured maximum size');
+      }
+      body.push(chunk);
     }
+    const result = Buffer.concat(body);
     return result.toString('utf8');
   }
   async head(bucket: string, key: string) {

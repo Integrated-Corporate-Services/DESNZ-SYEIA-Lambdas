@@ -1,5 +1,9 @@
 import { FileMetadataRepository } from './file-metadata.repository';
-import { packageFiles, validatePackageKeys, validatePackageFile } from '../manifest/package-validator';
+import {
+  packageFiles,
+  validatePackageKeys,
+  validatePackageFile,
+} from '../manifest/package-validator';
 import { MigrationError } from '../errors/migration-error';
 import { parseManifest } from '../manifest/manifest';
 import { MigrationRequest, PreflightResult } from '../types';
@@ -15,10 +19,20 @@ export class MigrationBatchService {
     private readonly files: FileMetadataRepository
   ) {}
   async runPreflight(request: MigrationRequest): Promise<PreflightResult> {
-    let batchId: string | null = request.migrationBatchId;
+    const batchId: string | null = request.migrationBatchId;
     let currentKey = request.manifestKey;
     let mayRecordFailure = true;
     try {
+      if (batchId)
+        await this.files.register(
+          batchId,
+          request.bucket,
+          currentKey,
+          'MANIFEST',
+          undefined,
+          undefined,
+          false
+        );
       const raw = await this.s3.getText(
         request.bucket,
         request.manifestKey,
@@ -46,12 +60,24 @@ export class MigrationBatchService {
       if (!claim) return this.notClaimed(manifest.migrationBatchId, request.correlationId);
 
       mayRecordFailure = true;
+      await this.files.register(
+        manifest.migrationBatchId,
+        request.bucket,
+        request.manifestKey,
+        'MANIFEST'
+      );
       validatePackageKeys(manifest, request.prefix);
       const files = packageFiles(manifest);
       for (const file of files) {
         currentKey = file.key;
-        await this.files.register(manifest.migrationBatchId, request.bucket, file.key,
-          file === manifest.casesFile ? 'CASES' : 'DOCUMENT', file.sizeBytes, file.checksum);
+        await this.files.register(
+          manifest.migrationBatchId,
+          request.bucket,
+          file.key,
+          file === manifest.casesFile ? 'CASES' : 'DOCUMENT',
+          file.sizeBytes,
+          file.checksum
+        );
         await validatePackageFile(this.s3, request.bucket, file);
       }
       currentKey = request.manifestKey;
@@ -61,6 +87,7 @@ export class MigrationBatchService {
       let arn: string | null;
       try {
         arn = await this.workflow.start(`${manifest.migrationBatchId}-${sha256.slice(0, 16)}`, {
+          ...this.config.workflowConfig,
           migrationBatchId: manifest.migrationBatchId,
           correlationId: request.correlationId,
         });
@@ -89,8 +116,14 @@ export class MigrationBatchService {
         arn
       );
     } catch (error) {
-      if (error instanceof MigrationError && batchId) {
-        await this.batches.recordFailure(batchId, request.correlationId, error.code, error.message);
+      const failure = MigrationError.from(error);
+      if (batchId && mayRecordFailure) {
+        await this.files
+          .fail(batchId, request.bucket, currentKey, failure.code, failure.message)
+          .catch(() => undefined);
+        await this.batches
+          .recordFailure(batchId, request.correlationId, failure.code, failure.message)
+          .catch(() => undefined);
       }
       throw error;
     }

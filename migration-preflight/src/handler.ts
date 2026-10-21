@@ -15,7 +15,10 @@ const logger = createLogger();
 let databasePromise: Promise<Pool> | undefined;
 
 function database(): Promise<Pool> {
-  databasePromise ??= createDatabasePool(config);
+  databasePromise ??= createDatabasePool(config).catch((error) => {
+    databasePromise = undefined;
+    throw error;
+  });
   return databasePromise;
 }
 
@@ -39,7 +42,8 @@ export function createMigrationPreflightHandler(
         config,
         deps.s3,
         deps.workflow,
-        batches
+        batches,
+        new FileMetadataRepository(await deps.getDb(), config.dbSchema)
       ).runPreflight(request);
       requestLogger.info({ outcome: result.outcome }, 'migration.preflight.completed');
       return result;
