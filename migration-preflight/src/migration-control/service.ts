@@ -1,3 +1,5 @@
+import { FileMetadataRepository } from './file-metadata.repository';
+import { packageFiles, validatePackageKeys, validatePackageFile } from '../manifest/package-validator';
 import { MigrationError } from '../errors/migration-error';
 import { parseManifest } from '../manifest/manifest';
 import { MigrationRequest, PreflightResult } from '../types';
@@ -9,10 +11,13 @@ export class MigrationBatchService {
     private readonly config: AppConfig,
     private readonly s3: S3Store,
     private readonly workflow: WorkflowStarter,
-    private readonly batches: BatchRepository
+    private readonly batches: BatchRepository,
+    private readonly files: FileMetadataRepository
   ) {}
   async runPreflight(request: MigrationRequest): Promise<PreflightResult> {
-    let batchId: string | null = null;
+    let batchId: string | null = request.migrationBatchId;
+    let currentKey = request.manifestKey;
+    let mayRecordFailure = true;
     try {
       const raw = await this.s3.getText(
         request.bucket,
@@ -20,13 +25,14 @@ export class MigrationBatchService {
         this.config.manifestMaxBytes
       );
       const { manifest, sha256 } = parseManifest(raw);
-      batchId = manifest.migrationBatchId;
+
       if (
         manifest.migrationBatchId !== request.migrationBatchId ||
         manifest.ingestionMethod !== request.ingestionMethod
       ) {
         throw new MigrationError('INVALID_MANIFEST', 'Manifest does not match event');
       }
+      mayRecordFailure = false;
       const claim = await this.batches.admit(
         manifest.migrationBatchId,
         request.manifestKey,
@@ -39,27 +45,16 @@ export class MigrationBatchService {
       );
       if (!claim) return this.notClaimed(manifest.migrationBatchId, request.correlationId);
 
-      const files = [manifest.casesFile, ...manifest.documents];
-      if (new Set(files.map((file) => file.key)).size !== files.length) {
-        throw new MigrationError('INVALID_MANIFEST', 'Manifest has duplicate document keys');
-      }
+      mayRecordFailure = true;
+      validatePackageKeys(manifest, request.prefix);
+      const files = packageFiles(manifest);
       for (const file of files) {
-        if (!this.isSafePackageKey(file.key, request.prefix)) {
-          throw new MigrationError('INVALID_MANIFEST', 'Manifest has an unsafe package key');
-        }
-        let head: { size: number; checksum?: string };
-        try {
-          head = await this.s3.head(request.bucket, file.key);
-        } catch (error) {
-          throw error;
-        }
-        if (head.size !== file.sizeBytes) {
-          throw new MigrationError('MISSING_FILE', 'Declared file size does not match S3');
-        }
-        if (file.checksum && head.checksum?.toLowerCase() !== file.checksum.toLowerCase()) {
-          throw new MigrationError('CHECKSUM_MISMATCH', 'Declared file checksum does not match S3');
-        }
+        currentKey = file.key;
+        await this.files.register(manifest.migrationBatchId, request.bucket, file.key,
+          file === manifest.casesFile ? 'CASES' : 'DOCUMENT', file.sizeBytes, file.checksum);
+        await validatePackageFile(this.s3, request.bucket, file);
       }
+      currentKey = request.manifestKey;
       if (!(await this.batches.markValidated(manifest.migrationBatchId, request.correlationId))) {
         return this.notClaimed(manifest.migrationBatchId, request.correlationId);
       }
@@ -99,12 +94,6 @@ export class MigrationBatchService {
       }
       throw error;
     }
-  }
-
-  private isSafePackageKey(key: string, prefix: string): boolean {
-    return (
-      key.startsWith(`${prefix}/`) && !/(^|\/)\.\.?($|\/)|\\|\/\//.test(key) && !key.startsWith('/')
-    );
   }
 
   private async notClaimed(batchId: string, correlationId: string): Promise<PreflightResult> {

@@ -5,6 +5,7 @@ import { createDatabasePool } from './db/database';
 import { MigrationError } from './errors/migration-error';
 import { normaliseEvent } from './events/normalise-event';
 import { createLogger, withMigrationContext } from './logging/logger';
+import { FileMetadataRepository } from './migration-control/file-metadata.repository';
 import { BatchRepository } from './migration-control/repository';
 import { MigrationBatchService } from './migration-control/service';
 import { PreflightResult } from './types';
@@ -43,7 +44,7 @@ export function createMigrationPreflightHandler(
       requestLogger.info({ outcome: result.outcome }, 'migration.preflight.completed');
       return result;
     } catch (error) {
-      if (error instanceof MigrationError) {
+      if (error instanceof MigrationError && !error.retryable) {
         logger.warn(
           { code: error.code, retryable: error.retryable },
           'migration.preflight.rejected'

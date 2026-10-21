@@ -8,6 +8,7 @@ export function normaliseEvent(
   config: AppConfig,
   context: { awsRequestId: string }
 ): MigrationRequest {
+  if (!event || typeof event !== 'object') throw new MigrationError('UNSUPPORTED_EVENT', 'Event must be an object');
   const value = event as {
     Records?: Array<{ s3?: { bucket?: { name?: string }; object?: { key?: string } } }>;
     id?: string;
@@ -31,7 +32,11 @@ export function normaliseEvent(
   const isClassicS3 = Boolean(record?.s3);
   const isEventBridgeS3 =
     value.source === 'aws.s3' && value['detail-type'] === 'Object Created' && Boolean(rawObjectKey);
-  const objectKey = rawObjectKey ? decodeURIComponent(rawObjectKey.replace(/\+/g, ' ')) : undefined;
+  let objectKey = rawObjectKey;
+  if (rawObjectKey && isClassicS3) {
+    try { objectKey = decodeURIComponent(rawObjectKey.replace(/\+/g, ' ')); }
+    catch { throw new MigrationError('UNSUPPORTED_EVENT', 'Invalid encoded S3 object key'); }
+  }
   if (!objectKey || !bucket || (!isClassicS3 && !isEventBridgeS3)) {
     throw new MigrationError('UNSUPPORTED_EVENT', 'Event has no actionable S3 object');
   }
