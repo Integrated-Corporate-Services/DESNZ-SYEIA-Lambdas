@@ -1,6 +1,4 @@
-// SQL only. Repositories own connections and bound parameter values.
-export const MIGRATION_BATCH_QUERIES = {
-  admit: (schema: string): string => `
+export const ADMIT_MIGRATION_BATCH_QUERY = (schema: string): string => `
     INSERT INTO ${schema}.migration_batch (
       migration_batch_id,
       status,
@@ -45,15 +43,15 @@ export const MIGRATION_BATCH_QUERIES = {
          AND ${schema}.migration_batch.updated_at < NOW() - make_interval(secs => $6)
        )
     RETURNING *
-  `,
+  `;
 
-  get: (schema: string): string => `
+export const GET_MIGRATION_BATCH_QUERY = (schema: string): string => `
     SELECT migration_batch_id, preflight_status, step_function_execution_arn
     FROM ${schema}.migration_batch
     WHERE migration_batch_id = $1
-  `,
+  `;
 
-  markValidated: (schema: string): string => `
+export const MARK_MIGRATION_BATCH_VALIDATED_QUERY = (schema: string): string => `
     UPDATE ${schema}.migration_batch
     SET preflight_status = 'PREFLIGHT_VALIDATED',
         validation_completed_at = NOW(),
@@ -62,9 +60,9 @@ export const MIGRATION_BATCH_QUERIES = {
       AND correlation_id = $2
       AND preflight_status = 'PREFLIGHT_IN_PROGRESS'
     RETURNING *
-  `,
+  `;
 
-  markStarted: (schema: string): string => `
+export const MARK_MIGRATION_BATCH_STARTED_QUERY = (schema: string): string => `
     UPDATE ${schema}.migration_batch
     SET preflight_status = 'WF1_STARTED',
         step_function_execution_arn = $3,
@@ -73,9 +71,9 @@ export const MIGRATION_BATCH_QUERIES = {
       AND correlation_id = $2
       AND preflight_status = 'PREFLIGHT_VALIDATED'
     RETURNING *
-  `,
+  `;
 
-  recordFailure: (schema: string): string => `
+export const RECORD_MIGRATION_BATCH_FAILURE_QUERY = (schema: string): string => `
     UPDATE ${schema}.migration_batch
     SET preflight_status = 'PREFLIGHT_FAILED',
         failure_code = $3,
@@ -85,5 +83,4 @@ export const MIGRATION_BATCH_QUERIES = {
     WHERE migration_batch_id = $1
       AND correlation_id = $2
       AND preflight_status <> 'WF1_STARTED'
-  `,
-} as const;
+  `;

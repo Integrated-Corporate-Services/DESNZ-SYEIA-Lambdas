@@ -6,7 +6,7 @@ import { AwsS3Store, S3Store } from '../aws/migrationS3.repository';
 import { AwsWorkflowStarter, WorkflowStarter } from '../aws/migrationWorkflow.repository';
 import { BatchRepository } from './migrationBatch.repository';
 import { MigrationPreflightService } from './migrationPreflight.service';
-import { createMigrationPreflightController } from '../events/migrationPreflight.controller';
+import { createMigrationPreflightEventHandler } from '../events/migrationPreflight.eventHandler';
 
 const config = loadConfig();
 const logger = createLogger();
@@ -26,7 +26,6 @@ export interface MigrationPreflightDependencies {
   getDb: () => Promise<Pool>;
 }
 
-/** Composition root: constructs dependencies while the controller handles each invocation. */
 export function createMigrationPreflightHandler(
   dependencies: MigrationPreflightDependencies = {
     s3: new AwsS3Store(),
@@ -34,7 +33,7 @@ export function createMigrationPreflightHandler(
     getDb: getDatabase,
   }
 ) {
-  return createMigrationPreflightController(config, logger, async (request) => {
+  return createMigrationPreflightEventHandler(config, logger, async (request) => {
     const database = await dependencies.getDb();
     const batches = new BatchRepository(database, config.dbSchema);
     const service = new MigrationPreflightService(

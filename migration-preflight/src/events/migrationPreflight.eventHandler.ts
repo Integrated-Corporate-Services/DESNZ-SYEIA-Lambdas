@@ -12,8 +12,7 @@ import { withMigrationContext } from '../logging/migrationPreflight.logger';
 
 export type RunMigrationPreflight = (request: MigrationRequest) => Promise<PreflightResult>;
 
-/** Adapts the Lambda event/response boundary; it owns no SQL or AWS SDK clients. */
-export function createMigrationPreflightController(
+export function createMigrationPreflightEventHandler(
   config: AppConfig,
   logger: Logger,
   runPreflight: RunMigrationPreflight

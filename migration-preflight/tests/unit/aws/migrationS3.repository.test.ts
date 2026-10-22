@@ -9,7 +9,6 @@ function createStorage() {
   });
   const send = jest.fn();
   client.send = send;
-  // Every tested call gets an explicit mocked response. No SDK request is sent.
   send.mockRejectedValue(new Error('Unconfigured S3 response'));
   return { storage: new AwsS3Store(client), send, client };
 }

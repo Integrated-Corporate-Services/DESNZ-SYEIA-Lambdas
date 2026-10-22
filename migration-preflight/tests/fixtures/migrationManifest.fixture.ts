@@ -6,7 +6,6 @@ export interface ManifestInput extends Manifest {
   sourceSystem: 'SHAREPOINT_ONLINE';
 }
 
-/** Every call creates fresh nested objects; overrides replace whole top-level fields. */
 export function createManifest(overrides: Partial<ManifestInput> = {}): ManifestInput {
   return {
     schemaVersion: '1.0',

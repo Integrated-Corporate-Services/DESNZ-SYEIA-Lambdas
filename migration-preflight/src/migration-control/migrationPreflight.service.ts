@@ -14,7 +14,6 @@ import { readMigrationManifest } from '../manifest/migrationManifest.service';
 import { startMigrationWorkflow } from './migrationWorkflow.service';
 import { createPreflightResult, resolveExistingBatchResult } from './migrationResult.service';
 
-/** Coordinates admission, validation and workflow start; IO is delegated to repositories. */
 export class MigrationPreflightService {
   constructor(
     private readonly config: AppConfig,
@@ -90,7 +89,6 @@ export class MigrationPreflightService {
     } catch (error) {
       if (request.migrationBatchId && ownsBatchClaim) {
         const failure = MigrationError.from(error);
-        // Preserve the primary failure if writing diagnostic metadata also fails.
         await this.batches
           .recordFailure(
             request.migrationBatchId,
