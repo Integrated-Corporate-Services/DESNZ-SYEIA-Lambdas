@@ -1,43 +1,33 @@
-import { MIGRATION_BATCH_QUERIES } from './migration-batch.queries';
+import { MIGRATION_DEFAULTS } from '../constants/migrationPreflight.constants';
+import type { BatchAdmission } from '../types/migrationBatch.types';
+import { MIGRATION_BATCH_QUERIES } from './migrationBatch.queries';
 import { Pool } from 'pg';
-import { assertSafeSqlIdent } from '../config/config';
-import { MigrationBatch } from '../types';
+import { assertSafeSqlIdent } from '../config/migrationPreflight.config';
+import { MigrationBatch } from '../types/migrationPreflight.types';
 
 export class BatchRepository {
   private readonly schema: string;
 
   constructor(
     private readonly db: Pool,
-    schema: string,
+    schema: string
   ) {
     this.schema = assertSafeSqlIdent(schema);
   }
 
-  async admit(
-    batchId: string,
-    manifestKey: string,
-    hash: string,
-    ingestionMethod: string,
-    correlationId: string,
-    staleAfterSeconds: number,
-    expectedCaseCount: number,
-    expectedDocumentCount: number,
-    sourceBucket: string,
-    casesFileKey: string,
-    documents: ReadonlyArray<{ key: string; sizeBytes: number; checksum?: string }>,
-  ): Promise<MigrationBatch | null> {
+  async admit(input: BatchAdmission): Promise<MigrationBatch | null> {
     const result = await this.db.query<MigrationBatch>(MIGRATION_BATCH_QUERIES.admit(this.schema), [
-      batchId,
-      manifestKey,
-      hash,
-      ingestionMethod,
-      correlationId,
-      staleAfterSeconds,
-      expectedCaseCount,
-      expectedDocumentCount,
-      sourceBucket,
-      casesFileKey,
-      JSON.stringify(documents),
+      input.migrationBatchId,
+      input.manifestKey,
+      input.manifestSha256,
+      input.ingestionMethod,
+      input.correlationId,
+      input.staleAfterSeconds,
+      input.expectedCaseCount,
+      input.expectedDocumentCount,
+      input.sourceBucket,
+      input.casesFileKey,
+      JSON.stringify(input.documents),
     ]);
     return result.rows[0] ?? null;
   }
@@ -71,13 +61,13 @@ export class BatchRepository {
     correlationId: string,
     code: string,
     reason: string,
-    fileKey: string | null = null,
+    fileKey: string | null = null
   ): Promise<void> {
     await this.db.query(MIGRATION_BATCH_QUERIES.recordFailure(this.schema), [
       batchId,
       correlationId,
       code,
-      reason.slice(0, 2000),
+      reason.slice(0, MIGRATION_DEFAULTS.failureMessageMaxLength),
       fileKey,
     ]);
   }

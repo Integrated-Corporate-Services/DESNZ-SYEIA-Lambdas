@@ -1,19 +1,18 @@
+import {
+  MIGRATION_ERROR_CODE,
+  MIGRATION_MESSAGES,
+} from '../constants/migrationPreflight.constants';
 import { GetObjectCommand, HeadObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import { StartExecutionCommand, SFNClient } from '@aws-sdk/client-sfn';
-import { Readable } from 'stream';
-import { MigrationError } from '../errors/migration-error';
 
-export class ExecutionAlreadyExistsError extends Error {
-  constructor() {
-    super('Step Functions execution already exists');
-    this.name = 'ExecutionAlreadyExistsError';
-  }
-}
+import { Readable } from 'stream';
+
+import { MigrationError } from '../errors/migrationPreflight.error';
 
 export interface S3Store {
   getText(bucket: string, key: string, maxBytes: number): Promise<string>;
   head(bucket: string, key: string): Promise<{ size: number; checksum?: string }>;
 }
+
 export class AwsS3Store implements S3Store {
   constructor(private readonly client = new S3Client({})) {}
   async getText(bucket: string, key: string, maxBytes: number): Promise<string> {
@@ -24,7 +23,11 @@ export class AwsS3Store implements S3Store {
       );
     } catch (error) {
       if (isNotFound(error))
-        throw new MigrationError('MANIFEST_NOT_FOUND', 'Manifest is missing', true);
+        throw new MigrationError(
+          MIGRATION_ERROR_CODE.MANIFEST_NOT_FOUND,
+          MIGRATION_MESSAGES.MANIFEST_NOT_FOUND,
+          true
+        );
       throw error;
     }
     const body: Buffer[] = [];
@@ -35,7 +38,10 @@ export class AwsS3Store implements S3Store {
       size += chunk.length;
       if (size > maxBytes) {
         stream.destroy();
-        throw new MigrationError('INVALID_MANIFEST', 'Manifest exceeds configured maximum size');
+        throw new MigrationError(
+          MIGRATION_ERROR_CODE.INVALID_MANIFEST,
+          MIGRATION_MESSAGES.MANIFEST_TOO_LARGE
+        );
       }
       body.push(chunk);
     }
@@ -50,14 +56,16 @@ export class AwsS3Store implements S3Store {
       );
     } catch (error) {
       if (isNotFound(error))
-        throw new MigrationError('MISSING_FILE', 'Declared package file is missing');
+        throw new MigrationError(
+          MIGRATION_ERROR_CODE.MISSING_FILE,
+          MIGRATION_MESSAGES.PACKAGE_FILE_NOT_FOUND
+        );
       throw error;
     }
     return { size: output.ContentLength ?? 0, checksum: s3ChecksumToHex(output.ChecksumSHA256) };
   }
 }
 
-/** Manifest checksums are SHA-256 hex; S3 ChecksumSHA256 is Base64. Local/tests may already be hex. */
 export function s3ChecksumToHex(checksum?: string): string | undefined {
   if (!checksum) return undefined;
   const trimmed = checksum.trim();
@@ -75,26 +83,4 @@ function isNotFound(error: unknown): boolean {
   const name = (error as { name?: string }).name;
   const status = (error as { $metadata?: { httpStatusCode?: number } }).$metadata?.httpStatusCode;
   return name === 'NoSuchKey' || name === 'NotFound' || status === 404;
-}
-export interface WorkflowStarter {
-  start(name: string, input: object): Promise<string | null>;
-}
-export class AwsWorkflowStarter implements WorkflowStarter {
-  constructor(
-    private readonly arn: string,
-    private readonly client = new SFNClient({})
-  ) {}
-  async start(name: string, input: object) {
-    try {
-      const response = await this.client.send(
-        new StartExecutionCommand({ stateMachineArn: this.arn, name, input: JSON.stringify(input) })
-      );
-      return response.executionArn ?? null;
-    } catch (error) {
-      if ((error as { name?: string }).name === 'ExecutionAlreadyExists') {
-        throw new ExecutionAlreadyExistsError();
-      }
-      throw error;
-    }
-  }
 }
