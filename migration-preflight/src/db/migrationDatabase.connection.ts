@@ -11,14 +11,6 @@ interface DatabaseSecret {
 
 export type PoolSslOption = false | { rejectUnauthorized: boolean };
 
-/**
- * TLS for the RDS pool.
- * - local compose: no TLS
- * - DB_SSL_REJECT_UNAUTHORIZED=false: encrypt but do not verify (explicit opt-out)
- * - DB_SSL_REJECT_UNAUTHORIZED=true: encrypt and verify
- * - NODE_ENV=development (EIP-dev): same opt-out as the other SYEIA Lambdas until a CA is supplied
- * - otherwise: verify the certificate
- */
 export function poolSslOption(
   nodeEnv = process.env.NODE_ENV,
   rejectUnauthorizedEnv = process.env.DB_SSL_REJECT_UNAUTHORIZED
