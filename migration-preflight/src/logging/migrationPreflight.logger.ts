@@ -1,3 +1,4 @@
+import { MIGRATION_DEFAULTS } from '../constants/migrationPreflight.constants';
 import { createHash } from 'crypto';
 import pino from 'pino';
 
@@ -13,7 +14,10 @@ export function withMigrationContext(
     migrationBatchId: context.migrationBatchId,
     correlationId: context.correlationId,
     objectKeyDigest: context.objectKey
-      ? createHash('sha256').update(context.objectKey).digest('hex').slice(0, 16)
+      ? createHash('sha256')
+          .update(context.objectKey)
+          .digest('hex')
+          .slice(0, MIGRATION_DEFAULTS.logKeyDigestLength)
       : undefined,
   });
 }

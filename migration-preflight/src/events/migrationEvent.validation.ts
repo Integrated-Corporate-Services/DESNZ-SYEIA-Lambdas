@@ -1,13 +1,23 @@
+import {
+  MIGRATION_ERROR_CODE,
+  MIGRATION_MESSAGES,
+  MIGRATION_STATE,
+} from '../constants/migrationPreflight.constants';
 import { randomUUID } from 'crypto';
-import { AppConfig } from '../config/config';
-import { MigrationError } from '../errors/migration-error';
-import { MigrationRequest } from '../types';
+import { AppConfig } from '../config/migrationPreflight.config';
+import { MigrationError } from '../errors/migrationPreflight.error';
+import { MigrationRequest } from '../types/migrationPreflight.types';
 
 export function normaliseEvent(
   event: unknown,
   config: AppConfig,
   context: { awsRequestId: string }
 ): MigrationRequest {
+  if (!event || typeof event !== 'object')
+    throw new MigrationError(
+      MIGRATION_ERROR_CODE.UNSUPPORTED_EVENT,
+      MIGRATION_MESSAGES.INVALID_EVENT
+    );
   const value = event as {
     Records?: Array<{ s3?: { bucket?: { name?: string }; object?: { key?: string } } }>;
     id?: string;
@@ -31,9 +41,22 @@ export function normaliseEvent(
   const isClassicS3 = Boolean(record?.s3);
   const isEventBridgeS3 =
     value.source === 'aws.s3' && value['detail-type'] === 'Object Created' && Boolean(rawObjectKey);
-  const objectKey = rawObjectKey ? decodeURIComponent(rawObjectKey.replace(/\+/g, ' ')) : undefined;
+  let objectKey = rawObjectKey;
+  if (rawObjectKey && isClassicS3) {
+    try {
+      objectKey = decodeURIComponent(rawObjectKey.replace(/\+/g, ' '));
+    } catch {
+      throw new MigrationError(
+        MIGRATION_ERROR_CODE.UNSUPPORTED_EVENT,
+        MIGRATION_MESSAGES.INVALID_ENCODED_KEY
+      );
+    }
+  }
   if (!objectKey || !bucket || (!isClassicS3 && !isEventBridgeS3)) {
-    throw new MigrationError('UNSUPPORTED_EVENT', 'Event has no actionable S3 object');
+    throw new MigrationError(
+      MIGRATION_ERROR_CODE.UNSUPPORTED_EVENT,
+      MIGRATION_MESSAGES.EVENT_OBJECT_MISSING
+    );
   }
   const rootPrefix = `${config.migrationPrefixRoot.replace(/\/$/, '')}/`;
   if (
@@ -41,13 +64,16 @@ export function normaliseEvent(
     !objectKey.startsWith(rootPrefix) ||
     !objectKey.endsWith(`/${config.manifestFilename}`)
   ) {
-    throw new MigrationError('UNSUPPORTED_EVENT', 'Event is not a migration manifest');
+    throw new MigrationError(
+      MIGRATION_ERROR_CODE.UNSUPPORTED_EVENT,
+      MIGRATION_MESSAGES.NOT_MIGRATION_MANIFEST
+    );
   }
   const prefix = objectKey.slice(0, -config.manifestFilename.length).replace(/\/$/, '');
   const migrationBatchId = prefix.split('/').filter(Boolean).at(-1) ?? null;
   return {
     migrationBatchId,
-    ingestionMethod: 'DIRECT_S3',
+    ingestionMethod: MIGRATION_STATE.DIRECT_S3,
     bucket,
     prefix,
     manifestKey: objectKey,
@@ -72,14 +98,14 @@ function normaliseAppFlowEvent(
   const status = event.detail?.status;
   if (!executionId || !flowName || (status && status !== 'Successful')) {
     throw new MigrationError(
-      'UNSUPPORTED_EVENT',
-      'AppFlow event is not a successful flow completion'
+      MIGRATION_ERROR_CODE.UNSUPPORTED_EVENT,
+      MIGRATION_MESSAGES.APPFLOW_NOT_SUCCESSFUL
     );
   }
   const prefix = `${config.migrationPrefixRoot.replace(/\/$/, '')}/${executionId}`;
   return {
     migrationBatchId: executionId,
-    ingestionMethod: 'APPFLOW',
+    ingestionMethod: MIGRATION_STATE.APPFLOW,
     bucket: config.migrationBucket,
     prefix,
     manifestKey: `${prefix}/${config.manifestFilename}`,

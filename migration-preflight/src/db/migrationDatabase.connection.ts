@@ -1,6 +1,8 @@
+import { MIGRATION_DEFAULTS } from '../constants/migrationPreflight.constants';
+import { MIGRATION_MESSAGES } from '../constants/migrationPreflight.constants';
 import { GetSecretValueCommand, SecretsManagerClient } from '@aws-sdk/client-secrets-manager';
 import { Pool } from 'pg';
-import { AppConfig } from '../config/config';
+import { AppConfig } from '../config/migrationPreflight.config';
 
 interface DatabaseSecret {
   username?: string;
@@ -9,14 +11,6 @@ interface DatabaseSecret {
 
 export type PoolSslOption = false | { rejectUnauthorized: boolean };
 
-/**
- * TLS for the RDS pool.
- * - local compose: no TLS
- * - DB_SSL_REJECT_UNAUTHORIZED=false: encrypt but do not verify (explicit opt-out)
- * - DB_SSL_REJECT_UNAUTHORIZED=true: encrypt and verify
- * - NODE_ENV=development (EIP-dev): same opt-out as the other SYEIA Lambdas until a CA is supplied
- * - otherwise: verify the certificate
- */
 export function poolSslOption(
   nodeEnv = process.env.NODE_ENV,
   rejectUnauthorizedEnv = process.env.DB_SSL_REJECT_UNAUTHORIZED
@@ -39,7 +33,7 @@ export async function createDatabasePool(
     database: config.dbName,
     user: credentials.username,
     password: credentials.password,
-    max: 4,
+    max: MIGRATION_DEFAULTS.poolMaxConnections,
     ssl: poolSslOption(),
   });
 }
@@ -49,10 +43,10 @@ async function readSecret(
   secrets: SecretsManagerClient
 ): Promise<{ username: string; password: string }> {
   const response = await secrets.send(new GetSecretValueCommand({ SecretId: config.dbSecretArn }));
-  if (!response.SecretString) throw new Error('Database secret has no SecretString');
+  if (!response.SecretString) throw new Error(MIGRATION_MESSAGES.SECRET_VALUE_MISSING);
   const secret = JSON.parse(response.SecretString) as DatabaseSecret;
   if (!secret.username || !secret.password) {
-    throw new Error('DB_CREDENTIALS secret must contain username and password');
+    throw new Error(MIGRATION_MESSAGES.SECRET_CREDENTIALS_MISSING);
   }
   return { username: secret.username, password: secret.password };
 }
