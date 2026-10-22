@@ -1,11 +1,11 @@
 import { MIGRATION_DEFAULTS } from '../constants/migrationPreflight.constants';
 import type { BatchAdmission } from '../types/migrationBatch.types';
 import {
-  ADMIT_MIGRATION_BATCH_QUERY,
-  GET_MIGRATION_BATCH_QUERY,
-  MARK_MIGRATION_BATCH_VALIDATED_QUERY,
-  MARK_MIGRATION_BATCH_STARTED_QUERY,
-  RECORD_MIGRATION_BATCH_FAILURE_QUERY,
+  ADMIT_MIGRATION_BATCH,
+  GET_MIGRATION_BATCH,
+  MARK_MIGRATION_BATCH_VALIDATED,
+  MARK_MIGRATION_BATCH_STARTED,
+  RECORD_MIGRATION_BATCH_FAILURE,
 } from './migrationBatch.queries';
 import { Pool } from 'pg';
 import { assertSafeSqlIdent } from '../config/migrationPreflight.config';
@@ -22,7 +22,7 @@ export class BatchRepository {
   }
 
   async admit(input: BatchAdmission): Promise<MigrationBatch | null> {
-    const result = await this.db.query<MigrationBatch>(ADMIT_MIGRATION_BATCH_QUERY(this.schema), [
+    const result = await this.db.query<MigrationBatch>(ADMIT_MIGRATION_BATCH(this.schema), [
       input.migrationBatchId,
       input.manifestKey,
       input.manifestSha256,
@@ -39,14 +39,12 @@ export class BatchRepository {
   }
 
   async get(batchId: string): Promise<MigrationBatch | null> {
-    const result = await this.db.query<MigrationBatch>(GET_MIGRATION_BATCH_QUERY(this.schema), [
-      batchId,
-    ]);
+    const result = await this.db.query<MigrationBatch>(GET_MIGRATION_BATCH(this.schema), [batchId]);
     return result.rows[0] ?? null;
   }
 
   async markValidated(batchId: string, correlationId: string): Promise<boolean> {
-    const result = await this.db.query(MARK_MIGRATION_BATCH_VALIDATED_QUERY(this.schema), [
+    const result = await this.db.query(MARK_MIGRATION_BATCH_VALIDATED(this.schema), [
       batchId,
       correlationId,
     ]);
@@ -54,7 +52,7 @@ export class BatchRepository {
   }
 
   async markStarted(batchId: string, correlationId: string, arn: string | null): Promise<boolean> {
-    const result = await this.db.query(MARK_MIGRATION_BATCH_STARTED_QUERY(this.schema), [
+    const result = await this.db.query(MARK_MIGRATION_BATCH_STARTED(this.schema), [
       batchId,
       correlationId,
       arn,
@@ -69,7 +67,7 @@ export class BatchRepository {
     reason: string,
     fileKey: string | null = null
   ): Promise<void> {
-    await this.db.query(RECORD_MIGRATION_BATCH_FAILURE_QUERY(this.schema), [
+    await this.db.query(RECORD_MIGRATION_BATCH_FAILURE(this.schema), [
       batchId,
       correlationId,
       code,

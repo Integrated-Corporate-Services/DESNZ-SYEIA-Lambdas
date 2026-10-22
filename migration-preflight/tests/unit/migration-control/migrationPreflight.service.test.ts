@@ -1,5 +1,5 @@
 import { createPreflightTestSetup } from '../../helpers/preflightTestSetup';
-import { ExecutionAlreadyExistsError } from '../../../src/aws/migrationWorkflow.repository';
+import { ExecutionAlreadyExistsError } from '../../../src/aws/migrationWorkflow.adapter';
 
 describe('preflight admission and workflow ownership', () => {
   it('stores named admission values and starts a deterministic execution', async () => {

@@ -2,7 +2,7 @@ import { SFNClient, StartExecutionCommand } from '@aws-sdk/client-sfn';
 import {
   AwsWorkflowStarter,
   ExecutionAlreadyExistsError,
-} from '../../../src/aws/migrationWorkflow.repository';
+} from '../../../src/aws/migrationWorkflow.adapter';
 
 describe('Step Functions adapter', () => {
   const client = new SFNClient({

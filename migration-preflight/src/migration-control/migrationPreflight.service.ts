@@ -1,7 +1,7 @@
 import { MIGRATION_STATE } from '../constants/migrationPreflight.constants';
 import type { AppConfig } from '../config/migrationPreflight.config';
-import type { S3Store } from '../aws/migrationS3.repository';
-import type { WorkflowStarter } from '../aws/migrationWorkflow.repository';
+import type { S3Store } from '../aws/migrationS3.adapter';
+import type { WorkflowStarter } from '../aws/migrationWorkflow.adapter';
 import type { BatchRepository } from './migrationBatch.repository';
 import type { MigrationRequest, PreflightResult } from '../types/migrationPreflight.types';
 import { MigrationError } from '../errors/migrationPreflight.error';

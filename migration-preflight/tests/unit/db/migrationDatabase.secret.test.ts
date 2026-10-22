@@ -1,5 +1,5 @@
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
-import { createDatabasePool } from '../../../src/db/migrationDatabase.repository';
+import { createDatabasePool } from '../../../src/db/migrationDatabase.connection';
 import { createConfig } from '../../fixtures/migrationConfig.fixture';
 
 describe('database secret validation (no database connection)', () => {

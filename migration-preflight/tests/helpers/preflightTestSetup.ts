@@ -1,5 +1,5 @@
-import type { S3Store } from '../../src/aws/migrationS3.repository';
-import type { WorkflowStarter } from '../../src/aws/migrationWorkflow.repository';
+import type { S3Store } from '../../src/aws/migrationS3.adapter';
+import type { WorkflowStarter } from '../../src/aws/migrationWorkflow.adapter';
 import type { BatchRepository } from '../../src/migration-control/migrationBatch.repository';
 import { MigrationPreflightService } from '../../src/migration-control/migrationPreflight.service';
 import { createConfig } from '../fixtures/migrationConfig.fixture';

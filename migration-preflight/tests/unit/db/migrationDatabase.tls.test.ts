@@ -1,4 +1,4 @@
-import { poolSslOption } from '../../../src/db/migrationDatabase.repository';
+import { poolSslOption } from '../../../src/db/migrationDatabase.connection';
 
 describe('database TLS selection (not a connection test)', () => {
   it.each([

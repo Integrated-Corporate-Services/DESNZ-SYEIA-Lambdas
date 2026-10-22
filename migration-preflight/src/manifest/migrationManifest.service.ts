@@ -3,7 +3,7 @@ import {
   MIGRATION_MESSAGES,
 } from '../constants/migrationPreflight.constants';
 import type { AppConfig } from '../config/migrationPreflight.config';
-import type { S3Store } from '../aws/migrationS3.repository';
+import type { S3Store } from '../aws/migrationS3.adapter';
 import type { MigrationRequest } from '../types/migrationPreflight.types';
 import { parseManifest } from './migrationManifest.validation';
 import { MigrationError } from '../errors/migrationPreflight.error';

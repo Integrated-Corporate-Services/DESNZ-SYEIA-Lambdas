@@ -2,7 +2,7 @@ import {
   MIGRATION_ERROR_CODE,
   MIGRATION_MESSAGES,
 } from '../constants/migrationPreflight.constants';
-import { S3Store } from '../aws/migrationAws.repository';
+import { S3Store } from '../aws/migrationAws.exports';
 import { MigrationError } from '../errors/migrationPreflight.error';
 import { Manifest } from './migrationManifest.validation';
 

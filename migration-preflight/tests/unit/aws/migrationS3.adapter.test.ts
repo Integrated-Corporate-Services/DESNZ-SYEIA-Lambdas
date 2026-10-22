@@ -1,6 +1,6 @@
 import { S3Client, GetObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
 import { Readable } from 'stream';
-import { AwsS3Store, s3ChecksumToHex } from '../../../src/aws/migrationS3.repository';
+import { AwsS3Store, s3ChecksumToHex } from '../../../src/aws/migrationS3.adapter';
 
 function createStorage() {
   const client = new S3Client({

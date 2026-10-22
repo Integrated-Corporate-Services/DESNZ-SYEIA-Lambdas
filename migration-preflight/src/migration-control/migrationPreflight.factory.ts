@@ -1,9 +1,9 @@
 import type { Pool } from 'pg';
 import { loadConfig } from '../config/migrationPreflight.config';
 import { createLogger } from '../logging/migrationPreflight.logger';
-import { createDatabasePool } from '../db/migrationDatabase.repository';
-import { AwsS3Store, S3Store } from '../aws/migrationS3.repository';
-import { AwsWorkflowStarter, WorkflowStarter } from '../aws/migrationWorkflow.repository';
+import { createDatabasePool } from '../db/migrationDatabase.connection';
+import { AwsS3Store, S3Store } from '../aws/migrationS3.adapter';
+import { AwsWorkflowStarter, WorkflowStarter } from '../aws/migrationWorkflow.adapter';
 import { BatchRepository } from './migrationBatch.repository';
 import { MigrationPreflightService } from './migrationPreflight.service';
 import { createMigrationPreflightEventHandler } from '../events/migrationPreflight.eventHandler';

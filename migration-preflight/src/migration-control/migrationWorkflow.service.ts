@@ -1,7 +1,7 @@
 import { MIGRATION_DEFAULTS } from '../constants/migrationPreflight.constants';
 import type { AppConfig } from '../config/migrationPreflight.config';
 import type { MigrationRequest } from '../types/migrationPreflight.types';
-import { ExecutionAlreadyExistsError, WorkflowStarter } from '../aws/migrationWorkflow.repository';
+import { ExecutionAlreadyExistsError, WorkflowStarter } from '../aws/migrationWorkflow.adapter';
 
 export interface WorkflowStartResult {
   alreadyStarted: boolean;

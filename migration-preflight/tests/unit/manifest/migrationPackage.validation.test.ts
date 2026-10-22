@@ -2,7 +2,7 @@ import {
   validatePackageKeys,
   validatePackageFile,
 } from '../../../src/manifest/migrationPackage.validation';
-import type { S3Store } from '../../../src/aws/migrationS3.repository';
+import type { S3Store } from '../../../src/aws/migrationS3.adapter';
 import { createManifest } from '../../fixtures/migrationManifest.fixture';
 
 describe('package keys', () => {

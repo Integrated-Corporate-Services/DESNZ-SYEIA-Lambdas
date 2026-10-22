@@ -1,4 +1,6 @@
-export const ADMIT_MIGRATION_BATCH_QUERY = (schema: string): string => `
+import { MIGRATION_STATE } from '../constants/migrationPreflight.constants';
+
+export const ADMIT_MIGRATION_BATCH = (schema: string): string => `
     INSERT INTO ${schema}.migration_batch (
       migration_batch_id,
       status,
@@ -15,12 +17,12 @@ export const ADMIT_MIGRATION_BATCH_QUERY = (schema: string): string => `
       document_files
     )
     VALUES (
-      $1, 'ADMITTED', 'PREFLIGHT_IN_PROGRESS', $2, $3, $4, $5,
+      $1, '${MIGRATION_STATE.ADMITTED}', '${MIGRATION_STATE.PREFLIGHT_IN_PROGRESS}', $2, $3, $4, $5,
       NOW(), $7, $8, $9, $10, $11::jsonb
     )
     ON CONFLICT (migration_batch_id)
     DO UPDATE SET
-      preflight_status = 'PREFLIGHT_IN_PROGRESS',
+      preflight_status = '${MIGRATION_STATE.PREFLIGHT_IN_PROGRESS}',
       correlation_id = $5,
       manifest_key = $2,
       manifest_sha256 = $3,
@@ -35,52 +37,52 @@ export const ADMIT_MIGRATION_BATCH_QUERY = (schema: string): string => `
       failure_file_key = NULL,
       preflight_claimed_at = NOW(),
       updated_at = NOW()
-    WHERE ${schema}.migration_batch.preflight_status = 'PREFLIGHT_FAILED'
+    WHERE ${schema}.migration_batch.preflight_status = '${MIGRATION_STATE.PREFLIGHT_FAILED}'
        OR (
          ${schema}.migration_batch.preflight_status = ANY(
-           ARRAY['PREFLIGHT_IN_PROGRESS', 'PREFLIGHT_VALIDATED']
+           ARRAY['${MIGRATION_STATE.PREFLIGHT_IN_PROGRESS}', '${MIGRATION_STATE.PREFLIGHT_VALIDATED}']
          )
          AND ${schema}.migration_batch.updated_at < NOW() - make_interval(secs => $6)
        )
     RETURNING *
   `;
 
-export const GET_MIGRATION_BATCH_QUERY = (schema: string): string => `
+export const GET_MIGRATION_BATCH = (schema: string): string => `
     SELECT migration_batch_id, preflight_status, step_function_execution_arn
     FROM ${schema}.migration_batch
     WHERE migration_batch_id = $1
   `;
 
-export const MARK_MIGRATION_BATCH_VALIDATED_QUERY = (schema: string): string => `
+export const MARK_MIGRATION_BATCH_VALIDATED = (schema: string): string => `
     UPDATE ${schema}.migration_batch
-    SET preflight_status = 'PREFLIGHT_VALIDATED',
+    SET preflight_status = '${MIGRATION_STATE.PREFLIGHT_VALIDATED}',
         validation_completed_at = NOW(),
         updated_at = NOW()
     WHERE migration_batch_id = $1
       AND correlation_id = $2
-      AND preflight_status = 'PREFLIGHT_IN_PROGRESS'
+      AND preflight_status = '${MIGRATION_STATE.PREFLIGHT_IN_PROGRESS}'
     RETURNING *
   `;
 
-export const MARK_MIGRATION_BATCH_STARTED_QUERY = (schema: string): string => `
+export const MARK_MIGRATION_BATCH_STARTED = (schema: string): string => `
     UPDATE ${schema}.migration_batch
-    SET preflight_status = 'WF1_STARTED',
+    SET preflight_status = '${MIGRATION_STATE.WF1_STARTED}',
         step_function_execution_arn = $3,
         updated_at = NOW()
     WHERE migration_batch_id = $1
       AND correlation_id = $2
-      AND preflight_status = 'PREFLIGHT_VALIDATED'
+      AND preflight_status = '${MIGRATION_STATE.PREFLIGHT_VALIDATED}'
     RETURNING *
   `;
 
-export const RECORD_MIGRATION_BATCH_FAILURE_QUERY = (schema: string): string => `
+export const RECORD_MIGRATION_BATCH_FAILURE = (schema: string): string => `
     UPDATE ${schema}.migration_batch
-    SET preflight_status = 'PREFLIGHT_FAILED',
+    SET preflight_status = '${MIGRATION_STATE.PREFLIGHT_FAILED}',
         failure_code = $3,
         failure_reason = $4,
         failure_file_key = $5,
         updated_at = NOW()
     WHERE migration_batch_id = $1
       AND correlation_id = $2
-      AND preflight_status <> 'WF1_STARTED'
+      AND preflight_status <> '${MIGRATION_STATE.WF1_STARTED}'
   `;
