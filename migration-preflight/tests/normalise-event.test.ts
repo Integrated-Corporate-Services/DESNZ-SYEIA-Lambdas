@@ -1,4 +1,4 @@
-import { normaliseEvent } from '../src/events/normalise-event';
+import { normaliseEvent } from '../src/events/migrationEvent.validation';
 
 const config = {
   migrationBucket: 'test-migration-bucket',

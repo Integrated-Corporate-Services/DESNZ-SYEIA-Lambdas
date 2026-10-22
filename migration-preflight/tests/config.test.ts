@@ -1,4 +1,4 @@
-import { loadConfig } from '../src/config/config';
+import { loadConfig } from '../src/config/migrationPreflight.config';
 
 describe('loadConfig', () => {
   const original = process.env;

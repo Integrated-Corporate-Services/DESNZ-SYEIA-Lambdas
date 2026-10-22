@@ -1,4 +1,4 @@
-import { poolSslOption } from '../src/db/database';
+import { poolSslOption } from '../src/db/migrationDatabase.repository';
 
 describe('poolSslOption', () => {
   it('disables TLS for local compose against Postgres', () => {

@@ -1,5 +1,5 @@
-import { MigrationBatchService } from '../src/migration-control/service';
-import { ExecutionAlreadyExistsError } from '../src/aws/stores';
+import { MigrationPreflightService } from '../src/migration-control/migrationPreflight.service';
+import { ExecutionAlreadyExistsError } from '../src/aws/migrationAws.repository';
 
 const config = {
   migrationBucket: 'test-migration-bucket',
@@ -56,7 +56,7 @@ function createRepository() {
   };
 }
 
-describe('MigrationBatchService direct S3 admission', () => {
+describe('MigrationPreflightService direct S3 admission', () => {
   it('verifies checksums and starts WF1 with a deterministic name', async () => {
     const batches = createRepository();
     const s3 = {
@@ -67,31 +67,30 @@ describe('MigrationBatchService direct S3 admission', () => {
           Promise.resolve(
             key.endsWith('.csv')
               ? { size: 20, checksum: 'a'.repeat(64) }
-              : { size: 10, checksum: 'b'.repeat(64) },
-          ),
+              : { size: 10, checksum: 'b'.repeat(64) }
+          )
         ),
     };
     const workflow = { start: jest.fn().mockResolvedValue('arn:execution') };
-    const result = await new MigrationBatchService(
+    const result = await new MigrationPreflightService(
       config,
       s3,
       workflow,
-      batches as never,
+      batches as never
     ).runPreflight(request);
     expect(result.outcome).toBe('WF1_STARTED');
     expect(workflow.start.mock.calls[0][0]).toMatch(/^TEST-BATCH-001-[a-f0-9]{16}$/);
     expect(batches.admit).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.anything(),
-      expect.anything(),
-      expect.anything(),
-      expect.anything(),
-      3600,
-      1,
-      1,
-      request.bucket,
-      JSON.parse(manifest).casesFile.key,
-      JSON.parse(manifest).documents,
+      expect.objectContaining({
+        migrationBatchId: request.migrationBatchId,
+        manifestKey: request.manifestKey,
+        sourceBucket: request.bucket,
+        casesFileKey: JSON.parse(manifest).casesFile.key,
+        documents: JSON.parse(manifest).documents,
+        expectedCaseCount: 1,
+        expectedDocumentCount: 1,
+        staleAfterSeconds: 3600,
+      })
     );
   });
 
@@ -103,7 +102,7 @@ describe('MigrationBatchService direct S3 admission', () => {
     };
     const workflow = { start: jest.fn() };
     await expect(
-      new MigrationBatchService(config, s3, workflow, batches as never).runPreflight(request),
+      new MigrationPreflightService(config, s3, workflow, batches as never).runPreflight(request)
     ).rejects.toMatchObject({ code: 'CHECKSUM_MISMATCH' });
     expect(workflow.start).not.toHaveBeenCalled();
     expect(batches.recordFailure).toHaveBeenCalled();
@@ -119,16 +118,16 @@ describe('MigrationBatchService direct S3 admission', () => {
           Promise.resolve(
             key.endsWith('.csv')
               ? { size: 20, checksum: 'a'.repeat(64) }
-              : { size: 10, checksum: 'b'.repeat(64) },
-          ),
+              : { size: 10, checksum: 'b'.repeat(64) }
+          )
         ),
     };
     const workflow = { start: jest.fn().mockRejectedValue(new ExecutionAlreadyExistsError()) };
-    const result = await new MigrationBatchService(
+    const result = await new MigrationPreflightService(
       config,
       s3,
       workflow,
-      batches as never,
+      batches as never
     ).runPreflight(request);
     expect(result.outcome).toBe('ALREADY_STARTED');
     expect(batches.markStarted).toHaveBeenCalledWith('TEST-BATCH-001', request.correlationId, null);
@@ -142,7 +141,7 @@ describe('MigrationBatchService direct S3 admission', () => {
     };
     const workflow = { start: jest.fn() };
     await expect(
-      new MigrationBatchService(config, s3, workflow, batches as never).runPreflight(request),
+      new MigrationPreflightService(config, s3, workflow, batches as never).runPreflight(request)
     ).rejects.toThrow('S3 temporarily unavailable');
   });
 });
@@ -157,14 +156,14 @@ describe('batch file inventory and duplicate behaviour', () => {
       head: jest.fn().mockResolvedValue({ size: 20, checksum: 'c'.repeat(64) }),
     };
     await expect(
-      new MigrationBatchService(config, s3, workflow, batches as never).runPreflight(request),
+      new MigrationPreflightService(config, s3, workflow, batches as never).runPreflight(request)
     ).rejects.toMatchObject({ code: 'CHECKSUM_MISMATCH' });
     expect(batches.recordFailure).toHaveBeenCalledWith(
       request.migrationBatchId,
       request.correlationId,
       'CHECKSUM_MISMATCH',
       expect.any(String),
-      'migrations/TEST-BATCH-001/cases.csv',
+      'migrations/TEST-BATCH-001/cases.csv'
     );
     expect(workflow.start).not.toHaveBeenCalled();
   });
@@ -172,12 +171,12 @@ describe('batch file inventory and duplicate behaviour', () => {
     const batches = createRepository();
     const workflow = { start: jest.fn() };
     await expect(
-      new MigrationBatchService(
+      new MigrationPreflightService(
         config,
         { getText: jest.fn().mockResolvedValue('{broken'), head: jest.fn() },
         workflow,
-        batches as never,
-      ).runPreflight(request),
+        batches as never
+      ).runPreflight(request)
     ).rejects.toMatchObject({ code: 'INVALID_MANIFEST' });
     expect(batches.admit).not.toHaveBeenCalled();
   });
@@ -190,11 +189,11 @@ describe('batch file inventory and duplicate behaviour', () => {
     });
     const s3 = { getText: jest.fn().mockResolvedValue(manifest), head: jest.fn() };
     const workflow = { start: jest.fn() };
-    const result = await new MigrationBatchService(
+    const result = await new MigrationPreflightService(
       config,
       s3,
       workflow,
-      batches as never,
+      batches as never
     ).runPreflight(request);
     expect(result.outcome).toBe('ALREADY_STARTED');
     expect(s3.head).not.toHaveBeenCalled();
@@ -204,15 +203,15 @@ describe('batch file inventory and duplicate behaviour', () => {
     const batches = createRepository();
     batches.recordFailure.mockRejectedValue(new Error('DB unavailable'));
     await expect(
-      new MigrationBatchService(
+      new MigrationPreflightService(
         config,
         {
           getText: jest.fn().mockResolvedValue(manifest),
           head: jest.fn().mockRejectedValue(new Error('S3 unavailable')),
         },
         { start: jest.fn() },
-        batches as never,
-      ).runPreflight(request),
+        batches as never
+      ).runPreflight(request)
     ).rejects.toThrow('S3 unavailable');
   });
 });

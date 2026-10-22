@@ -1,6 +1,6 @@
 import { Readable } from 'stream';
-import { AwsS3Store, s3ChecksumToHex } from '../src/aws/stores';
-import { MigrationError } from '../src/errors/migration-error';
+import { AwsS3Store, s3ChecksumToHex } from '../src/aws/migrationAws.repository';
+import { MigrationError } from '../src/errors/migrationPreflight.error';
 
 describe('AwsS3Store.getText', () => {
   it('returns a non-retryable MigrationError when the manifest is too large', async () => {
