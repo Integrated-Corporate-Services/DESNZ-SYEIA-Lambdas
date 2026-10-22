@@ -7,7 +7,10 @@
     "build": "tsc -p tsconfig.build.json",
     "test": "jest --runInBand",
     "check:pretty": "prettier --check \"**/*.{js,ts,json}\"",
-    "fix:pretty": "prettier --write \"**/*.{js,ts,json}\""
+    "fix:pretty": "prettier --write \"**/*.{js,ts,json}\"",
+    "test:unit": "jest --config jest.config.js --runInBand",
+    "test:integration": "jest --config jest.integration.config.js --runInBand",
+    "test:typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "engines": {
     "node": ">=20"
