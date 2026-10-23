@@ -22,14 +22,10 @@ export async function recordIdempotentEvent(
   eventData: any,
   eventTimestamp: string | Date
 ): Promise<boolean> {
-  try {
-    const result: QueryResult<{ event_id: string }> = await query(
-      idempotencyQueries.recordIdempotentEvent,
-      [eventId, govukPayId, eventType, JSON.stringify(eventData), eventTimestamp]
-    );
-    // If no row returned, event already exists
-    return result.rows.length > 0;
-  } catch (err) {
-    throw err;
-  }
+  const result: QueryResult<{ event_id: string }> = await query(
+    idempotencyQueries.recordIdempotentEvent,
+    [eventId, govukPayId, eventType, JSON.stringify(eventData), eventTimestamp]
+  );
+  // If no row returned, event already exists
+  return result.rows.length > 0;
 }
