@@ -75,6 +75,23 @@ describe('parseSqsMessage', () => {
     );
   });
 
+  it.each([
+    ['a numeric recipientType', { recipientType: 42 }],
+    ['a boolean recipientType that would mask typeOfInformation', { recipientType: false, typeOfInformation: 'OBJECTOR' }],
+    ['a blank recipientType', { recipientType: '   ' }],
+  ])('rejects %s instead of defaulting to APPLICANT', (_label, override) => {
+    const payload = {
+      requestId: 'REQ-001',
+      responseDueDate: '2026-10-15',
+      message: 'Please provide information',
+      ...override,
+    };
+
+    expect(() => parseSqsMessage(bodyWith({ Payload__c: JSON.stringify(payload) }), parserConfig)).toThrow(
+      expect.objectContaining({ code: 'INVALID_FURTHER_INFORMATION_REQUEST_PAYLOAD', retryable: false }),
+    );
+  });
+
   it('defaults recipientType to APPLICANT when none is sent', () => {
     const payload = {
       requestId: 'REQ-001',

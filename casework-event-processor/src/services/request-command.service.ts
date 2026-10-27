@@ -5,10 +5,8 @@ import {
   markApplicationFurtherInformationRequested,
   notifyFurtherInformationRequest,
 } from '../repositories/notification.repository';
-import { createLogger } from '../util/logger';
 import { insertAuditEvent } from '../repositories/audit.repository';
 
-const logger = createLogger('request-command');
 const FIR_STATUS = 'FURTHER_INFORMATION_REQUESTED';
 
 export async function createRequestInTransaction(
@@ -57,38 +55,27 @@ export async function createRequestInTransaction(
     });
   }
 
-  // Savepoint so a notification failure never aborts the FIR insert and status change.
-  await client.query('SAVEPOINT fir_notification');
-  try {
-    const delivered = await notifyFurtherInformationRequest(client, applicationId, requestId, command.recipientType);
-    for (const recipient of delivered?.recipients ?? []) {
-      await insertAuditEvent(client, {
-        eventCategory: 'notification',
-        eventType: 'notification_sent',
-        action: 'create',
-        resourceType: 'notification',
-        resourceId: delivered!.notificationId,
-        parentResourceType: 'application',
-        parentResourceId: applicationId,
-        subjectId: recipient.userId,
-        correlationId,
-        newValues: recipient.newValues,
-        metadata: {
-          channel: 'in_app',
-          notification_type: delivered!.type,
-          reference_type: delivered!.referenceType,
-          reference_id: requestId,
-          organisation_id: recipient.organisationId,
-        },
-      });
-    }
-    await client.query('RELEASE SAVEPOINT fir_notification');
-  } catch (error) {
-    await client.query('ROLLBACK TO SAVEPOINT fir_notification');
-    logger.error('FIR notification failed', {
-      applicationId,
-      requestId,
-      error: error instanceof Error ? error.message : String(error),
+  // A notification failure also rolls back the FIR and inbox row, so the event is retried rather than committed undelivered.
+  const delivered = await notifyFurtherInformationRequest(client, applicationId, requestId, command.recipientType);
+  for (const recipient of delivered?.recipients ?? []) {
+    await insertAuditEvent(client, {
+      eventCategory: 'notification',
+      eventType: 'notification_sent',
+      action: 'create',
+      resourceType: 'notification',
+      resourceId: delivered!.notificationId,
+      parentResourceType: 'application',
+      parentResourceId: applicationId,
+      subjectId: recipient.userId,
+      correlationId,
+      newValues: recipient.newValues,
+      metadata: {
+        channel: 'in_app',
+        notification_type: delivered!.type,
+        reference_type: delivered!.referenceType,
+        reference_id: requestId,
+        organisation_id: recipient.organisationId,
+      },
     });
   }
 

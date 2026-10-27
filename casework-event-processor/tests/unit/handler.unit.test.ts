@@ -95,9 +95,7 @@ describe('event processor handler', () => {
       'SELECT',
       'UPDATE',
       'INSERT',
-      'SAVEPOINT',
       'SELECT',
-      'RELEASE',
       'UPDATE',
       'COMMIT',
     ]);
@@ -130,6 +128,23 @@ describe('event processor handler', () => {
       ['sf-event-1', 'external-crm', 'FURTHER_INFORMATION_REQUEST', '1', '550e8400-e29b-41d4-a716-446655440000', 'S37', 'CORR-123', '500001'],
     );
     expect(release).toHaveBeenCalledTimes(1);
+  });
+
+  it('rolls back and retries the event when the notification fails', async () => {
+    query.mockImplementation(async (sql: string) => {
+      if (sql.startsWith('INSERT INTO integration_inbox')) return { rowCount: 1, rows: [] };
+      if (sql.startsWith('INSERT INTO further_information_request\n')) {
+        return { rowCount: 1, rows: [{ further_information_request_id: 'fir-db-id' }] };
+      }
+      if (sql.includes('FROM application a')) throw new Error('notification lookup failed');
+      return { rowCount: 1, rows: [] };
+    });
+
+    const response = await invoke(sqsEvent(validBody()), lambdaContext());
+
+    expect(response).toEqual({ batchItemFailures: [{ itemIdentifier: 'msg-1' }] });
+    expect(query).toHaveBeenCalledWith('ROLLBACK');
+    expect(query).not.toHaveBeenCalledWith('COMMIT');
   });
 
   it('acknowledges duplicate source event IDs without creating another request', async () => {
