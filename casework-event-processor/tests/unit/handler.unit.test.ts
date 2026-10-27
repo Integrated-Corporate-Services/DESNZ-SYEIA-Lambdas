@@ -33,9 +33,9 @@ function validBody(): string {
         CreatedDate: '2026-09-27T10:00:00.000Z',
         Payload__c: JSON.stringify({
           requestId: 'REQ-001',
+          typeOfInformation: 'APPLICANT',
           responseDueDate: '2026-10-15',
           message: 'Please provide information',
-          requestedDocuments: ['Project'],
         }),
       },
     },
@@ -89,11 +89,30 @@ describe('event processor handler', () => {
     expect(query.mock.calls.map(([sql]) => sql.trim().split(/\s+/)[0])).toEqual([
       'BEGIN',
       'INSERT',
+      'SELECT',
       'INSERT',
       'INSERT',
+      'SELECT',
+      'UPDATE',
+      'INSERT',
+      'SAVEPOINT',
+      'SELECT',
+      'RELEASE',
       'UPDATE',
       'COMMIT',
     ]);
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining('INSERT INTO audit_event'),
+      expect.arrayContaining(['data_access', 'data.created', 'further_information_request', 'CORR-123']),
+    );
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining('INSERT INTO audit_event'),
+      expect.arrayContaining(['application', 'status_changed', '550e8400-e29b-41d4-a716-446655440000']),
+    );
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining("SET status = 'FURTHER_INFORMATION_REQUESTED'"),
+      ['550e8400-e29b-41d4-a716-446655440000'],
+    );
     expect(query).toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO further_information_request'),
       [
@@ -103,11 +122,8 @@ describe('event processor handler', () => {
         'REQ-001',
         'external-event-relay',
         new Date('2026-09-27T10:00:00.000Z'),
+        'APPLICANT',
       ],
-    );
-    expect(query).toHaveBeenCalledWith(
-      expect.stringContaining('INSERT INTO further_information_request_category'),
-      ['fir-db-id', 'Project', 1],
     );
     expect(query).toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO integration_inbox'),
