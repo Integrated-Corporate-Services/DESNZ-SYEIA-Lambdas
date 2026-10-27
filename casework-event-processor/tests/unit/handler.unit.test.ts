@@ -90,6 +90,7 @@ describe('event processor handler', () => {
       'BEGIN',
       'INSERT',
       'SELECT',
+      'SELECT',
       'INSERT',
       'INSERT',
       'SELECT',

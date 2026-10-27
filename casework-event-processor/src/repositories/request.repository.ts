@@ -3,6 +3,7 @@ import type { CreateRequestCommand } from '../domain/request.domain';
 import {
   FIND_FURTHER_INFORMATION_REQUEST_BY_EXTERNAL_ID,
   INSERT_FURTHER_INFORMATION_REQUEST,
+  LOCK_FURTHER_INFORMATION_REQUEST_BY_EXTERNAL_ID,
 } from './queries/request.queries';
 
 export async function createRequest(
@@ -10,8 +11,10 @@ export async function createRequest(
   applicationId: string,
   command: CreateRequestCommand,
 ): Promise<{ requestId: string; created: boolean }> {
-  // Salesforce can resend the same request under a new event id.
+  // Salesforce can resend the same request under a new event id. The lock is held until commit, so a
+  // concurrent delivery waits here and then finds the committed row instead of inserting a second one.
   if (command.externalRequestId) {
+    await client.query(LOCK_FURTHER_INFORMATION_REQUEST_BY_EXTERNAL_ID, [applicationId, command.externalRequestId]);
     const existing = await client.query<{ further_information_request_id: string }>(
       FIND_FURTHER_INFORMATION_REQUEST_BY_EXTERNAL_ID,
       [applicationId, command.externalRequestId],

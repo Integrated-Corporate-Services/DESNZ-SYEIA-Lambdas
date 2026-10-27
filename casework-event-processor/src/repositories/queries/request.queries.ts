@@ -8,6 +8,8 @@ VALUES ($1, $2, $3, $4, $5, $6, $6, $7,
    LIMIT 1))
 RETURNING further_information_request_id`;
 
+export const LOCK_FURTHER_INFORMATION_REQUEST_BY_EXTERNAL_ID = `SELECT pg_advisory_xact_lock(hashtextextended($1::text || ':' || $2::text, 0))`;
+
 export const FIND_FURTHER_INFORMATION_REQUEST_BY_EXTERNAL_ID = `SELECT further_information_request_id FROM further_information_request
 WHERE application_id = $1 AND external_request_id = $2
 LIMIT 1`;
