@@ -2,6 +2,8 @@ import { EventError } from '../errors';
 import type { ParserConfig } from '../config/parser-config';
 import type { FurtherInformationRequestPayload, ParsedFurtherInformationRequestEvent } from '../types';
 
+const FIR_EVENT_DETAIL_TYPE = 'Further_Information_Request_Event__e';
+
 function fail(message: string, code: string): never {
   throw new EventError(message, code, false);
 }
@@ -100,7 +102,8 @@ export function parseSqsMessage(body: string, config: ParserConfig): ParsedFurth
     'EventBridge envelope must be an object',
   );
   const detailType = asString(envelope['detail-type'], 'INVALID_DETAIL_TYPE', 'detail-type is required');
-  if (detailType !== config.detailType) {
+  const allowedDetailTypes = config.detailType.split(',').map((value) => value.trim());
+  if (!allowedDetailTypes.includes(detailType)) {
     return fail(`Unsupported detail-type: ${detailType}`, 'UNSUPPORTED_DETAIL_TYPE');
   }
 
@@ -112,8 +115,10 @@ export function parseSqsMessage(body: string, config: ParserConfig): ParsedFurth
   const detail = asRecord(envelope.detail, 'INVALID_EVENT_DETAIL', 'detail is required');
   const sourceEventId = asString(envelope.id, 'MISSING_SOURCE_EVENT_ID', 'id is required');
   const detailPayload = asRecord(detail.payload, 'INVALID_DETAIL_PAYLOAD', 'detail.payload is required');
+  // Further_Information_Request_Event__e carries no Event_Type__c or Schema_Version__c; its detail-type says what it is.
+  const isFirEvent = detailType === FIR_EVENT_DETAIL_TYPE;
   const eventType = asString(
-    detailPayload.Event_Type__c,
+    detailPayload.Event_Type__c ?? (isFirEvent ? 'FURTHER_INFORMATION_REQUEST' : undefined),
     'MISSING_EVENT_TYPE',
     'Event_Type__c is required',
   );
@@ -122,7 +127,7 @@ export function parseSqsMessage(body: string, config: ParserConfig): ParsedFurth
   }
 
   const schemaVersion = asString(
-    detailPayload.Schema_Version__c,
+    detailPayload.Schema_Version__c ?? (isFirEvent ? '1' : undefined),
     'MISSING_SCHEMA_VERSION',
     'Schema_Version__c is required',
   );
@@ -131,17 +136,17 @@ export function parseSqsMessage(body: string, config: ParserConfig): ParsedFurth
   }
 
   const applicationId = asString(
-    detailPayload.Application_Id__c,
+    detailPayload.Application_Id__c ?? detailPayload.AWS_Application_Id__c,
     'MISSING_APPLICATION_ID',
-    'Application_Id__c is required',
+    'Application_Id__c or AWS_Application_Id__c is required',
   );
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(applicationId)) {
     return fail('Application_Id__c must be a UUID', 'INVALID_APPLICATION_ID');
   }
   const applicationType = asString(
-    detailPayload.Application_Type__c,
+    detailPayload.Application_Type__c ?? detailPayload.Type_of_Application__c,
     'MISSING_APPLICATION_TYPE',
-    'Application_Type__c is required',
+    'Application_Type__c or Type_of_Application__c is required',
   );
   const rawPayload = asString(detailPayload.Payload__c, 'MISSING_PAYLOAD', 'Payload__c is required');
   const payload = parseJsonRecord(rawPayload, 'INVALID_JSON_PAYLOAD', 'Payload__c must contain valid JSON');
@@ -152,8 +157,8 @@ export function parseSqsMessage(body: string, config: ParserConfig): ParsedFurth
     schemaVersion,
     applicationId,
     applicationType,
-    correlationId: asOptionalString(detailPayload.Correlation_Id__c),
-    caseId: asOptionalString(detailPayload.Case_Id__c),
+    correlationId: asOptionalString(detailPayload.Correlation_Id__c) ?? asOptionalString(detail.id),
+    caseId: asOptionalString(detailPayload.Case_Id__c ?? detailPayload.Case__c),
     createdById: asOptionalString(detailPayload.CreatedById),
     createdDate: parseCreatedDate(detailPayload.CreatedDate),
     payload: parseFurtherInformationRequestPayload(payload),
