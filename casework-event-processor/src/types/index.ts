@@ -15,9 +15,9 @@ export type SupportedEventType = (typeof SUPPORTED_EVENT_TYPES)[number];
 
 export interface FurtherInformationRequestPayload {
   requestId: string;
+  recipientType: string;
   responseDueDate: string;
   message: string;
-  requestedDocuments?: string[];
 }
 
 export interface ParsedFurtherInformationRequestEvent {

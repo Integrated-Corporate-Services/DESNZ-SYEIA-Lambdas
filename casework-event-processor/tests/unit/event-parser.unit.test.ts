@@ -23,9 +23,9 @@ function bodyWith(payload: Record<string, unknown> = {}) {
         CreatedDate: '2026-09-27T10:00:00.000Z',
         Payload__c: JSON.stringify({
           requestId: 'REQ-001',
+          recipientType: 'APPLICANT',
           responseDueDate: '2026-10-15',
           message: 'Please provide information',
-          requestedDocuments: ['Project', 'Supporting Info``'],
         }),
         ...payload,
       },
@@ -48,12 +48,73 @@ describe('parseSqsMessage', () => {
       createdById: '005001',
       payload: {
         requestId: 'REQ-001',
+        recipientType: 'APPLICANT',
         responseDueDate: '2026-10-15',
         message: 'Please provide information',
-        requestedDocuments: ['Project', 'Supporting Info``'],
       },
     });
     expect(parsed.createdDate).toEqual(new Date('2026-09-27T10:00:00.000Z'));
+  });
+
+  it.each([
+    ['an unsupported recipientType', { recipientType: 'AGENT' }],
+    ['a malformed responseDueDate', { responseDueDate: '15/10/2026' }],
+    ['an impossible responseDueDate', { responseDueDate: '2026-02-31' }],
+    ['a message over 5000 characters', { message: 'x'.repeat(5001) }],
+  ])('rejects %s as a non-retryable payload error', (_label, override) => {
+    const payload = {
+      requestId: 'REQ-001',
+      recipientType: 'APPLICANT',
+      responseDueDate: '2026-10-15',
+      message: 'Please provide information',
+      ...override,
+    };
+
+    expect(() => parseSqsMessage(bodyWith({ Payload__c: JSON.stringify(payload) }), parserConfig)).toThrow(
+      expect.objectContaining({ code: 'INVALID_FURTHER_INFORMATION_REQUEST_PAYLOAD', retryable: false }),
+    );
+  });
+
+  it.each([
+    ['a numeric recipientType', { recipientType: 42 }],
+    ['a boolean recipientType that would mask typeOfInformation', { recipientType: false, typeOfInformation: 'OBJECTOR' }],
+    ['a blank recipientType', { recipientType: '   ' }],
+  ])('rejects %s instead of defaulting to APPLICANT', (_label, override) => {
+    const payload = {
+      requestId: 'REQ-001',
+      responseDueDate: '2026-10-15',
+      message: 'Please provide information',
+      ...override,
+    };
+
+    expect(() => parseSqsMessage(bodyWith({ Payload__c: JSON.stringify(payload) }), parserConfig)).toThrow(
+      expect.objectContaining({ code: 'INVALID_FURTHER_INFORMATION_REQUEST_PAYLOAD', retryable: false }),
+    );
+  });
+
+  it('defaults recipientType to APPLICANT when none is sent', () => {
+    const payload = {
+      requestId: 'REQ-001',
+      responseDueDate: '2026-10-15',
+      message: 'Please provide information',
+    };
+
+    const parsed = parseSqsMessage(bodyWith({ Payload__c: JSON.stringify(payload) }), parserConfig);
+
+    expect(parsed.payload.recipientType).toBe('APPLICANT');
+  });
+
+  it('normalises recipientType case', () => {
+    const payload = {
+      requestId: 'REQ-001',
+      recipientType: 'objector',
+      responseDueDate: '2026-10-15',
+      message: 'Please provide information',
+    };
+
+    const parsed = parseSqsMessage(bodyWith({ Payload__c: JSON.stringify(payload) }), parserConfig);
+
+    expect(parsed.payload).toMatchObject({ recipientType: 'OBJECTOR' });
   });
 
   it('rejects malformed envelopes as retryable contract errors', () => {
@@ -84,22 +145,6 @@ describe('parseSqsMessage', () => {
     expect(() => parseSqsMessage(body, parserConfig)).toThrow(EventError);
     expect(() => parseSqsMessage(body, parserConfig)).toThrow(
       expect.objectContaining({ code: 'UNSUPPORTED_EVENT_TYPE' }),
-    );
-  });
-
-  it('rejects non-string requested document entries', () => {
-    const envelope = JSON.parse(bodyWith()) as {
-      detail: { payload: { Payload__c: string } };
-    };
-    envelope.detail.payload.Payload__c = JSON.stringify({
-      requestId: 'REQ-001',
-      responseDueDate: '2026-10-15',
-      message: 'Please provide information',
-      requestedDocuments: ['Passport', 42],
-    });
-
-    expect(() => parseSqsMessage(JSON.stringify(envelope), parserConfig)).toThrow(
-      expect.objectContaining({ code: 'INVALID_FURTHER_INFORMATION_REQUEST_PAYLOAD' }),
     );
   });
 });

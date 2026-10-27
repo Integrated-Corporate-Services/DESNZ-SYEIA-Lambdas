@@ -24,14 +24,6 @@ function asOptionalString(value: unknown): string | null {
   return typeof value === 'string' && value.trim() !== '' ? value : null;
 }
 
-function asOptionalStringArray(value: unknown): string[] | undefined {
-  if (value === undefined || value === null) return undefined;
-  if (!Array.isArray(value) || !value.every((item) => typeof item === 'string')) {
-    return fail('requestedDocuments must be an array of strings', 'INVALID_FURTHER_INFORMATION_REQUEST_PAYLOAD');
-  }
-  return value as string[];
-}
-
 function parseJsonRecord(input: string, code: string, message: string): Record<string, unknown> {
   let value: unknown;
   try {
@@ -53,16 +45,44 @@ function parseCreatedDate(value: unknown): Date | null {
   return parsed;
 }
 
+// S37 sends typeOfInformation; NWL sends recipientType. Defaults to APPLICANT only when neither is sent (absent/null).
+function parseRecipientType(payload: Record<string, unknown>): string {
+  const selected = payload.recipientType ?? payload.typeOfInformation;
+  if (selected === undefined || selected === null) return 'APPLICANT';
+  if (typeof selected !== 'string' || selected.trim() === '') {
+    return fail('recipientType must be a non-empty string', 'INVALID_FURTHER_INFORMATION_REQUEST_PAYLOAD');
+  }
+  const recipientType = selected.trim().toUpperCase();
+  // Same values the backend and further_information_request_recipient_type_check accept.
+  if (recipientType !== 'APPLICANT' && recipientType !== 'OBJECTOR') {
+    return fail('recipientType must be APPLICANT or OBJECTOR', 'INVALID_FURTHER_INFORMATION_REQUEST_PAYLOAD');
+  }
+  return recipientType;
+}
+
+function parseResponseDueDate(value: unknown): string {
+  const date = asString(value, 'INVALID_FURTHER_INFORMATION_REQUEST_PAYLOAD', 'responseDueDate is required');
+  const parsed = new Date(`${date}T00:00:00Z`);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== date) {
+    return fail('responseDueDate must be a valid YYYY-MM-DD date', 'INVALID_FURTHER_INFORMATION_REQUEST_PAYLOAD');
+  }
+  return date;
+}
+
+function parseMessage(value: unknown): string {
+  const message = asString(value, 'INVALID_FURTHER_INFORMATION_REQUEST_PAYLOAD', 'message is required');
+  if (message.length > 5000) {
+    return fail('message must be 5000 characters or fewer', 'INVALID_FURTHER_INFORMATION_REQUEST_PAYLOAD');
+  }
+  return message;
+}
+
 function parseFurtherInformationRequestPayload(payload: Record<string, unknown>): FurtherInformationRequestPayload {
   return {
     requestId: asString(payload.requestId, 'INVALID_FURTHER_INFORMATION_REQUEST_PAYLOAD', 'requestId is required'),
-    responseDueDate: asString(
-      payload.responseDueDate,
-      'INVALID_FURTHER_INFORMATION_REQUEST_PAYLOAD',
-      'responseDueDate is required',
-    ),
-    message: asString(payload.message, 'INVALID_FURTHER_INFORMATION_REQUEST_PAYLOAD', 'message is required'),
-    requestedDocuments: asOptionalStringArray(payload.requestedDocuments),
+    recipientType: parseRecipientType(payload),
+    responseDueDate: parseResponseDueDate(payload.responseDueDate),
+    message: parseMessage(payload.message),
   };
 }
 

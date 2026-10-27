@@ -33,9 +33,9 @@ function validBody(): string {
         CreatedDate: '2026-09-27T10:00:00.000Z',
         Payload__c: JSON.stringify({
           requestId: 'REQ-001',
+          typeOfInformation: 'APPLICANT',
           responseDueDate: '2026-10-15',
           message: 'Please provide information',
-          requestedDocuments: ['Project'],
         }),
       },
     },
@@ -89,11 +89,29 @@ describe('event processor handler', () => {
     expect(query.mock.calls.map(([sql]) => sql.trim().split(/\s+/)[0])).toEqual([
       'BEGIN',
       'INSERT',
+      'SELECT',
+      'SELECT',
       'INSERT',
       'INSERT',
+      'SELECT',
+      'UPDATE',
+      'INSERT',
+      'SELECT',
       'UPDATE',
       'COMMIT',
     ]);
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining('INSERT INTO audit_event'),
+      expect.arrayContaining(['data_access', 'data.created', 'further_information_request', 'CORR-123']),
+    );
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining('INSERT INTO audit_event'),
+      expect.arrayContaining(['application', 'status_changed', '550e8400-e29b-41d4-a716-446655440000']),
+    );
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining("SET status = 'FURTHER_INFORMATION_REQUESTED'"),
+      ['550e8400-e29b-41d4-a716-446655440000'],
+    );
     expect(query).toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO further_information_request'),
       [
@@ -103,17 +121,31 @@ describe('event processor handler', () => {
         'REQ-001',
         'external-event-relay',
         new Date('2026-09-27T10:00:00.000Z'),
+        'APPLICANT',
       ],
-    );
-    expect(query).toHaveBeenCalledWith(
-      expect.stringContaining('INSERT INTO further_information_request_category'),
-      ['fir-db-id', 'Project', 1],
     );
     expect(query).toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO integration_inbox'),
       ['sf-event-1', 'external-crm', 'FURTHER_INFORMATION_REQUEST', '1', '550e8400-e29b-41d4-a716-446655440000', 'S37', 'CORR-123', '500001'],
     );
     expect(release).toHaveBeenCalledTimes(1);
+  });
+
+  it('rolls back and retries the event when the notification fails', async () => {
+    query.mockImplementation(async (sql: string) => {
+      if (sql.startsWith('INSERT INTO integration_inbox')) return { rowCount: 1, rows: [] };
+      if (sql.startsWith('INSERT INTO further_information_request\n')) {
+        return { rowCount: 1, rows: [{ further_information_request_id: 'fir-db-id' }] };
+      }
+      if (sql.includes('FROM application a')) throw new Error('notification lookup failed');
+      return { rowCount: 1, rows: [] };
+    });
+
+    const response = await invoke(sqsEvent(validBody()), lambdaContext());
+
+    expect(response).toEqual({ batchItemFailures: [{ itemIdentifier: 'msg-1' }] });
+    expect(query).toHaveBeenCalledWith('ROLLBACK');
+    expect(query).not.toHaveBeenCalledWith('COMMIT');
   });
 
   it('acknowledges duplicate source event IDs without creating another request', async () => {
