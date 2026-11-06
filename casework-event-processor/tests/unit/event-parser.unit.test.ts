@@ -144,6 +144,17 @@ describe('parseSqsMessage', () => {
     expect(parseSqsMessage(bodyWith({ Payload__c: JSON.stringify(payload) }), parserConfig).payload.recipientType).toBe('OBJECTOR');
   });
 
+  it('reads recipient_Type__c from the Salesforce detail payload', () => {
+    const payload = { requestId: 'REQ-001', responseDueDate: '2026-10-15', message: 'Please provide information' };
+
+    const parsed = parseSqsMessage(
+      bodyWith({ Payload__c: JSON.stringify(payload), recipient_Type__c: 'Landowner' }),
+      parserConfig,
+    );
+
+    expect(parsed.payload.recipientType).toBe('OBJECTOR');
+  });
+
   it('defaults recipientType to APPLICANT when none is sent', () => {
     const payload = {
       requestId: 'REQ-001',
