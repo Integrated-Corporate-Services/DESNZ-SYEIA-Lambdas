@@ -50,16 +50,8 @@ function parseCreatedDate(value: unknown): Date | null {
 // S37 sends typeOfInformation; NWL sends recipientType. Defaults to APPLICANT only when neither is sent (absent/null).
 function parseRecipientType(payload: Record<string, unknown>): string {
   const selected = payload.recipientType ?? payload.typeOfInformation;
-  if (selected === undefined || selected === null) return 'APPLICANT';
-  if (typeof selected !== 'string' || selected.trim() === '') {
-    return fail('recipientType must be a non-empty string', 'INVALID_FURTHER_INFORMATION_REQUEST_PAYLOAD');
-  }
-  const recipientType = selected.trim().toUpperCase();
-  // Same values the backend and further_information_request_recipient_type_check accept.
-  if (recipientType !== 'APPLICANT' && recipientType !== 'OBJECTOR') {
-    return fail('recipientType must be APPLICANT or OBJECTOR', 'INVALID_FURTHER_INFORMATION_REQUEST_PAYLOAD');
-  }
-  return recipientType;
+  if (typeof selected !== 'string' || selected.trim() === '') return 'APPLICANT';
+  return selected.trim().toUpperCase();
 }
 
 function parseResponseDueDate(value: unknown): string {

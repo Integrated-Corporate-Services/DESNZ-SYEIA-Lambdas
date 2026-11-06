@@ -64,6 +64,7 @@ export const handler: SQSHandler = async (event, context) => {
 };
 
 async function processRecord(pool: Pool, body: string): Promise<void> {
+  logger.info('Raw Salesforce event received', { rawBody: body });
   const parsedEvent = parseSqsMessage(body, getParserConfig());
   const startedAt = Date.now();
   const context = {
