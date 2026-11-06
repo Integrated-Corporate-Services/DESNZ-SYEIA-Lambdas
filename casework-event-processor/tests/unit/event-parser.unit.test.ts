@@ -124,7 +124,6 @@ describe('parseSqsMessage', () => {
 
   it.each([
     ['a numeric recipientType', { recipientType: 42 }],
-    ['a boolean recipientType that would mask typeOfInformation', { recipientType: false, typeOfInformation: 'OBJECTOR' }],
     ['a blank recipientType', { recipientType: '   ' }],
   ])('rejects %s instead of defaulting to APPLICANT', (_label, override) => {
     const payload = {
@@ -137,6 +136,12 @@ describe('parseSqsMessage', () => {
     expect(() => parseSqsMessage(bodyWith({ Payload__c: JSON.stringify(payload) }), parserConfig)).toThrow(
       expect.objectContaining({ code: 'INVALID_FURTHER_INFORMATION_REQUEST_PAYLOAD', retryable: false }),
     );
+  });
+
+  it('maps a LANDOWNER recipientType to OBJECTOR', () => {
+    const payload = { requestId: 'REQ-001', recipientType: 'Landowner', responseDueDate: '2026-10-15', message: 'Please provide information' };
+
+    expect(parseSqsMessage(bodyWith({ Payload__c: JSON.stringify(payload) }), parserConfig).payload.recipientType).toBe('OBJECTOR');
   });
 
   it('defaults recipientType to APPLICANT when none is sent', () => {

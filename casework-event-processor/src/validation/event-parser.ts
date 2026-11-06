@@ -47,6 +47,9 @@ function parseCreatedDate(value: unknown): Date | null {
   return parsed;
 }
 
+// Salesforce labels the objector recipient LANDOWNER; both map to the internal OBJECTOR type.
+const RECIPIENT_TYPE_ALIASES: Record<string, string> = { APPLICANT: 'APPLICANT', OBJECTOR: 'OBJECTOR', LANDOWNER: 'OBJECTOR' };
+
 // S37 sends typeOfInformation; NWL sends recipientType. Defaults to APPLICANT only when neither is sent (absent/null).
 function parseRecipientType(payload: Record<string, unknown>): string {
   const selected = payload.recipientType ?? payload.typeOfInformation;
@@ -54,10 +57,9 @@ function parseRecipientType(payload: Record<string, unknown>): string {
   if (typeof selected !== 'string' || selected.trim() === '') {
     return fail('recipientType must be a non-empty string', 'INVALID_FURTHER_INFORMATION_REQUEST_PAYLOAD');
   }
-  const recipientType = selected.trim().toUpperCase();
-  // Same values the backend and further_information_request_recipient_type_check accept.
-  if (recipientType !== 'APPLICANT' && recipientType !== 'OBJECTOR') {
-    return fail('recipientType must be APPLICANT or OBJECTOR', 'INVALID_FURTHER_INFORMATION_REQUEST_PAYLOAD');
+  const recipientType = RECIPIENT_TYPE_ALIASES[selected.trim().toUpperCase()];
+  if (!recipientType) {
+    return fail('recipientType must be APPLICANT, OBJECTOR or LANDOWNER', 'INVALID_FURTHER_INFORMATION_REQUEST_PAYLOAD');
   }
   return recipientType;
 }
