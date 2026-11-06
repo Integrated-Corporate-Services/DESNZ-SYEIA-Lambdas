@@ -104,6 +104,7 @@ describe('parseSqsMessage', () => {
   });
 
   it.each([
+    ['an unsupported recipientType', { recipientType: 'AGENT' }],
     ['a malformed responseDueDate', { responseDueDate: '15/10/2026' }],
     ['an impossible responseDueDate', { responseDueDate: '2026-02-31' }],
     ['a message over 5000 characters', { message: 'x'.repeat(5001) }],
@@ -124,7 +125,7 @@ describe('parseSqsMessage', () => {
   it.each([
     ['a numeric recipientType', { recipientType: 42 }],
     ['a blank recipientType', { recipientType: '   ' }],
-  ])('defaults %s to APPLICANT', (_label, override) => {
+  ])('rejects %s instead of defaulting to APPLICANT', (_label, override) => {
     const payload = {
       requestId: 'REQ-001',
       responseDueDate: '2026-10-15',
@@ -132,13 +133,15 @@ describe('parseSqsMessage', () => {
       ...override,
     };
 
-    expect(parseSqsMessage(bodyWith({ Payload__c: JSON.stringify(payload) }), parserConfig).payload.recipientType).toBe('APPLICANT');
+    expect(() => parseSqsMessage(bodyWith({ Payload__c: JSON.stringify(payload) }), parserConfig)).toThrow(
+      expect.objectContaining({ code: 'INVALID_FURTHER_INFORMATION_REQUEST_PAYLOAD', retryable: false }),
+    );
   });
 
-  it('stores any other recipientType as received', () => {
+  it('maps a LANDOWNER recipientType to OBJECTOR', () => {
     const payload = { requestId: 'REQ-001', recipientType: 'Landowner', responseDueDate: '2026-10-15', message: 'Please provide information' };
 
-    expect(parseSqsMessage(bodyWith({ Payload__c: JSON.stringify(payload) }), parserConfig).payload.recipientType).toBe('LANDOWNER');
+    expect(parseSqsMessage(bodyWith({ Payload__c: JSON.stringify(payload) }), parserConfig).payload.recipientType).toBe('OBJECTOR');
   });
 
   it('defaults recipientType to APPLICANT when none is sent', () => {
