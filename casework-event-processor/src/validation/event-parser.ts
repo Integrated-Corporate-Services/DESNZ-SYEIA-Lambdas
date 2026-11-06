@@ -50,9 +50,9 @@ function parseCreatedDate(value: unknown): Date | null {
 // Salesforce labels the objector recipient LANDOWNER; both map to the internal OBJECTOR type.
 const RECIPIENT_TYPE_ALIASES: Record<string, string> = { APPLICANT: 'APPLICANT', OBJECTOR: 'OBJECTOR', LANDOWNER: 'OBJECTOR' };
 
-// S37 sends typeOfInformation; NWL sends recipientType. Defaults to APPLICANT only when neither is sent (absent/null).
-function parseRecipientType(payload: Record<string, unknown>): string {
-  const selected = payload.recipientType ?? payload.typeOfInformation;
+// Salesforce FIR events send recipient_Type__c on detail.payload; S37 sends typeOfInformation and NWL recipientType inside Payload__c.
+function parseRecipientType(payload: Record<string, unknown>, detailPayload: Record<string, unknown> = {}): string {
+  const selected = payload.recipientType ?? payload.typeOfInformation ?? detailPayload.recipient_Type__c ?? detailPayload.Recipient_Type__c;
   if (selected === undefined || selected === null) return 'APPLICANT';
   if (typeof selected !== 'string' || selected.trim() === '') {
     return fail('recipientType must be a non-empty string', 'INVALID_FURTHER_INFORMATION_REQUEST_PAYLOAD');
@@ -81,10 +81,13 @@ function parseMessage(value: unknown): string {
   return message;
 }
 
-function parseFurtherInformationRequestPayload(payload: Record<string, unknown>): FurtherInformationRequestPayload {
+function parseFurtherInformationRequestPayload(
+  payload: Record<string, unknown>,
+  detailPayload: Record<string, unknown>,
+): FurtherInformationRequestPayload {
   return {
     requestId: asString(payload.requestId, 'INVALID_FURTHER_INFORMATION_REQUEST_PAYLOAD', 'requestId is required'),
-    recipientType: parseRecipientType(payload),
+    recipientType: parseRecipientType(payload, detailPayload),
     responseDueDate: parseResponseDueDate(payload.responseDueDate),
     message: parseMessage(payload.message),
   };
@@ -163,6 +166,6 @@ export function parseSqsMessage(body: string, config: ParserConfig): ParsedFurth
     caseId: asOptionalString(detailPayload.Case_Id__c ?? detailPayload.Case__c),
     createdById: asOptionalString(detailPayload.CreatedById),
     createdDate: parseCreatedDate(detailPayload.CreatedDate),
-    payload: parseFurtherInformationRequestPayload(payload),
+    payload: parseFurtherInformationRequestPayload(payload, detailPayload),
   };
 }
