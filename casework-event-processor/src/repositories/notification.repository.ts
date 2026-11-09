@@ -22,7 +22,7 @@ export async function markApplicationFurtherInformationRequested(
 
 // Wording matches the backend's furtherInformationRequest.content.ts.
 function buildMessage(recipientType: string, desnzRef: string): string {
-  return recipientType === 'OBJECTOR'
+  return recipientType === 'LANDOWNER' || recipientType === 'OBJECTOR'
     ? `A further information request for application ${desnzRef} has been sent to the landowner.`
     : `You have received a further information request for application ${desnzRef}.`;
 }
