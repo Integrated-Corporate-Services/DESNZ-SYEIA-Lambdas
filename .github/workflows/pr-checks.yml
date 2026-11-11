@@ -51,8 +51,6 @@ jobs:
               - 'bacs-webhook-worker/**'
             casework-event-processor:
               - 'casework-event-processor/**'
-            gov-notify-delivery:
-              - 'gov-notify-delivery/**'
             migration-preflight:
               - 'migration-preflight/**'
             notify-callback-relay:
