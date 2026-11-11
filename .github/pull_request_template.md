@@ -13,6 +13,8 @@
 - [ ] pay-callback-relay
 - [ ] rds-to-salesforce
 - [ ] rds-to-salesforce-worker
+- [ ] casework-event-processor
+- [ ] gov-notify-delivery
 
 ## Type & Impact
 **Type:** Bug fix | New feature | Enhancement | Refactoring | Docs
