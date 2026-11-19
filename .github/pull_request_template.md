@@ -15,6 +15,7 @@
 - [ ] rds-to-salesforce-worker
 - [ ] casework-event-processor
 - [ ] gov-notify-delivery
+- [ ] additional-payment-event-processor
 
 ## Type & Impact
 **Type:** Bug fix | New feature | Enhancement | Refactoring | Docs
