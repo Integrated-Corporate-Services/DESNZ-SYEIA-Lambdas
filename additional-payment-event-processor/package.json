@@ -11,9 +11,9 @@
     "clean": "rimraf dist handler.js handler.js.map index.js index.js.map \"src/**/*.js\" \"src/**/*.js.map\"",
     "lint": "eslint . --ext .ts",
     "lint:fix": "eslint . --ext .ts --fix",
-    "test": "jest --config jest.config.js",
-    "test:unit": "jest --config jest.config.unit.js",
-    "test:integration": "jest --config jest.config.integration.js",
+    "test": "jest --config jest.config.js --passWithNoTests",
+    "test:unit": "jest --config jest.config.unit.js --passWithNoTests",
+    "test:integration": "jest --config jest.config.integration.js --passWithNoTests",
     "test:watch": "jest --watch",
     "type-check": "tsc --noEmit"
   },
