@@ -16,10 +16,8 @@ export function poolSslOption(
   rejectUnauthorizedEnv = process.env.DB_SSL_REJECT_UNAUTHORIZED
 ): PoolSslOption {
   if (nodeEnv === 'local') return false;
-  if (rejectUnauthorizedEnv === 'false') return { rejectUnauthorized: false };
-  if (rejectUnauthorizedEnv === 'true') return { rejectUnauthorized: true };
-  if (nodeEnv === 'development') return { rejectUnauthorized: false };
-  return { rejectUnauthorized: true };
+  if (rejectUnauthorizedEnv?.trim().toLowerCase() === 'true') return { rejectUnauthorized: true };
+  return { rejectUnauthorized: false };
 }
 
 export async function createDatabasePool(
