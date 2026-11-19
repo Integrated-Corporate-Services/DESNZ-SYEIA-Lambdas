@@ -1,4 +1,4 @@
-FROM public.ecr.aws/lambda/nodejs:20 AS builder
+FROM public.ecr.aws/lambda/nodejs:24 AS builder
 
 WORKDIR /build
 
@@ -15,7 +15,7 @@ RUN npm run build
 
 RUN npm ci --omit=dev
 
-FROM public.ecr.aws/lambda/nodejs:20
+FROM public.ecr.aws/lambda/nodejs:24
 
 WORKDIR ${LAMBDA_TASK_ROOT}
 

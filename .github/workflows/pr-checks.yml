@@ -45,6 +45,8 @@ jobs:
         uses: dorny/paths-filter@v3
         with:
           filters: |
+            additional-payment-event-processor:
+              - 'additional-payment-event-processor/**'
             bacs-webhook-relay:
               - 'bacs-webhook-relay/**'
             bacs-webhook-worker:
@@ -91,7 +93,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version-file: '${{ matrix.lambda }}/package.json'
           cache: 'npm'
           cache-dependency-path: ${{ matrix.lambda }}/package-lock.json
 
@@ -133,7 +135,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version-file: '${{ matrix.lambda }}/package.json'
           cache: 'npm'
           cache-dependency-path: ${{ matrix.lambda }}/package-lock.json
 
@@ -179,7 +181,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version-file: '${{ matrix.lambda }}/package.json'
           cache: 'npm'
           cache-dependency-path: ${{ matrix.lambda }}/package-lock.json
 

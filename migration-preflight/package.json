@@ -13,7 +13,7 @@
     "test:typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=24"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.957.0",
@@ -27,7 +27,7 @@
   "devDependencies": {
     "@types/aws-lambda": "^8.10.147",
     "@types/jest": "^30.0.0",
-    "@types/node": "^20.17.30",
+    "@types/node": "^24.0.0",
     "@types/pg": "^8.15.5",
     "jest": "^30.2.0",
     "prettier": "^3.6.2",
